@@ -18,7 +18,8 @@ All game code is under `Assets/RuleRunner/`, one assembly per folder:
 | `Core/` | Pure C# simulator (no `MonoBehaviour`): map, conditions, actions, rules, `Simulator.Run`, `LevelAnalyzer` | nothing |
 | `Levels/` | `Resources/levels.json` (all level data) + `LevelDatabase` loader | Core |
 | `View/` | Grey-box shapes, `MapView`, `RunnerView` (step playback), `CameraFitter` | Core |
-| `UI/` | Level select, rule card editor, option picker, run log, result popup (uGUI built from code) | Core, Levels, View |
+| `UI/` | UI toolkit (rounded sprites, theme), level select, game screen header / controls / run log, result popup | Core, Levels, View |
+| `Cards/` | Skill cards, loadout tray (runner portrait, qi pool, card slots), condition / action picker, mini diagrams | Core, View, UI |
 | `Analytics/` | `AnalyticsTracker`: one record per run, POST to Google Apps Script | Core |
 | `App/` | `GameController`: wires everything; `Scenes/Main.unity` | all |
 | `Editor/` | Level Checker window, WebGL build, scene / player settings setup | all |

@@ -1,0 +1,22 @@
+{
+    "name": "RuleRunner.App",
+    "rootNamespace": "RuleRunner.App",
+    "references": [
+        "RuleRunner.Core",
+        "RuleRunner.Levels",
+        "RuleRunner.View",
+        "RuleRunner.UI",
+        "RuleRunner.Cards",
+        "RuleRunner.Analytics",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
