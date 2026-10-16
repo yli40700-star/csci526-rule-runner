@@ -25,6 +25,9 @@ namespace RuleRunner.Core
         /// <summary>Index of a rule whose condition held but which lacked qi, or -1.</summary>
         public int StarvedRule = -1;
 
+        /// <summary>Index of the Wait card still holding the runner (no cost, no cards checked), or -1.</summary>
+        public int HoldingRule = -1;
+
         /// <summary>True when a walk or jump was stopped by a wall (runner did not move).</summary>
         public bool Blocked;
 

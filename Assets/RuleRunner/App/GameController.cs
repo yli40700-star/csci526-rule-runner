@@ -178,7 +178,7 @@ namespace RuleRunner.App
             {
                 float step = BaseStepSeconds / speed;
                 map.SetTime(f.T);
-                loadout.HighlightRule(f.FiredRule, f.StarvedRule);
+                loadout.HighlightRule(f.FiredRule >= 0 ? f.FiredRule : f.HoldingRule, f.StarvedRule);
 
                 if (f.FiredRule >= 0)
                 {
@@ -188,6 +188,11 @@ namespace RuleRunner.App
                     int cost = Vocabulary.Cost(rule.Action);
                     string label = "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
+                }
+                else if (f.HoldingRule >= 0)
+                {
+                    gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect),
+                        "Card " + (f.HoldingRule + 1) + ": waiting...", step * 1.2f);
                 }
                 else if (f.StarvedRule >= 0)
                 {
@@ -216,6 +221,8 @@ namespace RuleRunner.App
             string s = "Step " + (f.T + 1) + " - ";
             if (f.FiredRule >= 0)
                 s += "Card " + (f.FiredRule + 1) + " (" + rules[f.FiredRule].ToDisplayString() + ") fired, qi left " + f.Qi;
+            else if (f.HoldingRule >= 0)
+                s += "Card " + (f.HoldingRule + 1) + " keeps waiting for the trap to go down (no extra qi)";
             else if (f.StarvedRule >= 0)
                 s += "Card " + (f.StarvedRule + 1) + " was true but needs " + Vocabulary.Cost(rules[f.StarvedRule].Action) +
                      " qi (have " + f.QiBefore + ") - walked instead";
