@@ -42,8 +42,8 @@
     },
     {
       "id": "2-1", "chapter": 2, "title": "Wait For It",
-      "hint": "Traps are up for 2 steps, then down for 2. Standing on a trap is safe - stepping onto a raised one is not.",
-      "map": "ggTggggTggggTggf", "start": 0, "dir": 1, "qi": 3, "slots": 1,
+      "hint": "Traps go up and down. A Wait card costs 1 qi and holds the runner until the trap ahead goes down.",
+      "map": "ggTggggTggggTggf", "start": 0, "dir": 1, "qi": 2, "slots": 1,
       "conditions": ["trap"], "actions": ["wait"],
       "solution": ["IF trap THEN wait"], "solutionQiLeft": 0,
       "previousSolution": ["IF pit THEN bigjump", "IF NOT ground THEN jump"], "previousExpected": "trap"
