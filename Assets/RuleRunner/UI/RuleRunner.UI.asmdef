@@ -1,0 +1,19 @@
+{
+    "name": "RuleRunner.UI",
+    "rootNamespace": "RuleRunner.UI",
+    "references": [
+        "RuleRunner.Core",
+        "RuleRunner.Levels",
+        "RuleRunner.View",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
