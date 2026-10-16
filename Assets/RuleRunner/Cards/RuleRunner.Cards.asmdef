@@ -1,0 +1,19 @@
+{
+    "name": "RuleRunner.Cards",
+    "rootNamespace": "RuleRunner.Cards",
+    "references": [
+        "RuleRunner.Core",
+        "RuleRunner.View",
+        "RuleRunner.UI",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
