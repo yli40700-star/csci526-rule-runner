@@ -22,6 +22,9 @@ namespace RuleRunner.Core
             var cells = map.ToCharArray();
             var result = new RunResult { Hits = new int[rules.Count], Outcome = Outcome.Timeout };
             int x = start;
+            // Index of the Wait card the runner is holding on, or -1. A Wait card is paid once and
+            // keeps the runner in place, without checking cards, until the trap ahead goes down.
+            int holdRule = -1;
 
             for (int t = 0; t < maxSteps; t++)
             {
@@ -29,9 +32,18 @@ namespace RuleRunner.Core
                     ? new StepFrame { T = t, XBefore = x, DirBefore = dir, QiBefore = qi }
                     : null;
 
-                // 1. Pick the action: first rule whose (possibly negated) condition holds.
+                // 1. Pick the action: keep holding after a Wait while the trap ahead is up;
+                //    otherwise the first rule whose (possibly negated) condition holds.
                 var action = ActionType.Walk;
-                for (int i = 0; i < rules.Count; i++)
+                bool holding = holdRule >= 0 && Cell(cells, x + dir) == Vocabulary.Trap && Vocabulary.TrapUp(t);
+                if (holding)
+                {
+                    action = ActionType.Wait;
+                    if (frame != null) frame.HoldingRule = holdRule;
+                }
+                else holdRule = -1;
+
+                for (int i = 0; i < rules.Count && !holding; i++)
                 {
                     var rule = rules[i];
                     bool ok = Test(cells, rule.Condition, x, dir, t);
@@ -45,6 +57,7 @@ namespace RuleRunner.Core
                         qi -= cost;
                         result.Hits[i]++;
                         if (frame != null) frame.FiredRule = i;
+                        if (action == ActionType.Wait) holdRule = i;
                     }
                     else
                     {

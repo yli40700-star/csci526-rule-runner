@@ -29,7 +29,10 @@ namespace RuleRunner.Core
         public static bool IsStandable(char c) => c == Ground || c == Orb || c == Finish || c == Trap;
         public static bool IsWall(char c) => c == LowWall || c == HighWall;
 
-        /// <summary>Traps are up for 2 steps, then down for 2 steps.</summary>
+        /// <summary>
+        /// Traps are up for 2 steps, then down for 2 steps.
+        /// A Wait card costs 1 qi once and holds the runner until the trap ahead is down.
+        /// </summary>
         public static bool TrapUp(int t) => (t % 4) < 2;
 
         public static int Cost(ActionType a)

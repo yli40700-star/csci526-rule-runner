@@ -80,6 +80,29 @@ namespace RuleRunner.Tests
         }
 
         [Test]
+        public void WaitCostsOneQiAndHoldsUntilTrapDrops()
+        {
+            // t=0 trap up: Wait fires (1 qi). t=1 still up: hold, no cost, no card checked.
+            // t=2 trap down: walk onto it safely.
+            var r = Simulator.Run("gTgf", 0, 1, 1, new[] { R("IF trap THEN wait") });
+            Assert.AreEqual(Outcome.Win, r.Outcome);
+            Assert.AreEqual(0, r.QiLeft);
+            Assert.AreEqual(0, r.Frames[0].FiredRule);
+            Assert.AreEqual(0, r.Frames[1].HoldingRule);
+            Assert.AreEqual(-1, r.Frames[1].FiredRule);
+            Assert.AreEqual(1, r.Hits[0]);
+            Assert.AreEqual(1, r.Frames[2].X);
+        }
+
+        [Test]
+        public void WaitWithoutTrapAheadIsASingleStep()
+        {
+            var r = Simulator.Run("gggf", 0, 1, 5, new[] { R("IF ground THEN wait") }, maxSteps: 3);
+            Assert.AreEqual(2, r.QiLeft, "each step pays again: no trap means no hold");
+            Assert.AreEqual(-1, r.Frames[1].HoldingRule);
+        }
+
+        [Test]
         public void OrbAddsQiCanExceedStartAndBecomesGround()
         {
             var r = Simulator.Run("gogf", 0, 1, 1, null);
