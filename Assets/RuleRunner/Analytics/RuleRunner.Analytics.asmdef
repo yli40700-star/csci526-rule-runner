@@ -1,0 +1,14 @@
+{
+    "name": "RuleRunner.Analytics",
+    "rootNamespace": "RuleRunner.Analytics",
+    "references": ["RuleRunner.Core"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
