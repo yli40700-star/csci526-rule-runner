@@ -57,24 +57,6 @@
       "previousSolution": ["IF trap THEN wait"], "previousExpected": "timeout"
     },
     {
-      "id": "2-3", "chapter": 2, "title": "Coming Soon",
-      "hint": "Being designed: Ground 2 ahead and Big Jump.",
-      "draft": true,
-      "map": "gggf", "start": 0, "dir": 1, "qi": 0, "slots": 1,
-      "conditions": ["ground2"], "actions": ["bigjump"],
-      "solution": [], "solutionQiLeft": 0,
-      "previousSolution": [], "previousExpected": "win"
-    },
-    {
-      "id": "2-4", "chapter": 2, "title": "Coming Soon",
-      "hint": "Being designed: Walk as a blocking rule, and qi orbs.",
-      "draft": true,
-      "map": "gggf", "start": 0, "dir": 1, "qi": 0, "slots": 1,
-      "conditions": ["ground"], "actions": ["walk"],
-      "solution": [], "solutionQiLeft": 0,
-      "previousSolution": [], "previousExpected": "win"
-    },
-    {
       "id": "2-5", "chapter": 2, "title": "Everything You Know",
       "hint": "Every tool so far. A Walk card can stop the cards after it from firing.",
       "map": "ggpgggsggpsgggTgggoggwggppggf", "start": 0, "dir": 1, "qi": 8, "slots": 4,
