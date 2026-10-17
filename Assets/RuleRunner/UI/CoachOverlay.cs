@@ -93,6 +93,10 @@ namespace RuleRunner.UI
 
             tipText.text = text;
             nextButton.gameObject.SetActive(showNext);
+            // Grow the tip to fit its text (wrapping at the tip's width).
+            float textHeight = tipText.cachedTextGeneratorForLayout.GetPreferredHeight(text,
+                tipText.GetGenerationSettings(new Vector2(tip.sizeDelta.x - 36f, 0f))) / tipText.pixelsPerUnit;
+            tip.sizeDelta = new Vector2(tip.sizeDelta.x, Mathf.Clamp(textHeight + 58f, 104f, 220f));
             // Put the tip above the hole if there is room, else below; keep it on screen.
             float y = hole.yMax + 14f + tip.sizeDelta.y / 2f;
             if (y + tip.sizeDelta.y / 2f > t - 10f) y = hole.yMin - 14f - tip.sizeDelta.y / 2f;

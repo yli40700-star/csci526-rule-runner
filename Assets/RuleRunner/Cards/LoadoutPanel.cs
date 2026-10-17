@@ -17,6 +17,8 @@ namespace RuleRunner.Cards
         const int MaxPips = 24;
 
         public List<Rule> Rules { get; private set; } = new List<Rule>();
+        /// <summary>The runner portrait and qi pool panel (tutorial target).</summary>
+        public RectTransform RunnerPanel { get; private set; }
         public LevelDef Level { get; private set; }
 
         /// <summary>Raised whenever the player changes the cards (add, edit, move, remove).</summary>
@@ -55,6 +57,7 @@ namespace RuleRunner.Cards
         void BuildRunnerPanel(RectTransform row)
         {
             var panel = UIKit.Box(row, "Runner", Theme.Surface2, 14f, Vector2.zero, Vector2.one);
+            RunnerPanel = panel.rectTransform;
             UIKit.Layout(panel, 138, RuleCardView.CardSize.y);
             var p = panel.transform;
 

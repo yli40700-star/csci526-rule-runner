@@ -158,10 +158,23 @@ namespace RuleRunner.App
             UpdateHintButton();
             analytics.LevelStarted(level.Id);
 
-            if (PlayerPrefs.GetInt(IntroSeenKey + level.Id, 0) == 0 || NeedsTutorial()) ShowIntro();
+            if (PlayerPrefs.GetInt(IntroKey(level), 0) == 0 || NeedsTutorial()) ShowIntro();
         }
 
         // ---------- Intro card, tutorial, hints ----------
+
+        /// <summary>
+        /// "Intro seen" is stored per level and per intro content, so editing a level's intro
+        /// (text or new-card demos) shows it again to players who saw the old one.
+        /// </summary>
+        static string IntroKey(LevelDef l)
+        {
+            var text = l.Hint + "|" + l.Guide.Concept;
+            foreach (var item in l.Guide.NewItems) text += "|" + item.Title + "|" + item.Line + "|" + item.Map;
+            uint h = 2166136261;                       // FNV-1a: stable across runs, unlike string.GetHashCode
+            foreach (char c in text) { h ^= c; h *= 16777619; }
+            return IntroSeenKey + l.Id + "_" + h.ToString("x8");
+        }
 
         bool NeedsTutorial() => level != null && level.Id == "1-1" && !Tutorial.Done;
 
@@ -174,7 +187,7 @@ namespace RuleRunner.App
 
         void OnIntroClosed()
         {
-            PlayerPrefs.SetInt(IntroSeenKey + level.Id, 1);
+            PlayerPrefs.SetInt(IntroKey(level), 1);
             if (NeedsTutorial() && !tutorial.Active) tutorial.Begin();
         }
 
