@@ -169,7 +169,7 @@ namespace RuleRunner.App
         {
             if (level == null || playback != null) return;
             introCard.Show(level);
-            ConceptDiagram.Build(introCard.DiagramArea, level.Guide.Concept);
+            IntroItems.Build(introCard.DiagramArea, level.Guide);
         }
 
         void OnIntroClosed()
