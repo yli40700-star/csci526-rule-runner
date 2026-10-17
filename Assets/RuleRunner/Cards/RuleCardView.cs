@@ -2,6 +2,7 @@ using System;
 using RuleRunner.Core;
 using RuleRunner.UI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace RuleRunner.Cards
@@ -14,11 +15,19 @@ namespace RuleRunner.Cards
     ///   footer: move left / remove / move right
     /// The owner (GameScreen) holds the rule list; the card only raises events.
     /// </summary>
-    public class RuleCardView : MonoBehaviour
+    public class RuleCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         public static readonly Vector2 CardSize = new Vector2(156, 226);
 
         public event Action<RuleCardView> ToggleNot, PickCondition, PickAction, MoveLeft, MoveRight, Remove;
+        /// <summary>Pointer entered / left the card (used for the "where will this fire" preview).</summary>
+        public event Action<RuleCardView, bool> Hover;
+
+        public void OnPointerEnter(PointerEventData e) => Hover?.Invoke(this, true);
+        public void OnPointerExit(PointerEventData e) => Hover?.Invoke(this, false);
+
+        public RectTransform IfArea => (RectTransform)condArea.transform;
+        public RectTransform Body => body;
 
         RectTransform body, condIcon, actionIcon, pips;
         Image bodyImage, band;

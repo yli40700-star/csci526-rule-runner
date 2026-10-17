@@ -19,6 +19,11 @@ namespace RuleRunner.Cards
         public List<Rule> Rules { get; private set; } = new List<Rule>();
         public LevelDef Level { get; private set; }
 
+        /// <summary>Raised whenever the player changes the cards (add, edit, move, remove).</summary>
+        public event Action Changed;
+        /// <summary>Card index under the pointer, or -1 when the pointer leaves the cards.</summary>
+        public event Action<int> CardHover;
+
         Text loadoutText, qiText;
         RectTransform cardRow, pipGrid;
         OptionPicker picker;
@@ -109,7 +114,8 @@ namespace RuleRunner.Cards
                 card.PickAction += OnPickAction;
                 card.MoveLeft += c => Move(c.Index, -1);
                 card.MoveRight += c => Move(c.Index, +1);
-                card.Remove += c => { if (editable) { Rules.RemoveAt(c.Index); RebuildCards(); } };
+                card.Remove += c => { if (editable) { Rules.RemoveAt(c.Index); RebuildCards(); Changed?.Invoke(); } };
+                card.Hover += (c, inside) => { if (editable) CardHover?.Invoke(inside ? c.Index : -1); };
                 cards.Add(card);
             }
             while (emptySlots.Count < slots - Rules.Count)
@@ -142,6 +148,7 @@ namespace RuleRunner.Cards
             if (!editable || Level == null || Rules.Count >= Level.Slots) return;
             Rules.Add(new Rule(Level.Conditions[0], false, Level.Actions[0]));
             RebuildCards();
+            Changed?.Invoke();
         }
 
         void Edit(int index, Action<Rule> change)
@@ -149,6 +156,7 @@ namespace RuleRunner.Cards
             if (!editable) return;
             change(Rules[index]);
             RebuildCards();
+            Changed?.Invoke();
         }
 
         void Move(int index, int delta)
@@ -157,7 +165,23 @@ namespace RuleRunner.Cards
             if (!editable || j < 0 || j >= Rules.Count) return;
             (Rules[index], Rules[j]) = (Rules[j], Rules[index]);
             RebuildCards();
+            Changed?.Invoke();
         }
+
+        // ---------- Targets for the tutorial ----------
+
+        /// <summary>The first visible empty slot, or null.</summary>
+        public RectTransform FirstEmptySlot
+        {
+            get
+            {
+                foreach (var e in emptySlots)
+                    if (e.gameObject.activeSelf) return (RectTransform)e.transform;
+                return null;
+            }
+        }
+
+        public RuleCardView CardAt(int index) => index >= 0 && index < Rules.Count && index < cards.Count ? cards[index] : null;
 
         void OnPickCondition(RuleCardView card)
         {
