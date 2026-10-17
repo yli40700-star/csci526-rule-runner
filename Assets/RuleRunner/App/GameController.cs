@@ -22,7 +22,8 @@ namespace RuleRunner.App
         const string ClearedKey = "rr_cleared_";
         const string IntroSeenKey = "rr_intro_";
         const int FailsBeforeHint = 2;
-        const int FailsBeforeNudge = 3;   // then again every 2 more failures
+        const int FailsBeforeNudge = 3;
+        const string NudgeShownKey = "rr_nudge_shown";   // the arrow is a one-time lesson: "hints live here"
 
         CameraFitter cameraFitter;
         MapView map;
@@ -324,10 +325,11 @@ namespace RuleRunner.App
                 gameScreen.ShowBanner(line);
                 UpdateHintButton();
                 int failed = f + 1;
-                if (failed >= FailsBeforeNudge && (failed - FailsBeforeNudge) % 2 == 0)
+                if (failed >= FailsBeforeNudge && PlayerPrefs.GetInt(NudgeShownKey, 0) == 0)
                 {
                     hintsShown.TryGetValue(level.Id, out int shown);
                     gameScreen.ShowNudge(shown < level.Guide.Hints.Count);
+                    PlayerPrefs.SetInt(NudgeShownKey, 1);
                 }
             }
             playback = null;
