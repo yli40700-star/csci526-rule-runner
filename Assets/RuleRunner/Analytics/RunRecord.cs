@@ -17,6 +17,8 @@ namespace RuleRunner.Analytics
         public int steps;
         public bool ranOutOfQi;
         public int secondsSinceLevelStart;
+        /// <summary>How many one-line hints the player had opened on this level before this run.</summary>
+        public int hintsUsed;
         public string timestampUtc;
     }
 }

@@ -45,7 +45,7 @@ namespace RuleRunner.Analytics
             levelStartTime = Time.realtimeSinceStartup;
         }
 
-        public RunRecord RunFinished(LevelDef level, IList<Rule> rules, RunResult result)
+        public RunRecord RunFinished(LevelDef level, IList<Rule> rules, RunResult result, int hintsUsed = 0)
         {
             attempts.TryGetValue(level.Id, out int n);
             attempts[level.Id] = ++n;
@@ -64,6 +64,7 @@ namespace RuleRunner.Analytics
                 steps = result.Steps,
                 ranOutOfQi = result.RanOutOfQi,
                 secondsSinceLevelStart = Mathf.RoundToInt(Time.realtimeSinceStartup - levelStartTime),
+                hintsUsed = hintsUsed,
                 timestampUtc = DateTime.UtcNow.ToString("o"),
             };
             Send(record);
