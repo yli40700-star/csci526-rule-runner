@@ -22,6 +22,7 @@ namespace RuleRunner.App
         const string ClearedKey = "rr_cleared_";
         const string IntroSeenKey = "rr_intro_";
         const int FailsBeforeHint = 2;
+        const int FailsBeforeNudge = 3;   // then again every 2 more failures
 
         CameraFitter cameraFitter;
         MapView map;
@@ -108,8 +109,8 @@ namespace RuleRunner.App
             gameScreen.Run += StartRun;
             gameScreen.Reset += ResetRun;
             gameScreen.SpeedChanged += s => speed = s;
-            gameScreen.IntroRequested += () => ShowIntro();
-            gameScreen.HintRequested += ShowNextHint;
+            gameScreen.IntroRequested += () => { gameScreen.HideNudge(); ShowIntro(); };
+            gameScreen.HintRequested += () => { gameScreen.HideNudge(); ShowNextHint(); };
             introCard.Closed += OnIntroClosed;
             loadout.CardHover += PreviewCard;
             resultPopup.BackToLevels += ShowLevelSelect;
@@ -155,6 +156,7 @@ namespace RuleRunner.App
             loadout.Setup(level, rules);
             ResetRun();
             gameScreen.HideBanner();
+            gameScreen.HideNudge();
             UpdateHintButton();
             analytics.LevelStarted(level.Id);
 
@@ -321,6 +323,12 @@ namespace RuleRunner.App
                 gameScreen.Log(line, Theme.Gold);
                 gameScreen.ShowBanner(line);
                 UpdateHintButton();
+                int failed = f + 1;
+                if (failed >= FailsBeforeNudge && (failed - FailsBeforeNudge) % 2 == 0)
+                {
+                    hintsShown.TryGetValue(level.Id, out int shown);
+                    gameScreen.ShowNudge(shown < level.Guide.Hints.Count);
+                }
             }
             playback = null;
             resultPopup.Show(result, level, rules.Count, LevelDatabase.Next(level) != null, line);

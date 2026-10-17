@@ -34,7 +34,11 @@ namespace RuleRunner.UI
 
         Text levelChipText, titleText, hintText, floatText, bannerText;
         RectTransform logContent, floatBubble, banner;
-        Button hintButton;
+        Button hintButton, helpButton;
+        RectTransform nudge, nudgeArrow;
+        Text nudgeText;
+        RectTransform nudgeTarget;
+        float nudgeTime;
         ScrollRect logScroll;
         Button runButton, resetButton;
         readonly List<Button> speedButtons = new List<Button>();
@@ -54,6 +58,7 @@ namespace RuleRunner.UI
             screen.BuildControls(root);
             screen.BuildFloatingBubble(root);
             screen.BuildBanner(root);
+            screen.BuildNudge(root);
             return screen;
         }
 
@@ -78,6 +83,7 @@ namespace RuleRunner.UI
 
             // "?" reopens the level's intro card; Hint unlocks one-line hints after a few failed runs.
             var help = UIKit.Button(header.transform, "Help", "?", 20, Theme.Raised, () => IntroRequested?.Invoke(), 20f);
+            helpButton = help;
             Place(help.transform, new Vector2(1, 0.5f), new Vector2(-14, 0), new Vector2(40, 40), new Vector2(1, 0.5f));
             hintButton = UIKit.Button(header.transform, "HintButton", "Hint", 16, Theme.Gold, () => HintRequested?.Invoke(), 10f);
             Place(hintButton.transform, new Vector2(1, 0.5f), new Vector2(-62, 0), new Vector2(118, 40), new Vector2(1, 0.5f));
@@ -244,6 +250,52 @@ namespace RuleRunner.UI
 
         public void HideBanner() => banner.gameObject.SetActive(false);
 
+        // ---------- Nudge: a bouncing arrow under Hint or ? after repeated failures ----------
+
+        void BuildNudge(Transform root)
+        {
+            nudge = UIKit.Rect(root, "Nudge", new Vector2(1, 1), new Vector2(1, 1));
+            nudge.pivot = new Vector2(1, 1);
+            nudge.sizeDelta = new Vector2(220, 64);
+            nudgeArrow = UIKit.Shape(nudge, "Arrow", UISprites.Triangle, Theme.Gold, Vector2.zero, new Vector2(22, 18)).rectTransform;
+            nudgeArrow.anchorMin = nudgeArrow.anchorMax = new Vector2(1, 1);
+            nudgeArrow.gameObject.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.6f);
+            var bubble = UIKit.Box(nudge, "Bubble", Theme.Gold, 10f, new Vector2(1, 1), new Vector2(1, 1));
+            bubble.raycastTarget = false;
+            var brt = bubble.rectTransform;
+            brt.pivot = new Vector2(1, 1);
+            brt.sizeDelta = new Vector2(170, 30);
+            brt.anchoredPosition = new Vector2(0, -24);
+            nudgeText = UIKit.Label(brt, "Text", "", 15, TextAnchor.MiddleCenter, Theme.Background, FontStyle.Bold);
+            nudge.gameObject.SetActive(false);
+        }
+
+        /// <summary>Points a bouncing arrow at the Hint button (or at ? when there is no hint left).</summary>
+        public void ShowNudge(bool toHint)
+        {
+            nudgeTarget = (RectTransform)(toHint ? hintButton.transform : helpButton.transform);
+            nudgeText.text = toHint ? "Stuck? Try a hint" : "Stuck? Re-read the level";
+            var bubble = (RectTransform)nudgeText.transform.parent;
+            bubble.sizeDelta = new Vector2(nudgeText.preferredWidth + 26f, 30f);
+            nudge.gameObject.SetActive(true);
+            nudge.SetAsLastSibling();
+            nudgeTime = 0f;
+            PositionNudge(0f);
+        }
+
+        public void HideNudge() => nudge.gameObject.SetActive(false);
+
+        void PositionNudge(float bob)
+        {
+            // Target buttons are right-anchored in the header: place the arrow under the button's center.
+            var t = nudgeTarget;
+            float right = -t.anchoredPosition.x;            // distance of the button's right edge from the screen edge
+            float center = right + t.sizeDelta.x / 2f;
+            nudge.anchoredPosition = new Vector2(-Mathf.Max(12f, center - 80f), -HeaderPx - 2f + bob);
+            float arrowFromRight = center - Mathf.Max(12f, center - 80f);
+            nudgeArrow.anchoredPosition = new Vector2(-arrowFromRight, -9f);
+        }
+
         /// <summary>Shows the Hint button with "Hint 2/3" style label, or hides it.</summary>
         public void SetHintButton(bool visible, int next, int total)
         {
@@ -259,6 +311,11 @@ namespace RuleRunner.UI
 
         void Update()
         {
+            if (nudge != null && nudge.gameObject.activeSelf)
+            {
+                nudgeTime += Time.deltaTime;
+                PositionNudge(-Mathf.Abs(Mathf.Sin(nudgeTime * 5f)) * 8f);
+            }
             if (floatTimer > 0f)
             {
                 floatTimer -= Time.deltaTime;
