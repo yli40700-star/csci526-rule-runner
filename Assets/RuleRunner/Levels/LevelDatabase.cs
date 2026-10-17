@@ -60,6 +60,7 @@ namespace RuleRunner.Levels
             public int qi;
             public string[] rules;
             public int steps;
+            public bool expectFailure;
         }
 
         static List<LevelDef> cache;
@@ -151,6 +152,7 @@ namespace RuleRunner.Levels
                     Qi = n.qi,
                     Rules = Rule.ParseList(n.rules),
                     Steps = n.steps <= 0 ? 4 : n.steps,
+                    ExpectFailure = n.expectFailure,
                 }).ToList(),
             };
             void Add(Outcome o, string[] lines)

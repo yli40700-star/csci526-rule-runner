@@ -71,5 +71,7 @@ namespace RuleRunner.Core
         public int Qi = 5;
         public List<Rule> Rules = new List<Rule>();
         public int Steps = 4;
+        /// <summary>True when the demo is meant to end badly (e.g. showing what running out of qi does).</summary>
+        public bool ExpectFailure;
     }
 }
