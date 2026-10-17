@@ -16,6 +16,7 @@ namespace RuleRunner.View
         readonly Dictionary<int, SpriteRenderer> orbs = new Dictionary<int, SpriteRenderer>();
         readonly List<(SpriteRenderer slab, SpriteRenderer spikes)> traps = new List<(SpriteRenderer, SpriteRenderer)>();
         Transform root;
+        Transform marks;
 
         public int Length { get; private set; }
 
@@ -26,6 +27,8 @@ namespace RuleRunner.View
             root.SetParent(transform, false);
             orbs.Clear();
             traps.Clear();
+            marks = new GameObject("Marks").transform;
+            marks.SetParent(root, false);
             Length = level.Map.Length;
 
             // Map edges count as high walls.
@@ -102,6 +105,42 @@ namespace RuleRunner.View
         {
             foreach (var orb in orbs.Values) orb.enabled = true;
             SetTime(0);
+            ClearMarks();
+        }
+
+        /// <summary>A red X over the cell where the run ended badly.</summary>
+        public void MarkDeath(int x)
+        {
+            if (!marks) return;
+            const float h = 0.8f;
+            var center = new Vector2(x, 1.2f);
+            foreach (float angle in new[] { 40f, -40f })
+            {
+                // Sprites pivot at the bottom, so offset the bar to rotate it around its middle.
+                float r = angle * Mathf.Deg2Rad;
+                var pos = center + new Vector2(Mathf.Sin(r) * h * 0.5f, -Mathf.Cos(r) * h * 0.5f);
+                var bar = Shapes.Create(marks, "DeathMark", Shapes.Square, Palette.Dead, pos, new Vector2(0.14f, h), 8);
+                bar.transform.localRotation = Quaternion.Euler(0, 0, angle);
+            }
+        }
+
+        /// <summary>Small markers in front of the cells where a card would fire (hover preview).</summary>
+        public void ShowPreview(IEnumerable<(int x, int dir)> spots, Color color)
+        {
+            ClearMarks();
+            if (!marks) return;
+            foreach (var (x, dir) in spots)
+            {
+                Shapes.Create(marks, "Preview", Shapes.Circle, color, new Vector2(x + 0.5f * dir, 1.1f), new Vector2(0.28f, 0.28f), 8);
+                Shapes.Create(marks, "PreviewLine", Shapes.Square, new Color(color.r, color.g, color.b, 0.35f),
+                    new Vector2(x + 0.5f * dir, 0.05f), new Vector2(0.05f, 1.05f), 7);
+            }
+        }
+
+        public void ClearMarks()
+        {
+            if (!marks) return;
+            for (int i = marks.childCount - 1; i >= 0; i--) Destroy(marks.GetChild(i).gameObject);
         }
     }
 }
