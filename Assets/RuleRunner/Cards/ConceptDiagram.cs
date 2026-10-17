@@ -23,6 +23,7 @@ namespace RuleRunner.Cards
                 case "trap": Pair(area, 0, Condition.Trap, false, ActionType.Wait, "IF Trap up ahead", "THEN Wait (until it drops)"); break;
                 case "turn": Pair(area, 0, Condition.Wall, false, ActionType.Turn, "IF Wall ahead", "THEN Turn"); break;
                 case "walkblock": Pair(area, 0, Condition.Ground, false, ActionType.Walk, "IF Ground ahead", "THEN Walk (free, stops the rest)"); break;
+                case "ground2": Pair(area, 0, Condition.Ground2, true, ActionType.BigJump, "IF NOT Ground 2 ahead", "THEN Big Jump"); break;
             }
         }
 
