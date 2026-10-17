@@ -33,7 +33,21 @@
         "It can't see a pit unless a card is looking for one."
       ],
       "qiLine": "Every pit costs a jump. Count them.",
-      "previousLine": "An empty hand plays itself."
+      "previousLine": "An empty hand plays itself.",
+      "newItems": [
+        {
+          "title": "NEW CARD: IF Pit ahead THEN Jump",
+          "line": "A card fires by itself every time its condition is true. Jump hops over one tile for 1 qi.",
+          "map": "gpgpggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF pit THEN jump"
+          ],
+          "steps": 4
+        }
+      ]
     },
     {
       "id": "1-2",
@@ -73,7 +87,21 @@
       "deathSpike": [
         "A card that only fears pits will walk into spikes."
       ],
-      "previousLine": "Your card still only knows about pits."
+      "previousLine": "Your card still only knows about pits.",
+      "newItems": [
+        {
+          "title": "NEW: NOT",
+          "line": "NOT flips a condition. IF NOT Ground ahead fires before a pit and before a spike.",
+          "map": "gpgsggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 4
+        }
+      ]
     },
     {
       "id": "1-3",
@@ -88,12 +116,10 @@
       "conditions": [
         "ground",
         "pit",
-        "spike",
-        "wall"
+        "spike"
       ],
       "actions": [
-        "jump",
-        "turn"
+        "jump"
       ],
       "solution": [
         "IF NOT ground THEN jump"
@@ -117,6 +143,20 @@
       ],
       "deathTimeout": [
         "Walls don't move. Something has to go over them."
+      ],
+      "newItems": [
+        {
+          "title": "NEW TILE: Low wall",
+          "line": "A low wall blocks walking, but a jump clears it. It is not ground either.",
+          "map": "ggwgggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 5
+        }
       ]
     },
     {
@@ -132,8 +172,7 @@
       "conditions": [
         "ground",
         "pit",
-        "spike",
-        "wall"
+        "spike"
       ],
       "actions": [
         "jump",
@@ -162,7 +201,34 @@
         "The jump was right. The distance was not."
       ],
       "qiLine": "Big Jumps are expensive. Save them for the wide gaps.",
-      "previousLine": "Last level's card jumps - just not far enough here."
+      "previousLine": "Last level's card jumps - just not far enough here.",
+      "newItems": [
+        {
+          "title": "NEW ACTION: Big Jump",
+          "line": "Clears two tiles and lands on the third. Costs 3 qi.",
+          "map": "gppggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF pit THEN bigjump"
+          ],
+          "steps": 3
+        },
+        {
+          "title": "NEW RULE: card order",
+          "line": "When two cards are true, the leftmost one fires.",
+          "map": "gppgsggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 8,
+          "rules": [
+            "IF pit THEN bigjump",
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 4
+        }
+      ]
     },
     {
       "id": "1-5",
@@ -177,8 +243,7 @@
       "conditions": [
         "ground",
         "pit",
-        "spike",
-        "wall"
+        "spike"
       ],
       "actions": [
         "jump",
@@ -244,7 +309,21 @@
         "Timing isn't your job. Waiting is."
       ],
       "qiLine": "Not every trap needs a wait. Some are already down when you arrive.",
-      "previousLine": "Jumping cards can't see traps."
+      "previousLine": "Jumping cards can't see traps.",
+      "newItems": [
+        {
+          "title": "NEW: Trap + Wait",
+          "line": "Traps rise and fall. Wait costs 1 qi and holds until the trap ahead is down.",
+          "map": "ggTggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF trap THEN wait"
+          ],
+          "steps": 6
+        }
+      ]
     },
     {
       "id": "2-2",
@@ -286,13 +365,161 @@
         "It's been walking into the same wall for a while now."
       ],
       "qiLine": "Turning and jumping both cost qi. Do each only once.",
-      "previousLine": "Waiting won't move the wall."
+      "previousLine": "Waiting won't move the wall.",
+      "newItems": [
+        {
+          "title": "NEW: Wall ahead + Turn",
+          "line": "High walls and the course edge block everything. Turn faces the other way for 1 qi.",
+          "map": "fggggg",
+          "start": 1,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF wall THEN turn"
+          ],
+          "steps": 12
+        }
+      ]
+    },
+    {
+      "id": "2-3",
+      "chapter": 2,
+      "title": "Stepping Stones",
+      "hint": "One tile of ground between every gap. Look where you will land before you leave.",
+      "map": "gpgsgppgsgspgf",
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "solution": [
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "ground2",
+      "hints": [
+        "A jump lands two tiles ahead. Is that tile safe?",
+        "Ground 2 ahead looks exactly where a Jump would land.",
+        "IF NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "You checked the next tile. The landing was the one after it."
+      ],
+      "deathSpike": [
+        "You checked the next tile. The landing was the one after it.",
+        "A short jump into a long gap."
+      ],
+      "qiLine": "Big Jumps are for double gaps only.",
+      "previousLine": "Nothing here to turn around from.",
+      "newItems": [
+        {
+          "title": "NEW CONDITION: Ground 2 ahead",
+          "line": "Looks two tiles ahead - exactly where a Jump lands. NOT Ground 2 means a jump would land badly.",
+          "map": "gpgppgg",
+          "start": 0,
+          "dir": 1,
+          "qi": 6,
+          "rules": [
+            "IF NOT ground2 THEN bigjump",
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 3
+        }
+      ]
+    },
+    {
+      "id": "2-4",
+      "chapter": 2,
+      "title": "Free Steps",
+      "hint": "Too little qi to waste. A free Walk card can stop the costly cards after it - and orbs refill you.",
+      "map": "ggsogpgggppggsggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 4,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "ground2"
+      ],
+      "actions": [
+        "walk",
+        "jump",
+        "bigjump"
+      ],
+      "solution": [
+        "IF ground THEN walk",
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "pit",
+      "concept": "walkblock",
+      "hints": [
+        "Safe ground deserves a free card.",
+        "A Walk card on the left stops every card to its right while the ground ahead is safe.",
+        "IF Ground ahead THEN Walk, then the two cards from 2-3."
+      ],
+      "deathPit": [
+        "Your Big Jump left too early.",
+        "It jumped from solid ground into the gap."
+      ],
+      "deathSpike": [
+        "Your Big Jump left too early."
+      ],
+      "qiLine": "You paid to cross ground you could have walked.",
+      "previousLine": "On long ground, Ground 2 ahead fires a step too early.",
+      "newItems": [
+        {
+          "title": "NEW ACTION: Walk",
+          "line": "Free. Put it first: while the ground ahead is safe, the cards after it never fire.",
+          "map": "gggppggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF ground THEN walk",
+            "IF NOT ground2 THEN bigjump"
+          ],
+          "steps": 5
+        },
+        {
+          "title": "NEW TILE: Qi orb",
+          "line": "Walk or land on it for +2 qi. The pool can go above its start.",
+          "map": "gogogg",
+          "start": 0,
+          "dir": 1,
+          "qi": 0,
+          "rules": [],
+          "steps": 5
+        }
+      ]
     },
     {
       "id": "2-5",
       "chapter": 2,
       "title": "Everything You Know",
-      "hint": "Every tool so far. A free Walk card can stop the costly cards after it.",
+      "hint": "Every tool so far, one course. The trap card has to come before the ground card.",
       "map": "ggpgggsggpsgggTgggoggwggppggf",
       "start": 0,
       "dir": 1,
@@ -320,14 +547,15 @@
       ],
       "solutionQiLeft": 0,
       "previousSolution": [
-        "IF wall THEN turn",
-        "IF pit THEN jump"
+        "IF ground THEN walk",
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
       ],
-      "previousExpected": "spike",
-      "concept": "walkblock",
+      "previousExpected": "trap",
+      "concept": "combo",
       "hints": [
-        "Safe ground deserves a free card.",
-        "Big Jump only when the second tile is bad too.",
+        "Traps count as ground.",
+        "Order: the most specific card first, the free Walk card right after it.",
         "Trap -> Wait, Ground -> Walk, NOT Ground 2 -> Big Jump, NOT Ground -> Jump. In that order."
       ],
       "deathPit": [
@@ -343,7 +571,7 @@
         "It's waiting for a jump it can't afford."
       ],
       "qiLine": "You paid for jumps you didn't need.",
-      "previousLine": "Turning won't help on a one-way course."
+      "previousLine": "Your 2-4 cards have never met a trap."
     }
   ]
 }

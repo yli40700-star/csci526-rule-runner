@@ -46,6 +46,20 @@ namespace RuleRunner.Levels
             public string[] deathTimeout;
             public string qiLine;
             public string previousLine;
+            public DemoJson[] newItems;
+        }
+
+        [Serializable]
+        class DemoJson
+        {
+            public string title;
+            public string line;
+            public string map;
+            public int start;
+            public int dir;
+            public int qi;
+            public string[] rules;
+            public int steps;
         }
 
         static List<LevelDef> cache;
@@ -127,6 +141,17 @@ namespace RuleRunner.Levels
                 Hints = (j.hints ?? new string[0]).ToList(),
                 QiLine = j.qiLine ?? "",
                 PreviousLine = j.previousLine ?? "",
+                NewItems = (j.newItems ?? new DemoJson[0]).Select(n => new DemoSpec
+                {
+                    Title = n.title ?? "",
+                    Line = n.line ?? "",
+                    Map = string.IsNullOrEmpty(n.map) ? "ggg" : n.map,
+                    Start = n.start,
+                    Dir = n.dir == 0 ? 1 : n.dir,
+                    Qi = n.qi,
+                    Rules = Rule.ParseList(n.rules),
+                    Steps = n.steps <= 0 ? 4 : n.steps,
+                }).ToList(),
             };
             void Add(Outcome o, string[] lines)
             {
