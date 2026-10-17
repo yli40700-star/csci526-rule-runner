@@ -30,5 +30,30 @@ namespace RuleRunner.Core
         /// <summary>The previous level's solution and what it is designed to do here.</summary>
         public List<Rule> PreviousSolution = new List<Rule>();
         public Outcome PreviousExpected;
+
+        /// <summary>One-line guidance: intro, hints and lines shown after a failed run.</summary>
+        public LevelGuide Guide = new LevelGuide();
+    }
+
+    /// <summary>
+    /// Player guidance for a level, written as short one-liners (like the death messages in classic games):
+    /// they sound like a remark, but each one points at what this level is about.
+    /// </summary>
+    public sealed class LevelGuide
+    {
+        /// <summary>Which idea the intro card illustrates: basics, not, lowwall, order, combo, trap, turn, walkblock.</summary>
+        public string Concept = "";
+
+        /// <summary>Hints unlocked one by one with the Hint button, vaguest first.</summary>
+        public List<string> Hints = new List<string>();
+
+        /// <summary>Lines per failure cause; one is picked per failed run, cycling.</summary>
+        public Dictionary<Outcome, List<string>> DeathLines = new Dictionary<Outcome, List<string>>();
+
+        /// <summary>Shown when a card was true but there was not enough qi.</summary>
+        public string QiLine = "";
+
+        /// <summary>Shown when the player runs exactly the previous level's solution and it fails.</summary>
+        public string PreviousLine = "";
     }
 }
