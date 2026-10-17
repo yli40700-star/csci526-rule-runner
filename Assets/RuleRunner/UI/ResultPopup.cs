@@ -64,7 +64,10 @@ namespace RuleRunner.UI
             a?.Invoke();
         }
 
-        public void Show(RunResult result, LevelDef level, int cardCount, bool hasNextLevel)
+        public RectTransform EditButtonRect => (RectTransform)editButton.transform;
+
+        /// <param name="guideLine">One-line reminder for a failed run (falls back to a cause-based hint).</param>
+        public void Show(RunResult result, LevelDef level, int cardCount, bool hasNextLevel, string guideLine = "")
         {
             bool won = result.Won;
             title.text = won ? "LEVEL CLEAR" : "RUN FAILED";
@@ -76,7 +79,7 @@ namespace RuleRunner.UI
             cardValue.text = cardCount.ToString();
             hint.text = won
                 ? (result.QiLeft >= level.SolutionQiLeft ? "Perfect run - no qi wasted." : "This level can be cleared with " + level.SolutionQiLeft + " qi left.")
-                : HintFor(result);
+                : (string.IsNullOrEmpty(guideLine) ? HintFor(result) : guideLine);
             nextButton.gameObject.SetActive(won && hasNextLevel);
             UIKit.ButtonText(editButton).text = won ? "Try again" : "Edit cards";
             gameObject.SetActive(true);
