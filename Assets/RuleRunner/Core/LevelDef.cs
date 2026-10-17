@@ -55,5 +55,21 @@ namespace RuleRunner.Core
 
         /// <summary>Shown when the player runs exactly the previous level's solution and it fails.</summary>
         public string PreviousLine = "";
+
+        /// <summary>Cards, tiles or rules this level introduces, each with a tiny looping demo.</summary>
+        public List<DemoSpec> NewItems = new List<DemoSpec>();
+    }
+
+    /// <summary>A tiny scripted run shown on the intro card: a short map, a few cards, a few steps.</summary>
+    public sealed class DemoSpec
+    {
+        public string Title = "";
+        public string Line = "";
+        public string Map = "ggg";
+        public int Start;
+        public int Dir = 1;
+        public int Qi = 5;
+        public List<Rule> Rules = new List<Rule>();
+        public int Steps = 4;
     }
 }
