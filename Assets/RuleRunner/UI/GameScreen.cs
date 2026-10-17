@@ -16,7 +16,7 @@ namespace RuleRunner.UI
     /// </summary>
     public class GameScreen : MonoBehaviour
     {
-        public event Action Back, Run, Reset;
+        public event Action Back, Run, Reset, IntroRequested, HintRequested;
         public event Action<float> SpeedChanged;
 
         const float HeaderPx = 64f;
@@ -30,9 +30,11 @@ namespace RuleRunner.UI
         /// <summary>Empty area at the bottom-left where the loadout tray (Cards module) is built.</summary>
         public RectTransform LoadoutArea { get; private set; }
         public float Speed => speed;
+        public RectTransform RunButtonRect => (RectTransform)runButton.transform;
 
-        Text levelChipText, titleText, hintText, floatText;
-        RectTransform logContent, floatBubble;
+        Text levelChipText, titleText, hintText, floatText, bannerText;
+        RectTransform logContent, floatBubble, banner;
+        Button hintButton;
         ScrollRect logScroll;
         Button runButton, resetButton;
         readonly List<Button> speedButtons = new List<Button>();
@@ -51,6 +53,7 @@ namespace RuleRunner.UI
                 new Vector2(12, 12), new Vector2(-376, BottomPx - 8));
             screen.BuildControls(root);
             screen.BuildFloatingBubble(root);
+            screen.BuildBanner(root);
             return screen;
         }
 
@@ -68,10 +71,18 @@ namespace RuleRunner.UI
             Place(chip.transform, new Vector2(0, 0.5f), new Vector2(142, 0), new Vector2(64, 40), new Vector2(0, 0.5f));
             levelChipText = UIKit.Label(chip.transform, "Text", "1-1", 20, TextAnchor.MiddleCenter, Theme.Background, FontStyle.Bold);
 
-            titleText = UIKit.Label(UIKit.Rect(header.transform, "Title", new Vector2(0, 0.5f), new Vector2(1, 1), new Vector2(222, -2), new Vector2(-20, -6)),
+            titleText = UIKit.Label(UIKit.Rect(header.transform, "Title", new Vector2(0, 0.5f), new Vector2(1, 1), new Vector2(222, -2), new Vector2(-200, -6)),
                 "Text", "", 24, TextAnchor.LowerLeft, Theme.Text, FontStyle.Bold);
-            hintText = UIKit.Label(UIKit.Rect(header.transform, "Hint", new Vector2(0, 0), new Vector2(1, 0.5f), new Vector2(222, 2), new Vector2(-20, 0)),
+            hintText = UIKit.Label(UIKit.Rect(header.transform, "Hint", new Vector2(0, 0), new Vector2(1, 0.5f), new Vector2(222, 2), new Vector2(-200, 0)),
                 "Text", "", 15, TextAnchor.UpperLeft, Theme.Dim, FontStyle.Italic);
+
+            // "?" reopens the level's intro card; Hint unlocks one-line hints after a few failed runs.
+            var help = UIKit.Button(header.transform, "Help", "?", 20, Theme.Raised, () => IntroRequested?.Invoke(), 20f);
+            Place(help.transform, new Vector2(1, 0.5f), new Vector2(-14, 0), new Vector2(40, 40), new Vector2(1, 0.5f));
+            hintButton = UIKit.Button(header.transform, "HintButton", "Hint", 16, Theme.Gold, () => HintRequested?.Invoke(), 10f);
+            Place(hintButton.transform, new Vector2(1, 0.5f), new Vector2(-62, 0), new Vector2(118, 40), new Vector2(1, 0.5f));
+            UIKit.ButtonText(hintButton).color = Theme.Background;
+            hintButton.gameObject.SetActive(false);
         }
 
         void BuildLegend(Transform root)
@@ -206,6 +217,38 @@ namespace RuleRunner.UI
             floatBubble.sizeDelta = new Vector2(floatText.preferredWidth + 28f, 32f);
             floatBubble.gameObject.SetActive(true);
             floatTimer = seconds;
+        }
+
+        // ---------- Guide banner and hint button ----------
+
+        void BuildBanner(Transform root)
+        {
+            var box = UIKit.Box(root, "GuideBanner", Theme.Background.WithAlpha(0.88f), 12f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
+            banner = box.rectTransform;
+            banner.pivot = new Vector2(0.5f, 1f);
+            banner.anchoredPosition = new Vector2(0, -HeaderPx - 10);
+            box.raycastTarget = false;
+            box.gameObject.AddComponent<Outline>().effectColor = Theme.Gold.WithAlpha(0.5f);
+            bannerText = UIKit.Label(banner, "Text", "", 18, TextAnchor.MiddleCenter, Theme.Gold, FontStyle.Italic);
+            bannerText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            banner.gameObject.SetActive(false);
+        }
+
+        /// <summary>A one-line message across the top of the map (hints and reminders).</summary>
+        public void ShowBanner(string text)
+        {
+            bannerText.text = text;
+            banner.sizeDelta = new Vector2(Mathf.Min(bannerText.preferredWidth + 40f, 1180f), 38f);
+            banner.gameObject.SetActive(true);
+        }
+
+        public void HideBanner() => banner.gameObject.SetActive(false);
+
+        /// <summary>Shows the Hint button with "Hint 2/3" style label, or hides it.</summary>
+        public void SetHintButton(bool visible, int next, int total)
+        {
+            hintButton.gameObject.SetActive(visible);
+            UIKit.ButtonText(hintButton).text = "Hint " + next + "/" + total;
         }
 
         public void HideFloat()
