@@ -46,6 +46,19 @@
             "IF pit THEN jump"
           ],
           "steps": 4
+        },
+        {
+          "title": "NEW: Qi",
+          "line": "Every firing costs qi. With too little qi a card cannot fire - the runner just walks on.",
+          "map": "gpgpggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 1,
+          "rules": [
+            "IF pit THEN jump"
+          ],
+          "steps": 3,
+          "expectFailure": true
         }
       ]
     },
