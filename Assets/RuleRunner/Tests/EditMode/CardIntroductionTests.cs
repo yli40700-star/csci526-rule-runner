@@ -35,8 +35,8 @@ namespace RuleRunner.Tests
                 foreach (var d in level.Guide.NewItems)
                 {
                     var r = Simulator.Run(d.Map, d.Start, d.Dir, d.Qi, d.Rules, true, d.Steps);
-                    Assert.IsTrue(r.Outcome == Outcome.Win || r.Outcome == Outcome.Timeout,
-                        level.Id + " demo '" + d.Title + "' ends with " + r.Outcome);
+                    bool ok = r.Outcome == Outcome.Win || r.Outcome == Outcome.Timeout;
+                    Assert.AreEqual(!d.ExpectFailure, ok, level.Id + " demo '" + d.Title + "' ends with " + r.Outcome);
                     Assert.IsTrue(d.Rules.All(rule => level.Conditions.Contains(rule.Condition) || rule.Condition == Condition.Ground),
                         level.Id + " demo uses a condition the level does not offer");
                 }
