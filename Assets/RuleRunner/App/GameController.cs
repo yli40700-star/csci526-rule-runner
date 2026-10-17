@@ -20,6 +20,8 @@ namespace RuleRunner.App
     {
         const float BaseStepSeconds = 0.4f;
         const string ClearedKey = "rr_cleared_";
+        const string IntroSeenKey = "rr_intro_";
+        const int FailsBeforeHint = 2;
 
         CameraFitter cameraFitter;
         MapView map;
@@ -28,12 +30,20 @@ namespace RuleRunner.App
         LoadoutPanel loadout;
         LevelSelectScreen levelSelect;
         ResultPopup resultPopup;
+        IntroCard introCard;
+        CoachOverlay coach;
+        Tutorial tutorial;
         AnalyticsTracker analytics;
 
         LevelDef level;
         readonly Dictionary<string, List<Rule>> rulesByLevel = new Dictionary<string, List<Rule>>();
         Coroutine playback;
         float speed = 1f;
+
+        // Guidance state per level (this session): failed runs, hints opened, where the last run died.
+        readonly Dictionary<string, int> fails = new Dictionary<string, int>();
+        readonly Dictionary<string, int> hintsShown = new Dictionary<string, int>();
+        int deathX = -1;
 
         void Awake()
         {
@@ -88,13 +98,20 @@ namespace RuleRunner.App
             loadout = LoadoutPanel.Create(gameScreen.LoadoutArea, picker);
             levelSelect = LevelSelectScreen.Create(canvasRect, IsCleared);
             resultPopup = ResultPopup.Create(canvasRect);
+            introCard = IntroCard.Create(canvasRect);
+            coach = CoachOverlay.Create(canvasRect);
             picker.transform.SetAsLastSibling();
+            tutorial = new Tutorial(coach, gameScreen, loadout, resultPopup, runner, cameraFitter);
 
             levelSelect.LevelChosen += LoadLevel;
             gameScreen.Back += ShowLevelSelect;
             gameScreen.Run += StartRun;
             gameScreen.Reset += ResetRun;
             gameScreen.SpeedChanged += s => speed = s;
+            gameScreen.IntroRequested += () => ShowIntro();
+            gameScreen.HintRequested += ShowNextHint;
+            introCard.Closed += OnIntroClosed;
+            loadout.CardHover += PreviewCard;
             resultPopup.BackToLevels += ShowLevelSelect;
             resultPopup.EditRules += ResetRun;
             resultPopup.NextLevel += () =>
@@ -109,6 +126,8 @@ namespace RuleRunner.App
         void ShowLevelSelect()
         {
             StopPlayback();
+            tutorial.Abort();
+            introCard.gameObject.SetActive(false);
             resultPopup.Hide();
             gameScreen.Hide();
             map.gameObject.SetActive(false);
@@ -119,7 +138,9 @@ namespace RuleRunner.App
         void LoadLevel(LevelDef def)
         {
             StopPlayback();
+            tutorial.Abort();
             level = def;
+            deathX = -1;
             levelSelect.Hide();
             resultPopup.Hide();
             map.gameObject.SetActive(true);
@@ -133,7 +154,64 @@ namespace RuleRunner.App
             gameScreen.Setup(level);
             loadout.Setup(level, rules);
             ResetRun();
+            gameScreen.HideBanner();
+            UpdateHintButton();
             analytics.LevelStarted(level.Id);
+
+            if (PlayerPrefs.GetInt(IntroSeenKey + level.Id, 0) == 0 || NeedsTutorial()) ShowIntro();
+        }
+
+        // ---------- Intro card, tutorial, hints ----------
+
+        bool NeedsTutorial() => level != null && level.Id == "1-1" && !Tutorial.Done;
+
+        void ShowIntro()
+        {
+            if (level == null || playback != null) return;
+            introCard.Show(level);
+            ConceptDiagram.Build(introCard.DiagramArea, level.Guide.Concept);
+        }
+
+        void OnIntroClosed()
+        {
+            PlayerPrefs.SetInt(IntroSeenKey + level.Id, 1);
+            if (NeedsTutorial() && !tutorial.Active) tutorial.Begin();
+        }
+
+        void UpdateHintButton()
+        {
+            int total = level.Guide.Hints.Count;
+            fails.TryGetValue(level.Id, out int f);
+            hintsShown.TryGetValue(level.Id, out int shown);
+            gameScreen.SetHintButton(f >= FailsBeforeHint && shown < total, shown + 1, total);
+        }
+
+        void ShowNextHint()
+        {
+            hintsShown.TryGetValue(level.Id, out int shown);
+            var hints = level.Guide.Hints;
+            if (shown >= hints.Count) return;
+            gameScreen.ShowBanner(hints[shown]);
+            gameScreen.Log("Hint " + (shown + 1) + ": " + hints[shown], Theme.Gold);
+            hintsShown[level.Id] = shown + 1;
+            UpdateHintButton();
+        }
+
+        /// <summary>Hovering a card marks every spot where it would fire, by simulating the current cards.</summary>
+        void PreviewCard(int index)
+        {
+            if (level == null || playback != null) return;
+            if (index < 0)
+            {
+                map.ClearMarks();
+                if (deathX >= 0) map.MarkDeath(deathX);
+                return;
+            }
+            var result = Simulator.Run(level, loadout.Rules);
+            var spots = new List<(int, int)>();
+            foreach (var f in result.Frames)
+                if (f.FiredRule == index) spots.Add((f.XBefore, f.DirBefore));
+            map.ShowPreview(spots, Theme.ActionColor(loadout.Rules[index].Action));
         }
 
         // ---------- Run / Reset ----------
@@ -141,12 +219,15 @@ namespace RuleRunner.App
         void StartRun()
         {
             if (level == null || playback != null) return;
+            deathX = -1;
             ResetRun();
+            gameScreen.HideBanner();
             gameScreen.SetRunning(true);
             loadout.SetEditable(false);
             var rules = new List<Rule>(loadout.Rules.ConvertAll(r => r.Clone()));
             var result = Simulator.Run(level, rules);
-            analytics.RunFinished(level, rules, result);
+            hintsShown.TryGetValue(level.Id, out int hintsUsed);
+            analytics.RunFinished(level, rules, result, hintsUsed);
             gameScreen.Log("--- Run: " + rules.Count + (rules.Count == 1 ? " card" : " cards") + ", qi " + level.Qi + " ---", Theme.Dim);
             playback = StartCoroutine(Play(rules, result));
         }
@@ -157,6 +238,7 @@ namespace RuleRunner.App
             resultPopup.Hide();
             if (level == null) return;
             map.ResetState();
+            if (deathX >= 0) map.MarkDeath(deathX); // keep showing where the last run died while editing
             runner.Place(level.Start, level.Dir);
             gameScreen.SetRunning(false);
             loadout.SetEditable(true);
@@ -211,9 +293,25 @@ namespace RuleRunner.App
                 result.Won ? new Color(0.5f, 0.9f, 0.55f) : new Color(1f, 0.55f, 0.55f));
             yield return runner.PlayOutcome(result.Outcome, 0.7f);
 
+            string line = "";
             if (result.Won) PlayerPrefs.SetInt(ClearedKey + level.Id, 1);
+            else
+            {
+                fails.TryGetValue(level.Id, out int f);
+                line = GuideText.DeathLine(level, rules, result, f);
+                fails[level.Id] = f + 1;
+                if (result.Outcome != Outcome.Timeout && result.Frames.Count > 0)
+                {
+                    deathX = result.Frames[result.Frames.Count - 1].X;
+                    map.MarkDeath(deathX);
+                }
+                gameScreen.Log(line, Theme.Gold);
+                gameScreen.ShowBanner(line);
+                UpdateHintButton();
+            }
             playback = null;
-            resultPopup.Show(result, level, rules.Count, LevelDatabase.Next(level) != null);
+            resultPopup.Show(result, level, rules.Count, LevelDatabase.Next(level) != null, line);
+            tutorial.OnRunFinished(result);
         }
 
         static string DescribeStep(StepFrame f, List<Rule> rules)
