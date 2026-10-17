@@ -132,7 +132,9 @@ namespace RuleRunner.Cards
                         int cost = Vocabulary.Cost(a);
                         actionText.text = Vocabulary.Display(a) + (cost > 0 ? " -" + cost : "");
                     }
+                    else if (f.StarvedRule >= 0) actionText.text = "no qi!";
                     else actionText.text = f.HoldingRule >= 0 ? "waiting..." : "";
+                    actionText.color = f.StarvedRule >= 0 ? Theme.Danger : Theme.Gold;
                     actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), baseY + cell * 1.5f);
 
                     float height = f.Action == ActionType.Jump ? cell * 1.0f : f.Action == ActionType.BigJump ? cell * 1.4f : 0f;

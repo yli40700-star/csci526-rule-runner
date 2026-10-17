@@ -15,7 +15,7 @@ namespace RuleRunner.App
     {
         public const string DoneKey = "rr_tutorial_done";
 
-        enum Step { None, Runner, FirstRun, Edit, Equip, Explain, SecondRun }
+        enum Step { None, Runner, FirstRun, Edit, Equip, Explain, Qi, SecondRun }
 
         readonly CoachOverlay overlay;
         readonly GameScreen screen;
@@ -68,7 +68,8 @@ namespace RuleRunner.App
         void OnNext()
         {
             if (step == Step.Runner) Go(Step.FirstRun);
-            else if (step == Step.Explain) Go(Step.SecondRun);
+            else if (step == Step.Explain) Go(Step.Qi);
+            else if (step == Step.Qi) Go(Step.SecondRun);
         }
 
         void Go(Step next)
@@ -100,10 +101,14 @@ namespace RuleRunner.App
                 {
                     var card = loadout.CardAt(0);
                     if (card != null)
-                        overlay.Show(card.Body, "IF there is a pit ahead, THEN jump. It fires before every pit on the map - and every jump costs 1 qi.", true);
-                    else Go(Step.SecondRun);
+                        overlay.Show(card.Body, "IF there is a pit ahead, THEN jump. It fires by itself before every pit on the map.", true);
+                    else Go(Step.Qi);
                     break;
                 }
+                case Step.Qi:
+                    overlay.Show(loadout.RunnerPanel,
+                        "This is your qi. Every time a card fires it pays its cost - the dots on the card. With too little qi a card can't fire, and the runner just walks on.", true);
+                    break;
                 case Step.SecondRun:
                     overlay.Show(screen.RunButtonRect, "Run it again.", false);
                     break;
