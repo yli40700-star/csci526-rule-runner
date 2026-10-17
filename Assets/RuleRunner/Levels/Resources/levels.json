@@ -1,68 +1,349 @@
 {
   "levels": [
     {
-      "id": "1-1", "chapter": 1, "title": "Rules Fire Themselves",
-      "hint": "Press Run with no cards and watch. A card fires every time its condition comes true - anywhere on the map.",
-      "map": "ggggpggggpgggpggf", "start": 0, "dir": 1, "qi": 5, "slots": 2,
-      "conditions": ["pit"], "actions": ["jump"],
-      "solution": ["IF pit THEN jump"], "solutionQiLeft": 2,
-      "previousSolution": [], "previousExpected": "pit"
+      "id": "1-1",
+      "chapter": 1,
+      "title": "Rules Fire Themselves",
+      "hint": "You never press jump. Give the runner a card, press RUN, and watch.",
+      "map": "ggggpggggpgggpggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 5,
+      "slots": 2,
+      "conditions": [
+        "pit"
+      ],
+      "actions": [
+        "jump"
+      ],
+      "solution": [
+        "IF pit THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [],
+      "previousExpected": "pit",
+      "concept": "basics",
+      "hints": [
+        "The runner only knows what its cards tell it.",
+        "Every pit looks the same from one step away.",
+        "IF Pit ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Nobody told it to jump.",
+        "It can't see a pit unless a card is looking for one."
+      ],
+      "qiLine": "Every pit costs a jump. Count them.",
+      "previousLine": "An empty hand plays itself."
     },
     {
-      "id": "1-2", "chapter": 1, "title": "One Card, Many Dangers",
-      "hint": "Only one card slot. NOT can fold several dangers into a single card.",
-      "map": "gggpgggsggpggsgggf", "start": 0, "dir": 1, "qi": 6, "slots": 1,
-      "conditions": ["ground", "pit", "spike"], "actions": ["jump"],
-      "solution": ["IF NOT ground THEN jump"], "solutionQiLeft": 2,
-      "previousSolution": ["IF pit THEN jump"], "previousExpected": "spike"
+      "id": "1-2",
+      "chapter": 1,
+      "title": "One Card, Many Dangers",
+      "hint": "One slot. Pits and spikes. One card has to care about both.",
+      "map": "gggpgggsggpggsgggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 6,
+      "slots": 1,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike"
+      ],
+      "actions": [
+        "jump"
+      ],
+      "solution": [
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "not",
+      "hints": [
+        "Don't describe the danger. Describe the safe ground.",
+        "What is true before every pit and before every spike?",
+        "IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "One card, two dangers. Yours only knows one."
+      ],
+      "deathSpike": [
+        "A card that only fears pits will walk into spikes."
+      ],
+      "previousLine": "Your card still only knows about pits."
     },
     {
-      "id": "1-3", "chapter": 1, "title": "Breather",
-      "hint": "Nothing new here. Does your last idea still hold up - even against low walls?",
-      "map": "ggpggsgggwggpgsggwgggpggsggf", "start": 0, "dir": 1, "qi": 9, "slots": 2,
-      "conditions": ["ground", "pit", "spike", "wall"], "actions": ["jump", "turn"],
-      "solution": ["IF NOT ground THEN jump"], "solutionQiLeft": 1,
-      "previousSolution": ["IF NOT ground THEN jump"], "previousExpected": "win"
+      "id": "1-3",
+      "chapter": 1,
+      "title": "Breather",
+      "hint": "Nothing new here. Trust what you learned - a low wall isn't ground either.",
+      "map": "ggpggsgggwggpgsggwgggpggsggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "turn"
+      ],
+      "solution": [
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 1,
+      "previousSolution": [
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "win",
+      "concept": "lowwall",
+      "hints": [
+        "What worked last time?",
+        "A low wall is not ground.",
+        "IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "You've solved this before. One card was enough."
+      ],
+      "deathSpike": [
+        "You've solved this before. One card was enough."
+      ],
+      "deathTimeout": [
+        "Walls don't move. Something has to go over them."
+      ]
     },
     {
-      "id": "1-4", "chapter": 1, "title": "Top To Bottom",
-      "hint": "Cards are checked left to right and only the first true one fires. Put the more specific card first.",
-      "map": "gggsggpsgggpggppgggf", "start": 0, "dir": 1, "qi": 11, "slots": 2,
-      "conditions": ["ground", "pit", "spike", "wall"], "actions": ["jump", "bigjump"],
-      "solution": ["IF pit THEN bigjump", "IF NOT ground THEN jump"], "solutionQiLeft": 1,
-      "previousSolution": ["IF NOT ground THEN jump"], "previousExpected": "spike"
+      "id": "1-4",
+      "chapter": 1,
+      "title": "Top To Bottom",
+      "hint": "Cards are checked left to right. Only the first true one fires.",
+      "map": "gggsggpsgggpggppgggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 11,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "solution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 1,
+      "previousSolution": [
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "order",
+      "hints": [
+        "Some gaps are wider than one jump.",
+        "When two cards are true, the left one wins.",
+        "IF Pit ahead THEN Big Jump, and to its right IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Two pits in a row need more than a hop."
+      ],
+      "deathSpike": [
+        "You cleared the gap and landed on the spike.",
+        "The jump was right. The distance was not."
+      ],
+      "qiLine": "Big Jumps are expensive. Save them for the wide gaps.",
+      "previousLine": "Last level's card jumps - just not far enough here."
     },
     {
-      "id": "1-5", "chapter": 1, "title": "All Together",
-      "hint": "Everything from this chapter, in one run.",
-      "map": "ggpgggsggpsggwggppggpggsggpsgggf", "start": 0, "dir": 1, "qi": 20, "slots": 2,
-      "conditions": ["ground", "pit", "spike", "wall"], "actions": ["jump", "bigjump"],
-      "solution": ["IF pit THEN bigjump", "IF NOT ground THEN jump"], "solutionQiLeft": 2,
-      "previousSolution": ["IF pit THEN bigjump", "IF NOT ground THEN jump"], "previousExpected": "win"
+      "id": "1-5",
+      "chapter": 1,
+      "title": "All Together",
+      "hint": "Everything from Chapter 1, one course.",
+      "map": "ggpgggsggpsggwggppggpggsggpsgggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 20,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "solution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "win",
+      "concept": "combo",
+      "hints": [
+        "You've seen every piece of this before.",
+        "Order matters as much as the cards.",
+        "Same two cards as 1-4, in the same order."
+      ],
+      "deathPit": [
+        "Some pits are wider than they look."
+      ],
+      "deathSpike": [
+        "Check what each jump lands on."
+      ],
+      "qiLine": "Big Jumps are expensive. Save them for the wide gaps."
     },
     {
-      "id": "2-1", "chapter": 2, "title": "Wait For It",
-      "hint": "Traps go up and down. A Wait card costs 1 qi and holds the runner until the trap ahead goes down.",
-      "map": "ggTggggTggggTggf", "start": 0, "dir": 1, "qi": 2, "slots": 1,
-      "conditions": ["trap"], "actions": ["wait"],
-      "solution": ["IF trap THEN wait"], "solutionQiLeft": 0,
-      "previousSolution": ["IF pit THEN bigjump", "IF NOT ground THEN jump"], "previousExpected": "trap"
+      "id": "2-1",
+      "chapter": 2,
+      "title": "Wait For It",
+      "hint": "Traps rise and fall. A Wait card costs 1 qi and holds until the trap is down.",
+      "map": "ggTggggTggggTggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 2,
+      "slots": 1,
+      "conditions": [
+        "trap"
+      ],
+      "actions": [
+        "wait"
+      ],
+      "solution": [
+        "IF trap THEN wait"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "trap",
+      "concept": "trap",
+      "hints": [
+        "Patience is cheaper than courage.",
+        "You can't jump here. You can only choose when to move.",
+        "IF Trap up ahead THEN Wait."
+      ],
+      "deathTrap": [
+        "It stepped on it while it was up.",
+        "Timing isn't your job. Waiting is."
+      ],
+      "qiLine": "Not every trap needs a wait. Some are already down when you arrive.",
+      "previousLine": "Jumping cards can't see traps."
     },
     {
-      "id": "2-2", "chapter": 2, "title": "Turn Around",
-      "hint": "The goal is not always ahead of you.",
-      "map": "fggpgggggH", "start": 5, "dir": 1, "qi": 2, "slots": 2,
-      "conditions": ["pit", "wall"], "actions": ["jump", "turn"],
-      "solution": ["IF wall THEN turn", "IF pit THEN jump"], "solutionQiLeft": 0,
-      "previousSolution": ["IF trap THEN wait"], "previousExpected": "timeout"
+      "id": "2-2",
+      "chapter": 2,
+      "title": "Turn Around",
+      "hint": "The flag is behind you.",
+      "map": "fggpgggggH",
+      "start": 5,
+      "dir": 1,
+      "qi": 2,
+      "slots": 2,
+      "conditions": [
+        "pit",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "turn"
+      ],
+      "solution": [
+        "IF wall THEN turn",
+        "IF pit THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF trap THEN wait"
+      ],
+      "previousExpected": "timeout",
+      "concept": "turn",
+      "hints": [
+        "Sometimes forward is the wrong way.",
+        "Walls are where you change your mind.",
+        "IF Wall ahead THEN Turn, then IF Pit ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Turning around doesn't remove the pit."
+      ],
+      "deathTimeout": [
+        "It's been walking into the same wall for a while now."
+      ],
+      "qiLine": "Turning and jumping both cost qi. Do each only once.",
+      "previousLine": "Waiting won't move the wall."
     },
     {
-      "id": "2-5", "chapter": 2, "title": "Everything You Know",
-      "hint": "Every tool so far. A Walk card can stop the cards after it from firing.",
-      "map": "ggpgggsggpsgggTgggoggwggppggf", "start": 0, "dir": 1, "qi": 8, "slots": 4,
-      "conditions": ["ground", "pit", "spike", "wall", "ground2", "trap"], "actions": ["walk", "jump", "bigjump", "wait"],
-      "solution": ["IF trap THEN wait", "IF ground THEN walk", "IF NOT ground2 THEN bigjump", "IF NOT ground THEN jump"], "solutionQiLeft": 0,
-      "previousSolution": ["IF wall THEN turn", "IF pit THEN jump"], "previousExpected": "spike"
+      "id": "2-5",
+      "chapter": 2,
+      "title": "Everything You Know",
+      "hint": "Every tool so far. A free Walk card can stop the costly cards after it.",
+      "map": "ggpgggsggpsgggTgggoggwggppggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 8,
+      "slots": 4,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2",
+        "trap"
+      ],
+      "actions": [
+        "walk",
+        "jump",
+        "bigjump",
+        "wait"
+      ],
+      "solution": [
+        "IF trap THEN wait",
+        "IF ground THEN walk",
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "walkblock",
+      "hints": [
+        "Safe ground deserves a free card.",
+        "Big Jump only when the second tile is bad too.",
+        "Trap -> Wait, Ground -> Walk, NOT Ground 2 -> Big Jump, NOT Ground -> Jump. In that order."
+      ],
+      "deathPit": [
+        "Look two steps ahead before you leap."
+      ],
+      "deathSpike": [
+        "Look two steps ahead before you leap."
+      ],
+      "deathTrap": [
+        "The trap is ground too. Which card did it listen to first?"
+      ],
+      "deathTimeout": [
+        "It's waiting for a jump it can't afford."
+      ],
+      "qiLine": "You paid for jumps you didn't need.",
+      "previousLine": "Turning won't help on a one-way course."
     }
   ]
 }

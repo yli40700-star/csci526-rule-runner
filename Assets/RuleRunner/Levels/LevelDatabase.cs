@@ -36,6 +36,16 @@ namespace RuleRunner.Levels
             public int solutionQiLeft;
             public string[] previousSolution;
             public string previousExpected;
+
+            // One-line guidance (see Core.LevelGuide).
+            public string concept;
+            public string[] hints;
+            public string[] deathPit;
+            public string[] deathSpike;
+            public string[] deathTrap;
+            public string[] deathTimeout;
+            public string qiLine;
+            public string previousLine;
         }
 
         static List<LevelDef> cache;
@@ -106,6 +116,27 @@ namespace RuleRunner.Levels
             PreviousExpected = string.IsNullOrEmpty(j.previousExpected)
                 ? Outcome.Win
                 : Vocabulary.ParseOutcome(j.previousExpected),
+            Guide = ToGuide(j),
         };
+
+        static LevelGuide ToGuide(LevelJson j)
+        {
+            var g = new LevelGuide
+            {
+                Concept = j.concept ?? "",
+                Hints = (j.hints ?? new string[0]).ToList(),
+                QiLine = j.qiLine ?? "",
+                PreviousLine = j.previousLine ?? "",
+            };
+            void Add(Outcome o, string[] lines)
+            {
+                if (lines != null && lines.Length > 0) g.DeathLines[o] = lines.ToList();
+            }
+            Add(Outcome.Pit, j.deathPit);
+            Add(Outcome.Spike, j.deathSpike);
+            Add(Outcome.Trap, j.deathTrap);
+            Add(Outcome.Timeout, j.deathTimeout);
+            return g;
+        }
     }
 }
