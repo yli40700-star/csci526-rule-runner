@@ -23,7 +23,7 @@ namespace RuleRunner.UI
             var card = root.gameObject.AddComponent<IntroCard>();
 
             var box = UIKit.Box(root, "Box", Theme.Surface, 20f, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            box.rectTransform.sizeDelta = new Vector2(600, 340);
+            box.rectTransform.sizeDelta = new Vector2(720, 430);
             UIKit.DropShadow(box, 10f, 0.55f);
             var b = box.transform;
 
@@ -35,12 +35,11 @@ namespace RuleRunner.UI
             card.line = UIKit.Label(UIKit.TopStrip(b, "Line", 76f, 60f, 32f, 32f), "Text", "", 20, TextAnchor.MiddleCenter, Theme.Gold, FontStyle.Italic);
 
             card.newLabel = UIKit.Label(UIKit.TopStrip(b, "NewLabel", 142f, 18f, 32f, 32f), "Text", "NEW IN THIS LEVEL", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
-            var diagramBg = UIKit.Box(b, "DiagramBg", Theme.Surface2, 14f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
-            var dbg = diagramBg.rectTransform;
-            dbg.pivot = new Vector2(0.5f, 1);
-            dbg.sizeDelta = new Vector2(420, 96);
-            dbg.anchoredPosition = new Vector2(0, -164);
-            card.DiagramArea = UIKit.Fill(dbg, "Diagram");
+            var diagram = UIKit.Rect(b, "Diagram", new Vector2(0.5f, 1), new Vector2(0.5f, 1));
+            diagram.pivot = new Vector2(0.5f, 1);
+            diagram.sizeDelta = new Vector2(672, 196);
+            diagram.anchoredPosition = new Vector2(0, -164);
+            card.DiagramArea = diagram;
 
             var ok = UIKit.Button(b, "GotIt", "Got it", 18, Theme.Accent, card.Close, 12f);
             var okRt = (RectTransform)ok.transform;
@@ -58,6 +57,7 @@ namespace RuleRunner.UI
             chip.text = level.Id;
             title.text = level.Title;
             line.text = level.Hint;
+            newLabel.text = level.Guide.NewItems.Count > 0 ? "NEW IN THIS LEVEL" : "NOTHING NEW - PUT IT ALL TOGETHER";
             UIKit.DestroyChildren(DiagramArea);
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
