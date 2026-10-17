@@ -12,7 +12,7 @@
 var SHEET_NAME = 'runs';
 var COLUMNS = [
   'receivedAt', 'sessionId', 'build', 'levelId', 'attempt', 'result', 'qiLeft',
-  'ruleCount', 'rules', 'steps', 'ranOutOfQi', 'secondsSinceLevelStart', 'timestampUtc'
+  'ruleCount', 'rules', 'steps', 'ranOutOfQi', 'secondsSinceLevelStart', 'timestampUtc', 'hintsUsed'
 ];
 
 function doPost(e) {

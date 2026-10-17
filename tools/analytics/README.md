@@ -15,6 +15,7 @@ The game sends one JSON row per finished run (`AnalyticsTracker`, design doc sec
 | steps | `18` |
 | ranOutOfQi | `false` |
 | secondsSinceLevelStart | `74` |
+| hintsUsed | `1` (one-line hints opened on this level before the run) |
 
 ## Setup (about 5 minutes)
 
