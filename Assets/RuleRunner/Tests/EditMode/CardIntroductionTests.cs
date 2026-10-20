@@ -29,6 +29,20 @@ namespace RuleRunner.Tests
             Assert.AreEqual(level, FirstLevelWith(l => l.Actions.Contains(a)));
 
         [Test]
+        public void NotFirstAppearsInTheNotLevel()
+        {
+            Assert.AreEqual("1-2", FirstLevelWith(l => l.AllowNot));
+            Assert.AreEqual("not", LevelDatabase.All.First(l => l.Id == "1-2").Guide.Concept);
+        }
+
+        [Test]
+        public void LevelWithoutNotNeverOffersANotCard()
+        {
+            foreach (var level in LevelDatabase.All.Where(l => !l.AllowNot))
+                Assert.IsFalse(LevelAnalyzer.CardPool(level).Any(r => r.Negate), level.Id);
+        }
+
+        [Test]
         public void EveryNewDemoRunsWithoutDying()
         {
             foreach (var level in LevelDatabase.All)
