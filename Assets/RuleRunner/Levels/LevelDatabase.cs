@@ -32,6 +32,7 @@ namespace RuleRunner.Levels
             public int slots;
             public string[] conditions;
             public string[] actions;
+            public bool noNot;          // true before NOT is introduced
             public string[] solution;
             public int solutionQiLeft;
             public string[] previousSolution;
@@ -125,6 +126,7 @@ namespace RuleRunner.Levels
             Slots = j.slots,
             Conditions = (j.conditions ?? new string[0]).Select(Vocabulary.ParseCondition).ToList(),
             Actions = (j.actions ?? new string[0]).Select(Vocabulary.ParseAction).ToList(),
+            AllowNot = !j.noNot,
             Solution = Rule.ParseList(j.solution),
             SolutionQiLeft = j.solutionQiLeft,
             PreviousSolution = Rule.ParseList(j.previousSolution),
