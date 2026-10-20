@@ -16,6 +16,9 @@ namespace RuleRunner.EditorTools
     /// </summary>
     public static class BuildWebGL
     {
+        [MenuItem("Rule Runner/Build WebGL Alpha")]
+        public static void BuildAlpha() => Build("alpha");
+
         [MenuItem("Rule Runner/Build WebGL Beta")]
         public static void BuildBeta() => Build(StageFromArgs() ?? "beta");
 

@@ -1,5 +1,5 @@
 {
   "enabled": true,
-  "endpoint": "",
-  "build": "beta"
+  "endpoint": "https://script.google.com/macros/s/AKfycbz2rrlxuLuWnXsd_AXQ_cRN2mAkCa9dfyBUvpi_tbGi1AMS5x0jPAMzNHSwDhv3UcMl/exec",
+  "build": "alpha-playtest"
 }
