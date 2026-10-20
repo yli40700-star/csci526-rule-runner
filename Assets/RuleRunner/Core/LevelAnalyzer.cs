@@ -31,7 +31,7 @@ namespace RuleRunner.Core
         {
             var pool = new List<Rule>();
             foreach (var c in level.Conditions)
-                foreach (var neg in new[] { false, true })
+                foreach (var neg in level.AllowNot ? new[] { false, true } : new[] { false })
                     foreach (var a in level.Actions)
                         pool.Add(new Rule(c, neg, a));
             return pool;

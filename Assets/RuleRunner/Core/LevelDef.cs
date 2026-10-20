@@ -19,6 +19,8 @@ namespace RuleRunner.Core
         public int Slots;
         public List<Condition> Conditions = new List<Condition>();
         public List<ActionType> Actions = new List<ActionType>();
+        /// <summary>False before NOT is introduced: cards cannot be negated in this level.</summary>
+        public bool AllowNot = true;
 
         /// <summary>False for placeholder levels that are still being designed.</summary>
         public bool Playable = true;

@@ -16,6 +16,7 @@
       "actions": [
         "jump"
       ],
+      "noNot": true,
       "solution": [
         "IF pit THEN jump"
       ],
