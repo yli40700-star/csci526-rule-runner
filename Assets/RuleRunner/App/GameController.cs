@@ -23,7 +23,10 @@ namespace RuleRunner.App
         const string IntroSeenKey = "rr_intro_";
         const int FailsBeforeHint = 2;
         const int FailsBeforeNudge = 3;
-        const string NudgeShownKey = "rr_nudge_shown";   // the arrow is a one-time lesson: "hints live here"
+        const string NudgeShownKey = "rr_nudge_shown";
+        const string NotTriedKey = "rr_not_tried";        // the player has pressed a NOT chip at least once
+        const string NotCoachKey = "rr_not_coach";        // the one-step NOT spotlight in the NOT level was shown
+        bool notCoachActive;   // the arrow is a one-time lesson: "hints live here"
 
         CameraFitter cameraFitter;
         MapView map;
@@ -114,6 +117,10 @@ namespace RuleRunner.App
             gameScreen.HintRequested += () => { gameScreen.HideNudge(); ShowNextHint(); };
             introCard.Closed += OnIntroClosed;
             loadout.CardHover += PreviewCard;
+            loadout.NotToggled += OnNotToggled;
+            loadout.Changed += MaybeCoachNot;
+            coach.Next += EndNotCoach;
+            coach.Skip += EndNotCoach;
             resultPopup.BackToLevels += ShowLevelSelect;
             resultPopup.EditRules += ResetRun;
             resultPopup.NextLevel += () =>
@@ -155,6 +162,7 @@ namespace RuleRunner.App
             gameScreen.Show();
             gameScreen.Setup(level);
             loadout.Setup(level, rules);
+            loadout.SetNotPulse(level.AllowNot && PlayerPrefs.GetInt(NotTriedKey, 0) == 0);
             ResetRun();
             gameScreen.HideBanner();
             gameScreen.HideNudge();
@@ -211,6 +219,37 @@ namespace RuleRunner.App
             gameScreen.Log("Hint " + (shown + 1) + ": " + hints[shown], Theme.Gold);
             hintsShown[level.Id] = shown + 1;
             UpdateHintButton();
+        }
+
+        // ---------- NOT guidance (playtest feedback: "NOT is not straightforward") ----------
+
+        void OnNotToggled()
+        {
+            if (PlayerPrefs.GetInt(NotTriedKey, 0) == 0)
+            {
+                PlayerPrefs.SetInt(NotTriedKey, 1);
+                loadout.SetNotPulse(false);
+            }
+            EndNotCoach();
+        }
+
+        /// <summary>In the level that introduces NOT, the first equipped card gets a one-time spotlight on its NOT chip.</summary>
+        void MaybeCoachNot()
+        {
+            if (notCoachActive || tutorial.Active || level == null || level.Guide.Concept != "not") return;
+            if (loadout.Rules.Count == 0 || PlayerPrefs.GetInt(NotCoachKey, 0) == 1) return;
+            var card = loadout.CardAt(0);
+            if (card == null) return;
+            notCoachActive = true;
+            coach.Show(card.NotChip, "Tap +NOT to flip the condition. IF NOT Ground ahead fires before ANY danger - pits and spikes alike.", true);
+        }
+
+        void EndNotCoach()
+        {
+            if (!notCoachActive) return;
+            notCoachActive = false;
+            coach.Hide();
+            PlayerPrefs.SetInt(NotCoachKey, 1);
         }
 
         /// <summary>Hovering a card marks every spot where it would fire, by simulating the current cards.</summary>
