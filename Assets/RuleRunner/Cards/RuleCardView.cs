@@ -27,6 +27,11 @@ namespace RuleRunner.Cards
         public void OnPointerExit(PointerEventData e) => Hover?.Invoke(this, false);
 
         public RectTransform IfArea => (RectTransform)condArea.transform;
+        public RectTransform NotChip => notChip.rectTransform;
+
+        /// <summary>When true, an unpressed NOT chip gently blinks (until the player has tried NOT once).</summary>
+        public bool PulseNot { get; set; }
+        bool negated, notVisible;
         public RectTransform Body => body;
 
         RectTransform body, condIcon, actionIcon, pips;
@@ -75,6 +80,7 @@ namespace RuleRunner.Cards
             card.notButton.targetGraphic = card.notChip;
             card.notButton.onClick.AddListener(() => card.ToggleNot?.Invoke(card));
             card.notText = UIKit.Label(card.notChip.transform, "Text", "NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            NotTooltip.Attach(card.notChip.rectTransform);
             card.condIcon = UIKit.Centered(ifRt, "Icon", new Vector2(0, 2f), Icons.Size);
             var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20));
             card.condText = UIKit.Label(condLabel, "Text", "", 14, TextAnchor.MiddleCenter);
@@ -116,14 +122,19 @@ namespace RuleRunner.Cards
             rt.anchoredPosition = Vector2.zero;
         }
 
-        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable)
+        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true)
         {
+            negated = rule.Negate;
+            notVisible = allowNot;
+            notChip.gameObject.SetActive(allowNot);
             Index = index;
             priorityText.text = (index + 1).ToString();
             band.color = Theme.ActionColor(rule.Action);
 
-            notChip.color = rule.Negate ? Theme.Not : new Color(1, 1, 1, 0.06f);
-            notText.color = rule.Negate ? Theme.Text : Theme.Faint;
+            // Reads like a toggle: "+NOT" (off, outlined) / "NOT" (on, red).
+            notChip.color = rule.Negate ? Theme.Not : Theme.Raised;
+            notText.text = rule.Negate ? "NOT" : "+NOT";
+            notText.color = rule.Negate ? Theme.Text : Theme.Dim;
             condText.text = (rule.Negate ? "NOT " : "") + Vocabulary.Display(rule.Condition);
             condText.color = rule.Negate ? Theme.Hex(0xffb3a3) : Theme.Text;
             Icons.DrawCondition(condIcon, rule.Condition, rule.Negate);
@@ -174,6 +185,12 @@ namespace RuleRunner.Cards
 
         void Update()
         {
+            if (PulseNot && notVisible && !negated && notButton.interactable)
+            {
+                float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
+                notChip.color = Color.Lerp(Theme.Raised, Theme.Not, k * 0.8f);
+                notText.color = Color.Lerp(Theme.Dim, Theme.Text, k);
+            }
             if (Mathf.Abs(lift - liftTarget) < 0.05f) return;
             lift = Mathf.Lerp(lift, liftTarget, 1f - Mathf.Exp(-Time.deltaTime * 18f));
             body.offsetMin = new Vector2(0f, lift);
@@ -185,6 +202,37 @@ namespace RuleRunner.Cards
             int cost = Vocabulary.Cost(a);
             return Vocabulary.Display(a) + (cost == 0 ? "  (free)" : "  (-" + cost + " qi)");
         }
+    }
+
+    /// <summary>Hover tooltip on the NOT chip explaining what it does.</summary>
+    public class NotTooltip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        GameObject tip;
+
+        public static void Attach(RectTransform chip)
+        {
+            var t = chip.gameObject.AddComponent<NotTooltip>();
+            var box = UIKit.Box(chip, "Tooltip", Theme.Background.WithAlpha(0.96f), 8f, new Vector2(1, 1), new Vector2(1, 1));
+            box.raycastTarget = false;
+            var rt = box.rectTransform;
+            rt.pivot = new Vector2(1, 0);
+            rt.sizeDelta = new Vector2(206, 46);
+            rt.anchoredPosition = new Vector2(8, 6);
+            box.gameObject.AddComponent<Outline>().effectColor = Theme.Not.WithAlpha(0.7f);
+            UIKit.Label(UIKit.Fill(rt, "Text", 6f), "Text", "NOT flips the condition:\nthe card fires when it is FALSE.", 12,
+                TextAnchor.MiddleCenter, Theme.Text);
+            t.tip = box.gameObject;
+            t.tip.SetActive(false);
+        }
+
+        public void OnPointerEnter(PointerEventData e)
+        {
+            tip.SetActive(true);
+            tip.transform.SetAsLastSibling();
+        }
+
+        public void OnPointerExit(PointerEventData e) => tip.SetActive(false);
+        void OnDisable() { if (tip) tip.SetActive(false); }
     }
 
     /// <summary>An unused card slot: dashed-looking outline with "+ Equip card".</summary>

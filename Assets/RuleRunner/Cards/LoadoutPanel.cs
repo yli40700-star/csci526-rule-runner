@@ -25,6 +25,9 @@ namespace RuleRunner.Cards
         public event Action Changed;
         /// <summary>Card index under the pointer, or -1 when the pointer leaves the cards.</summary>
         public event Action<int> CardHover;
+        /// <summary>The player pressed a NOT chip.</summary>
+        public event Action NotToggled;
+        bool pulseNot;
 
         Text loadoutText, qiText;
         RectTransform cardRow, pipGrid;
@@ -112,7 +115,7 @@ namespace RuleRunner.Cards
             while (cards.Count < Rules.Count)
             {
                 var card = RuleCardView.Create(cardRow);
-                card.ToggleNot += c => Edit(c.Index, r => r.Negate = !r.Negate);
+                card.ToggleNot += c => { NotToggled?.Invoke(); Edit(c.Index, r => r.Negate = !r.Negate); };
                 card.PickCondition += OnPickCondition;
                 card.PickAction += OnPickAction;
                 card.MoveLeft += c => Move(c.Index, -1);
@@ -131,7 +134,8 @@ namespace RuleRunner.Cards
                 cards[i].gameObject.SetActive(show);
                 if (!show) continue;
                 cards[i].transform.SetSiblingIndex(1 + i);
-                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable);
+                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot);
+                cards[i].PulseNot = pulseNot;
                 cards[i].SetState(false);
                 cards[i].SetHits(0);
             }
@@ -182,6 +186,14 @@ namespace RuleRunner.Cards
                     if (e.gameObject.activeSelf) return (RectTransform)e.transform;
                 return null;
             }
+        }
+
+        /// <summary>Blink unpressed NOT chips (used until the player has tried NOT once).</summary>
+        public void SetNotPulse(bool on)
+        {
+            pulseNot = on;
+            foreach (var c in cards) c.PulseNot = on;
+            if (!on) RebuildCards();
         }
 
         public RuleCardView CardAt(int index) => index >= 0 && index < Rules.Count && index < cards.Count ? cards[index] : null;
