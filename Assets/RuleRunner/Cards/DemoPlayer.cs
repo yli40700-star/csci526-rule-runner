@@ -128,9 +128,9 @@ namespace RuleRunner.Cards
                     SetTraps(f.T);
                     if (f.FiredRule >= 0)
                     {
-                        var a = spec.Rules[f.FiredRule].Action;
-                        int cost = Vocabulary.Cost(a);
-                        actionText.text = Vocabulary.Display(a) + (cost > 0 ? " -" + cost : "");
+                        var rule = spec.Rules[f.FiredRule];
+                        int cost = rule.Cost;
+                        actionText.text = Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     }
                     else if (f.StarvedRule >= 0) actionText.text = "no qi!";
                     else actionText.text = f.HoldingRule >= 0 ? "waiting..." : "";

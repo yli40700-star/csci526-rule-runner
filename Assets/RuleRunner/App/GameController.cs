@@ -26,7 +26,9 @@ namespace RuleRunner.App
         const string NudgeShownKey = "rr_nudge_shown";
         const string NotTriedKey = "rr_not_tried";        // the player has pressed a NOT chip at least once
         const string NotCoachKey = "rr_not_coach";        // the one-step NOT spotlight in the NOT level was shown
+        const string AndCoachKey = "rr_and_coach";        // the one-step +AND spotlight in the first AND level was shown
         bool notCoachActive;   // the arrow is a one-time lesson: "hints live here"
+        bool andCoachActive;
 
         CameraFitter cameraFitter;
         MapView map;
@@ -119,8 +121,12 @@ namespace RuleRunner.App
             loadout.CardHover += PreviewCard;
             loadout.NotToggled += OnNotToggled;
             loadout.Changed += MaybeCoachNot;
+            loadout.AndToggled += EndAndCoach;
+            loadout.Changed += MaybeCoachAnd;
             coach.Next += EndNotCoach;
             coach.Skip += EndNotCoach;
+            coach.Next += EndAndCoach;
+            coach.Skip += EndAndCoach;
             resultPopup.BackToLevels += ShowLevelSelect;
             resultPopup.EditRules += ResetRun;
             resultPopup.NextLevel += () =>
@@ -252,6 +258,26 @@ namespace RuleRunner.App
             PlayerPrefs.SetInt(NotCoachKey, 1);
         }
 
+        // ---------- AND guidance: same one-time spotlight, on the +AND chip of the first AND level ----------
+
+        void MaybeCoachAnd()
+        {
+            if (andCoachActive || notCoachActive || tutorial.Active || level == null || level.Guide.Concept != "and") return;
+            if (loadout.Rules.Count == 0 || PlayerPrefs.GetInt(AndCoachKey, 0) == 1) return;
+            var card = loadout.CardAt(0);
+            if (card == null) return;
+            andCoachActive = true;
+            coach.Show(card.AndChip, "Tap +AND to add a second condition. The card fires only when BOTH are true, for 1 extra qi.", true);
+        }
+
+        void EndAndCoach()
+        {
+            if (!andCoachActive) return;
+            andCoachActive = false;
+            coach.Hide();
+            PlayerPrefs.SetInt(AndCoachKey, 1);
+        }
+
         /// <summary>Hovering a card marks every spot where it would fire, by simulating the current cards.</summary>
         void PreviewCard(int index)
         {
@@ -322,7 +348,7 @@ namespace RuleRunner.App
                     hits[f.FiredRule]++;
                     loadout.SetHits(hits);
                     var rule = rules[f.FiredRule];
-                    int cost = Vocabulary.Cost(rule.Action);
+                    int cost = rule.Cost;
                     string label = "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
                 }
@@ -384,7 +410,7 @@ namespace RuleRunner.App
             else if (f.HoldingRule >= 0)
                 s += "Card " + (f.HoldingRule + 1) + " keeps waiting for the trap to go down (no extra qi)";
             else if (f.StarvedRule >= 0)
-                s += "Card " + (f.StarvedRule + 1) + " was true but needs " + Vocabulary.Cost(rules[f.StarvedRule].Action) +
+                s += "Card " + (f.StarvedRule + 1) + " was true but needs " + rules[f.StarvedRule].Cost +
                      " qi (have " + f.QiBefore + ") - walked instead";
             else
                 s += "no card fired, Walk";
