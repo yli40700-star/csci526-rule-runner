@@ -5,7 +5,8 @@ namespace RuleRunner.Core
     /// <summary>
     /// Brute-force solver used by the level checker (design doc section 6.2).
     /// Tries every ordered list of 1..slots rule cards built from the level's
-    /// conditions x {IF, IF NOT} x actions (cards may repeat), and reports what wins.
+    /// conditions x {IF, IF NOT} x actions (cards may repeat), plus AND cards when the level
+    /// allows them, and reports what wins.
     /// </summary>
     public static class LevelAnalyzer
     {
@@ -27,21 +28,38 @@ namespace RuleRunner.Core
             public Dictionary<Outcome, long> OutcomeCounts = new Dictionary<Outcome, long>();
         }
 
-        public static List<Rule> CardPool(LevelDef level)
+        /// <summary>
+        /// Every card the player can build in the level. With includeAnd false the AND cards are left out,
+        /// which shows whether a level really needs AND.
+        /// </summary>
+        public static List<Rule> CardPool(LevelDef level, bool includeAnd = true)
         {
+            var negations = level.AllowNot ? new[] { false, true } : new[] { false };
             var pool = new List<Rule>();
             foreach (var c in level.Conditions)
-                foreach (var neg in level.AllowNot ? new[] { false, true } : new[] { false })
+                foreach (var neg in negations)
                     foreach (var a in level.Actions)
                         pool.Add(new Rule(c, neg, a));
+
+            if (level.AllowAnd && includeAnd)
+            {
+                // Each pair of different conditions once: A AND B is the same card as B AND A.
+                var conds = level.Conditions;
+                for (int i = 0; i < conds.Count; i++)
+                    for (int j = i + 1; j < conds.Count; j++)
+                        foreach (var neg1 in negations)
+                            foreach (var neg2 in negations)
+                                foreach (var a in level.Actions)
+                                    pool.Add(new Rule(conds[i], neg1, conds[j], neg2, a));
+            }
             return pool;
         }
 
-        public static Report Analyze(LevelDef level, int slots = -1, int maxExamples = 20)
+        public static Report Analyze(LevelDef level, int slots = -1, int maxExamples = 20, bool includeAnd = true)
         {
             if (slots < 0) slots = level.Slots;
             var report = new Report { SlotsTried = slots };
-            var pool = CardPool(level);
+            var pool = CardPool(level, includeAnd);
             var current = new List<Rule>(slots);
             Recurse(level, pool, slots, current, report, maxExamples);
             report.PreviousSolutionResult = Simulator.Run(level, level.PreviousSolution, recordFrames: false);

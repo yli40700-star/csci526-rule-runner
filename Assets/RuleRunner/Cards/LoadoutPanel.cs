@@ -27,6 +27,8 @@ namespace RuleRunner.Cards
         public event Action<int> CardHover;
         /// <summary>The player pressed a NOT chip.</summary>
         public event Action NotToggled;
+        /// <summary>The player pressed a +AND / AND chip.</summary>
+        public event Action AndToggled;
         bool pulseNot;
 
         Text loadoutText, qiText;
@@ -116,6 +118,9 @@ namespace RuleRunner.Cards
             {
                 var card = RuleCardView.Create(cardRow);
                 card.ToggleNot += c => { NotToggled?.Invoke(); Edit(c.Index, r => r.Negate = !r.Negate); };
+                card.ToggleAnd += c => { AndToggled?.Invoke(); Edit(c.Index, ToggleAnd); };
+                card.ToggleNot2 += c => { NotToggled?.Invoke(); Edit(c.Index, r => r.Negate2 = !r.Negate2); };
+                card.PickCondition2 += OnPickCondition2;
                 card.PickCondition += OnPickCondition;
                 card.PickAction += OnPickAction;
                 card.MoveLeft += c => Move(c.Index, -1);
@@ -134,7 +139,8 @@ namespace RuleRunner.Cards
                 cards[i].gameObject.SetActive(show);
                 if (!show) continue;
                 cards[i].transform.SetSiblingIndex(1 + i);
-                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot);
+                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot,
+                    Level != null && Level.AllowAnd);
                 cards[i].PulseNot = pulseNot;
                 cards[i].SetState(false);
                 cards[i].SetHits(0);
@@ -164,6 +170,21 @@ namespace RuleRunner.Cards
             change(Rules[index]);
             RebuildCards();
             Changed?.Invoke();
+        }
+
+        /// <summary>Turns a card into an AND card (second condition: the first other one the level offers) or back.</summary>
+        void ToggleAnd(Rule r)
+        {
+            if (r.And)
+            {
+                r.And = false;
+                return;
+            }
+            r.And = true;
+            r.Negate2 = false;
+            r.Condition2 = r.Condition;
+            foreach (var c in Level.Conditions)
+                if (c != r.Condition) { r.Condition2 = c; break; }
         }
 
         void Move(int index, int delta)
@@ -202,15 +223,32 @@ namespace RuleRunner.Cards
         {
             if (!editable) return;
             var rule = Rules[card.Index];
+            // On an AND card, picking what the AND line already checks swaps the two, so a card never checks one thing twice.
             picker.ShowConditions("IF ...", "What should card " + (card.Index + 1) + " look for?", Level.Conditions, rule.Negate,
-                rule.Condition, c => Edit(card.Index, r => r.Condition = c));
+                rule.Condition, c => Edit(card.Index, r =>
+                {
+                    if (r.And && r.Condition2 == c) r.Condition2 = r.Condition;
+                    r.Condition = c;
+                }));
+        }
+
+        void OnPickCondition2(RuleCardView card)
+        {
+            if (!editable) return;
+            var rule = Rules[card.Index];
+            // "What else": the condition the card already checks is not offered again.
+            var others = Level.Conditions.FindAll(c => c != rule.Condition);
+            picker.ShowConditions("AND ...", "What else must be true for card " + (card.Index + 1) + " to fire?", others,
+                rule.Negate2, rule.Condition2, c => Edit(card.Index, r => r.Condition2 = c));
         }
 
         void OnPickAction(RuleCardView card)
         {
             if (!editable) return;
-            picker.ShowActions("THEN ...", "What should card " + (card.Index + 1) + " do?", Level.Actions,
-                Rules[card.Index].Action, a => Edit(card.Index, r => r.Action = a));
+            var rule = Rules[card.Index];
+            int extra = rule.And ? Vocabulary.AndExtraQi : 0;
+            picker.ShowActions("THEN ...", "What should card " + (card.Index + 1) + " do?" + (rule.And ? "  (AND: 1 extra qi)" : ""),
+                Level.Actions, rule.Action, a => Edit(card.Index, r => r.Action = a), extra);
         }
 
         // ---------- Run feedback ----------

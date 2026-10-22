@@ -24,7 +24,35 @@ namespace RuleRunner.Cards
                 case "turn": Pair(area, 0, Condition.Wall, false, ActionType.Turn, "IF Wall ahead", "THEN Turn"); break;
                 case "walkblock": Pair(area, 0, Condition.Ground, false, ActionType.Walk, "IF Ground ahead", "THEN Walk (free, stops the rest)"); break;
                 case "ground2": Pair(area, 0, Condition.Ground2, true, ActionType.BigJump, "IF NOT Ground 2 ahead", "THEN Big Jump"); break;
+                case "and": And(area); break;
             }
+        }
+
+        /// <summary>Two condition diagrams joined by AND, then the action: the card fires only when both hold.</summary>
+        static void And(RectTransform area)
+        {
+            float[] xs = { -215f, -70f, 125f };
+            var c1 = UIKit.Centered(area, "Cond1", new Vector2(xs[0], 14), Icons.Size);
+            Icons.DrawCondition(c1, Condition.Ground, true);
+            var c2 = UIKit.Centered(area, "Cond2", new Vector2(xs[1], 14), Icons.Size);
+            Icons.DrawCondition(c2, Condition.Ground2, false);
+            var act = UIKit.Centered(area, "Act", new Vector2(xs[2], 14), Icons.Size);
+            Icons.DrawAction(act, ActionType.Jump);
+
+            UIKit.Label(UIKit.Centered(area, "And", new Vector2((xs[0] + xs[1]) / 2f, 16), new Vector2(50, 20)), "Text", "AND", 14,
+                TextAnchor.MiddleCenter, Theme.Qi, FontStyle.Bold);
+            UIKit.Shape(area, "Arrow", UISprites.Triangle, Theme.Dim, new Vector2((xs[1] + xs[2]) / 2f, 16), new Vector2(10, 9))
+                .rectTransform.localRotation = Quaternion.Euler(0, 0, -90f);
+
+            UIKit.Label(UIKit.Centered(area, "Label1", new Vector2(xs[0], -24), new Vector2(150, 20)), "Text", "IF NOT Ground ahead", 13,
+                TextAnchor.MiddleCenter, Theme.Not, FontStyle.Bold);
+            UIKit.Label(UIKit.Centered(area, "Label2", new Vector2(xs[1], -24), new Vector2(150, 20)), "Text", "AND Ground 2 ahead", 13,
+                TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
+            UIKit.Label(UIKit.Centered(area, "Label3", new Vector2(xs[2], -24), new Vector2(150, 20)), "Text", "THEN Jump", 13,
+                TextAnchor.MiddleCenter, Theme.ActionColor(ActionType.Jump), FontStyle.Bold);
+            UIKit.Label(UIKit.Centered(area, "Note", new Vector2(0, -56), new Vector2(640, 20)), "Text",
+                "Fires only when BOTH are true: something is in the way, and the landing is safe. Costs 1 extra qi.", 13,
+                TextAnchor.MiddleCenter, Theme.Dim);
         }
 
         /// <summary>Condition diagram, arrow, action diagram, with a caption under each.</summary>

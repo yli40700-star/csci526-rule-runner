@@ -41,6 +41,8 @@ namespace RuleRunner.Tests
         [TestCase("2-3", "spike")]
         [TestCase("2-4", "pit")]
         [TestCase("2-5", "trap")]
+        [TestCase("3-1", "pit")]
+        [TestCase("3-2", "pit")]
         public void PreviousExpectedMatchesDesignDoc(string id, string expected)
         {
             Assert.AreEqual(Vocabulary.ParseOutcome(expected), LevelDatabase.Get(id).PreviousExpected);
@@ -56,6 +58,8 @@ namespace RuleRunner.Tests
         [TestCase("2-3", 0)]
         [TestCase("2-4", 0)]
         [TestCase("2-5", 0)]
+        [TestCase("3-1", 0)]
+        [TestCase("3-2", 0)]
         public void SolutionQiMatchesDesignDoc(string id, int qiLeft)
         {
             Assert.AreEqual(qiLeft, LevelDatabase.Get(id).SolutionQiLeft);
