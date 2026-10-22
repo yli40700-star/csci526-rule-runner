@@ -33,7 +33,8 @@ namespace RuleRunner.Core
                     : null;
 
                 // 1. Pick the action: keep holding after a Wait while the trap ahead is up;
-                //    otherwise the first rule whose (possibly negated) condition holds.
+                //    otherwise the first rule whose (possibly negated) condition holds
+                //    (both conditions for an AND card).
                 var action = ActionType.Walk;
                 bool holding = holdRule >= 0 && Cell(cells, x + dir) == Vocabulary.Trap && Vocabulary.TrapUp(t);
                 if (holding)
@@ -46,11 +47,9 @@ namespace RuleRunner.Core
                 for (int i = 0; i < rules.Count && !holding; i++)
                 {
                     var rule = rules[i];
-                    bool ok = Test(cells, rule.Condition, x, dir, t);
-                    if (rule.Negate) ok = !ok;
-                    if (!ok) continue;
+                    if (!Holds(cells, rule, x, dir, t)) continue;
 
-                    int cost = Vocabulary.Cost(rule.Action);
+                    int cost = rule.Cost;
                     if (qi >= cost)
                     {
                         action = rule.Action;
@@ -140,6 +139,14 @@ namespace RuleRunner.Core
                 case Condition.Trap: return ahead == Vocabulary.Trap && Vocabulary.TrapUp(t);
                 default: throw new ArgumentOutOfRangeException(nameof(cond));
             }
+        }
+
+        /// <summary>True when the card's (possibly negated) condition holds; an AND card needs both.</summary>
+        public static bool Holds(char[] cells, Rule rule, int x, int dir, int t)
+        {
+            bool ok = Test(cells, rule.Condition, x, dir, t) != rule.Negate;
+            if (ok && rule.And) ok = Test(cells, rule.Condition2, x, dir, t) != rule.Negate2;
+            return ok;
         }
 
         /// <summary>What happens when the runner enters a cell at step t (before t is incremented).</summary>
