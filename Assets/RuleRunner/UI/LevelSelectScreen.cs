@@ -42,7 +42,7 @@ namespace RuleRunner.UI
 
             UIKit.Label(UIKit.TopStrip(root.transform, "Tagline", 158f, 60f, 160f, 160f), "Text",
                 "You never press jump during a run. Equip your runner with IF-THEN skill cards.\n" +
-                "Every card fires every time its condition comes true - and every firing spends qi.",
+                "Cards are checked left to right: the first one whose condition is true fires - and every firing spends qi.",
                 19, TextAnchor.MiddleCenter, Theme.Dim);
 
             // Two chapters fit as before; from chapter 3 on the list scrolls, with a hint under it.
@@ -55,7 +55,7 @@ namespace RuleRunner.UI
             screen.scroll.onValueChanged.AddListener(_ => screen.UpdateMoreHint());
 
             UIKit.Label(UIKit.Rect(root.transform, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(20, 10), new Vector2(-20, 36)),
-                "Text", "CSCI 526  -  Beta build  -  grey-box prototype", 14, TextAnchor.MiddleCenter, Theme.Faint);
+                "Text", "CSCI 526  -  Alpha build  -  grey-box prototype", 14, TextAnchor.MiddleCenter, Theme.Faint);
             return screen;
         }
 
