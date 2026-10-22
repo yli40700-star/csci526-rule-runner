@@ -60,5 +60,39 @@ namespace RuleRunner.Tests
             var report = LevelAnalyzer.Analyze(LevelDatabase.Get("2-5"), slots: 4);
             Assert.AreEqual(18, report.WinningCombinations);
         }
+
+        [Test]
+        public void AndCardsJoinThePoolOnlyWhenAllowed()
+        {
+            // 3-1: 4 conditions x {IF, IF NOT} x 2 actions = 16 single cards;
+            // 6 pairs of different conditions x 4 NOT combinations x 2 actions = 48 AND cards.
+            var level = LevelDatabase.Get("3-1");
+            Assert.AreEqual(64, LevelAnalyzer.CardPool(level).Count);
+            Assert.AreEqual(16, LevelAnalyzer.CardPool(level, includeAnd: false).Count);
+            Assert.AreEqual(16, LevelAnalyzer.CardPool(LevelDatabase.Get("2-3")).Count, "no AND before chapter 3");
+        }
+
+        [TestCase("3-1", 2)]
+        [TestCase("3-2", 1)]
+        public void Chapter3WinningCombinationCounts(string id, int expected)
+        {
+            var report = LevelAnalyzer.Analyze(LevelDatabase.Get(id));
+            Assert.AreEqual(expected, report.WinningCombinations);
+            Assert.AreEqual(0, report.MaxQiLeft, "the designed solution spends every qi");
+        }
+
+        [TestCase("3-1")]
+        [TestCase("3-2")]
+        public void Chapter3NeedsAnd(string id)
+        {
+            Assert.AreEqual(0, LevelAnalyzer.Analyze(LevelDatabase.Get(id), includeAnd: false).WinningCombinations);
+        }
+
+        [Test]
+        public void Level3_1_ThirdSlotDoesNotReplaceAnd()
+        {
+            var report = LevelAnalyzer.Analyze(LevelDatabase.Get("3-1"), slots: 3, includeAnd: false);
+            Assert.AreEqual(0, report.WinningCombinations);
+        }
     }
 }
