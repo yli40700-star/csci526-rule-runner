@@ -44,10 +44,12 @@ namespace RuleRunner.EditorTools
 
             EditorGUILayout.LabelField("Map", level.Map + "   start " + level.Start + " dir " + (level.Dir > 0 ? "+1" : "-1") + "   qi " + level.Qi);
             int slots = slotOverride < 0 ? level.Slots : slotOverride;
-            long pool = level.Conditions.Count * 2L * level.Actions.Count;
+            long pool = LevelAnalyzer.CardPool(level).Count;
             long total = 0, p = 1;
             for (int k = 1; k <= slots; k++) { p *= pool; total += p; }
             EditorGUILayout.LabelField("Combinations to try", total.ToString("N0") + (total > 20000000 ? "  (slow!)" : ""));
+            if (level.AllowAnd)
+                EditorGUILayout.LabelField("AND cards", "allowed: the report also checks the level without them", EditorStyles.miniLabel);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -75,6 +77,13 @@ namespace RuleRunner.EditorTools
                           (r.BestSolution != null ? "   e.g. " + Rule.JoinIds(r.BestSolution) : ""));
             sb.AppendLine("Fewest rules: " + (r.MinRules < 0 ? "-" : r.MinRules.ToString()) +
                           (r.ShortestSolution != null ? "   e.g. " + Rule.JoinIds(r.ShortestSolution) : ""));
+            if (level.AllowAnd)
+            {
+                // An AND level should not be solvable with single-condition cards alone.
+                var plain = LevelAnalyzer.Analyze(level, slots, includeAnd: false);
+                sb.AppendLine("Without AND cards: " + plain.WinningCombinations + " winning combinations" +
+                              (plain.WinningCombinations == 0 ? "  OK (AND is needed)" : "  (AND is not needed!)"));
+            }
 
             var ref_ = Simulator.Run(level, level.Solution, recordFrames: false);
             sb.AppendLine("Reference solution [" + Rule.JoinIds(level.Solution) + "]: " +
