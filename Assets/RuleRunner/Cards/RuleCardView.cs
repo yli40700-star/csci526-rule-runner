@@ -11,6 +11,7 @@ namespace RuleRunner.Cards
     /// A rule as a "skill card" the runner equips:
     ///   header band (action color): priority number, hit counter, qi cost pips
     ///   IF   section: NOT chip + condition diagram + name   (click to change the condition)
+    ///                 in AND levels a +AND chip; an AND card shows its two conditions as two short lines
     ///   THEN section: action diagram + name                  (click to change the action)
     ///   footer: move left / remove / move right
     /// The owner (GameScreen) holds the rule list; the card only raises events.
@@ -20,6 +21,8 @@ namespace RuleRunner.Cards
         public static readonly Vector2 CardSize = new Vector2(156, 226);
 
         public event Action<RuleCardView> ToggleNot, PickCondition, PickAction, MoveLeft, MoveRight, Remove;
+        /// <summary>AND cards: the +AND chip, the second NOT chip and the second condition line.</summary>
+        public event Action<RuleCardView> ToggleAnd, ToggleNot2, PickCondition2;
         /// <summary>Pointer entered / left the card (used for the "where will this fire" preview).</summary>
         public event Action<RuleCardView, bool> Hover;
 
@@ -28,6 +31,7 @@ namespace RuleRunner.Cards
 
         public RectTransform IfArea => (RectTransform)condArea.transform;
         public RectTransform NotChip => notChip.rectTransform;
+        public RectTransform AndChip => andChip.rectTransform;
 
         /// <summary>When true, an unpressed NOT chip gently blinks (until the player has tried NOT once).</summary>
         public bool PulseNot { get; set; }
@@ -40,6 +44,12 @@ namespace RuleRunner.Cards
         Text priorityText, hitsText, condText, actionText, notText;
         Image notChip;
         Button notButton, condArea, actionArea, leftButton, rightButton, removeButton;
+
+        // AND: the chip in the IF row, and the two-line layout that replaces the diagram on an AND card.
+        Image andChip, notChip2;
+        Text andText, notText2, cond1Line, cond2Line;
+        Button andButton, notButton2, cond2Area;
+        RectTransform andRows;
         float lift, liftTarget;
 
         public int Index { get; private set; }
@@ -84,6 +94,7 @@ namespace RuleRunner.Cards
             card.condIcon = UIKit.Centered(ifRt, "Icon", new Vector2(0, 2f), Icons.Size);
             var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20));
             card.condText = UIKit.Label(condLabel, "Text", "", 14, TextAnchor.MiddleCenter);
+            BuildAnd(card, ifRt, ifLabel);
 
             // Divider.
             UIKit.Panel(card.body, "Divider", Theme.Line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -124), new Vector2(-16, -123));
@@ -111,6 +122,35 @@ namespace RuleRunner.Cards
             return card;
         }
 
+        /// <summary>
+        /// The +AND chip sits left of the NOT chip. On an AND card the diagram gives way to two short lines:
+        /// the first condition (click the IF area to change it) and "AND [NOT] second condition" (click to change it).
+        /// </summary>
+        static void BuildAnd(RuleCardView card, RectTransform ifRt, RectTransform ifLabel)
+        {
+            card.andChip = UIKit.Box(ifLabel, "And", Theme.Raised, 9f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-96, 0), new Vector2(-50, 0));
+            card.andButton = card.andChip.gameObject.AddComponent<Button>();
+            card.andButton.targetGraphic = card.andChip;
+            card.andButton.onClick.AddListener(() => card.ToggleAnd?.Invoke(card));
+            card.andText = UIKit.Label(card.andChip.transform, "Text", "+AND", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+
+            card.andRows = UIKit.Rect(ifRt, "AndRows", Vector2.zero, Vector2.one);
+            card.cond1Line = UIKit.Label(UIKit.TopStrip(card.andRows, "Cond1", 24f, 18f, 4f, 4f), "Text", "", 13, TextAnchor.MiddleCenter);
+
+            var second = UIKit.TopStrip(card.andRows, "Second", 44f, 36f);
+            card.cond2Area = UIKit.HitArea(second, () => card.PickCondition2?.Invoke(card), new Color(1, 1, 1, 0.07f));
+            var andLabel = UIKit.TopStrip(second, "AndLabel", 2f, 16f, 8f, 8f);
+            UIKit.Label(andLabel, "Text", "AND", 13, TextAnchor.MiddleLeft, Theme.Qi, FontStyle.Bold);
+            card.notChip2 = UIKit.Box(andLabel, "Not2", Theme.Raised, 9f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-46, 0), Vector2.zero);
+            card.notButton2 = card.notChip2.gameObject.AddComponent<Button>();
+            card.notButton2.targetGraphic = card.notChip2;
+            card.notButton2.onClick.AddListener(() => card.ToggleNot2?.Invoke(card));
+            card.notText2 = UIKit.Label(card.notChip2.transform, "Text", "+NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            NotTooltip.Attach(card.notChip2.rectTransform);
+            card.cond2Line = UIKit.Label(UIKit.TopStrip(second, "Cond2", 18f, 18f, 4f, 4f), "Text", "", 13, TextAnchor.MiddleCenter);
+            card.andRows.gameObject.SetActive(false);
+        }
+
         /// <summary>Anchors a footer button to the left (0) or right (1) edge with a fixed width.</summary>
         static void SetH(Transform t, float side, float width)
         {
@@ -122,7 +162,7 @@ namespace RuleRunner.Cards
             rt.anchoredPosition = Vector2.zero;
         }
 
-        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true)
+        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true, bool allowAnd = false)
         {
             negated = rule.Negate;
             notVisible = allowNot;
@@ -141,7 +181,8 @@ namespace RuleRunner.Cards
 
             actionText.text = Vocabulary.Display(rule.Action);
             Icons.DrawAction(actionIcon, rule.Action);
-            BuildPips(Vocabulary.Cost(rule.Action));
+            BuildPips(rule.Cost);
+            BindAnd(rule, editable, allowNot, allowAnd);
 
             notButton.interactable = editable;
             condArea.interactable = editable;
@@ -149,6 +190,32 @@ namespace RuleRunner.Cards
             leftButton.interactable = editable && !isFirst;
             rightButton.interactable = editable && !isLast;
             removeButton.interactable = editable;
+        }
+
+        void BindAnd(Rule rule, bool editable, bool allowNot, bool allowAnd)
+        {
+            bool and = rule.And;
+            andChip.gameObject.SetActive(allowAnd || and);
+            andChip.color = and ? Theme.Qi : Theme.Raised;
+            andText.text = and ? "AND" : "+AND";
+            andText.color = and ? Theme.Background : Theme.Dim;
+            andButton.interactable = editable;
+
+            condIcon.gameObject.SetActive(!and);
+            condText.gameObject.SetActive(!and);
+            andRows.gameObject.SetActive(and);
+            if (!and) return;
+
+            cond1Line.text = (rule.Negate ? "NOT " : "") + Vocabulary.Display(rule.Condition);
+            cond1Line.color = rule.Negate ? Theme.Hex(0xffb3a3) : Theme.Text;
+            cond2Line.text = (rule.Negate2 ? "NOT " : "") + Vocabulary.Display(rule.Condition2);
+            cond2Line.color = rule.Negate2 ? Theme.Hex(0xffb3a3) : Theme.Text;
+            notChip2.gameObject.SetActive(allowNot);
+            notChip2.color = rule.Negate2 ? Theme.Not : Theme.Raised;
+            notText2.text = rule.Negate2 ? "NOT" : "+NOT";
+            notText2.color = rule.Negate2 ? Theme.Text : Theme.Dim;
+            notButton2.interactable = editable;
+            cond2Area.interactable = editable;
         }
 
         void BuildPips(int cost)
@@ -160,6 +227,8 @@ namespace RuleRunner.Cards
                 UIKit.Layout(free, 40f, 20f);
                 return;
             }
+            // Four pips (an AND card's Big Jump) shrink a little so they stay clear of the hit counter.
+            float size = cost > 3 ? 9f : 11f;
             for (int i = 0; i < cost; i++)
             {
                 var pip = UIKit.Rect(pips, "Pip", Vector2.zero, Vector2.one);
@@ -168,7 +237,7 @@ namespace RuleRunner.Cards
                 img.color = Theme.Qi;
                 img.raycastTarget = false;
                 pip.gameObject.AddComponent<Outline>().effectColor = new Color(0, 0, 0, 0.35f);
-                UIKit.Layout(pip, 11f, 11f);
+                UIKit.Layout(pip, size, size);
             }
         }
 
