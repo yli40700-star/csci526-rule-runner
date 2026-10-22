@@ -155,5 +155,74 @@ namespace RuleRunner.Tests
                 Assert.AreEqual(text, R(text).ToIdString());
             Assert.AreEqual("IF NOT Ground ahead THEN Jump", R("IF NOT ground THEN jump").ToDisplayString());
         }
+
+        [Test]
+        public void AndCardNeedsBothConditions()
+        {
+            var card = R("IF pit AND ground2 THEN jump");
+            Assert.IsTrue(Simulator.Holds("gpg".ToCharArray(), card, 0, 1, 0));
+            Assert.IsFalse(Simulator.Holds("gpp".ToCharArray(), card, 0, 1, 0), "second condition is false");
+            Assert.IsFalse(Simulator.Holds("ggg".ToCharArray(), card, 0, 1, 0), "first condition is false");
+        }
+
+        [Test]
+        public void AndCardNegatesEachSideOnItsOwn()
+        {
+            var card = R("IF pit AND NOT ground2 THEN bigjump");
+            Assert.IsTrue(Simulator.Holds("gpp".ToCharArray(), card, 0, 1, 0));
+            Assert.IsFalse(Simulator.Holds("gpg".ToCharArray(), card, 0, 1, 0));
+
+            var both = R("IF NOT ground AND NOT ground2 THEN bigjump");
+            Assert.IsTrue(Simulator.Holds("gsp".ToCharArray(), both, 0, 1, 0));
+            Assert.IsFalse(Simulator.Holds("gsg".ToCharArray(), both, 0, 1, 0));
+        }
+
+        [Test]
+        public void AndCardCostsOneExtraQi()
+        {
+            Assert.AreEqual(1, R("IF pit THEN jump").Cost);
+            Assert.AreEqual(2, R("IF pit AND ground2 THEN jump").Cost);
+            Assert.AreEqual(4, R("IF pit AND NOT ground2 THEN bigjump").Cost);
+            Assert.AreEqual(1, R("IF ground AND ground2 THEN walk").Cost, "even Walk costs 1 on an AND card");
+
+            var r = Run("gpgf", 2, "IF pit AND ground2 THEN jump");
+            Assert.AreEqual(Outcome.Win, r.Outcome);
+            Assert.AreEqual(0, r.QiLeft);
+        }
+
+        [Test]
+        public void AndCardWithoutEnoughQiFallsBackToWalk()
+        {
+            // The jump costs 1 but the AND card 2: with 1 qi it is starved and the runner walks into the pit.
+            var r = Run("gpgf", 1, "IF pit AND ground2 THEN jump");
+            Assert.AreEqual(Outcome.Pit, r.Outcome);
+            Assert.IsTrue(r.RanOutOfQi);
+            Assert.AreEqual(0, r.Frames[0].StarvedRule);
+            Assert.AreEqual(1, r.QiLeft);
+        }
+
+        [Test]
+        public void AndCardParseRoundTripAndSideOrder()
+        {
+            foreach (var text in new[] { "IF pit AND ground2 THEN jump", "IF NOT ground AND NOT ground2 THEN bigjump" })
+                Assert.AreEqual(text, R(text).ToIdString());
+            Assert.AreEqual("IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump",
+                R("IF pit AND NOT ground2 THEN bigjump").ToDisplayString());
+
+            // Both sides must hold, so A AND B is the same card as B AND A.
+            Assert.AreEqual(R("IF pit AND NOT ground2 THEN jump"), R("IF NOT ground2 AND pit THEN jump"));
+            Assert.AreEqual(R("IF pit AND NOT ground2 THEN jump").GetHashCode(),
+                R("IF NOT ground2 AND pit THEN jump").GetHashCode());
+            Assert.AreNotEqual(R("IF pit THEN jump"), R("IF pit AND ground2 THEN jump"));
+            Assert.AreEqual(R("IF pit AND ground2 THEN jump"), R("IF pit AND ground2 THEN jump").Clone());
+        }
+
+        [TestCase("IF pit AND THEN jump")]
+        [TestCase("IF pit AND NOT THEN jump")]
+        [TestCase("IF pit AND ground2 jump")]
+        public void AndCardParseRejectsBrokenText(string text)
+        {
+            Assert.Throws<System.FormatException>(() => R(text));
+        }
     }
 }

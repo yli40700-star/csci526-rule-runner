@@ -25,6 +25,8 @@ namespace RuleRunner.Core
 
         public const int OrbQi = 2;
         public const int MaxSteps = 90;
+        /// <summary>An AND card costs this much more than its action each time it fires.</summary>
+        public const int AndExtraQi = 1;
 
         public static bool IsStandable(char c) => c == Ground || c == Orb || c == Finish || c == Trap;
         public static bool IsWall(char c) => c == LowWall || c == HighWall;

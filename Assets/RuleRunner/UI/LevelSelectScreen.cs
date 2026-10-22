@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using RuleRunner.Core;
 using RuleRunner.Levels;
@@ -14,6 +15,9 @@ namespace RuleRunner.UI
         public event Action<LevelDef> LevelChosen;
 
         RectTransform chapters;
+        ScrollRect scroll;
+        Text moreHint;
+        readonly Dictionary<int, RectTransform> chapterHeads = new Dictionary<int, RectTransform>();
         Func<string, bool> isCleared;
 
         static readonly Vector2 TileSize = new Vector2(196, 132);
@@ -41,8 +45,14 @@ namespace RuleRunner.UI
                 "Every card fires every time its condition comes true - and every firing spends qi.",
                 19, TextAnchor.MiddleCenter, Theme.Dim);
 
-            screen.chapters = UIKit.Rect(root.transform, "Chapters", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-540, -660), new Vector2(540, -240));
-            UIKit.VColumn(screen.chapters, 14);
+            // Two chapters fit as before; from chapter 3 on the list scrolls, with a hint under it.
+            var view = UIKit.Rect(root.transform, "Chapters", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-540, -660), new Vector2(540, -240));
+            screen.chapters = UIKit.ScrollView(view, "Scroll", out screen.scroll);
+            UIKit.VColumn(screen.chapters, 14, new RectOffset(0, 0, 0, 8));
+            screen.moreHint = UIKit.Label(UIKit.Rect(root.transform, "MoreHint", new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                new Vector2(-540, -684), new Vector2(540, -662)), "Text", "More chapters below - scroll down", 14,
+                TextAnchor.MiddleCenter, Theme.Gold, FontStyle.Bold);
+            screen.scroll.onValueChanged.AddListener(_ => screen.UpdateMoreHint());
 
             UIKit.Label(UIKit.Rect(root.transform, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(20, 10), new Vector2(-20, 36)),
                 "Text", "CSCI 526  -  Beta build  -  grey-box prototype", 14, TextAnchor.MiddleCenter, Theme.Faint);
@@ -53,17 +63,39 @@ namespace RuleRunner.UI
         {
             Refresh();
             gameObject.SetActive(true);
+            ScrollToNextLevel();
         }
 
         public void Hide() => gameObject.SetActive(false);
 
+        /// <summary>Scrolls so the chapter with the first uncleared level is in view (no-op when everything fits).</summary>
+        void ScrollToNextLevel()
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(chapters);
+            float overflow = chapters.rect.height - scroll.viewport.rect.height;
+            float top = 0f;
+            var next = LevelDatabase.All.FirstOrDefault(l => l.Playable && !isCleared(l.Id));
+            if (overflow > 1f && next != null && chapterHeads.TryGetValue(next.Chapter, out var head))
+                top = -head.anchoredPosition.y - head.rect.height * (1f - head.pivot.y);
+            scroll.verticalNormalizedPosition = overflow > 1f ? 1f - Mathf.Clamp01(top / overflow) : 1f;
+            UpdateMoreHint();
+        }
+
+        void UpdateMoreHint()
+        {
+            bool overflow = chapters.rect.height - scroll.viewport.rect.height > 1f;
+            moreHint.gameObject.SetActive(overflow && scroll.verticalNormalizedPosition > 0.02f);
+        }
+
         void Refresh()
         {
             UIKit.DestroyChildren(chapters);
+            chapterHeads.Clear();
             foreach (var group in LevelDatabase.All.GroupBy(l => l.Chapter))
             {
                 var head = UIKit.Rect(chapters, "Chapter " + group.Key, Vector2.zero, Vector2.one);
                 UIKit.Layout(head, -1, 30);
+                chapterHeads[group.Key] = head;
                 int cleared = group.Count(l => l.Playable && isCleared(l.Id));
                 int playable = group.Count(l => l.Playable);
                 UIKit.Label(head, "Name", "CHAPTER " + group.Key, 18, TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);

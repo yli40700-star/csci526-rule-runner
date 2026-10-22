@@ -43,16 +43,32 @@ namespace RuleRunner.Tests
         }
 
         [Test]
+        public void AndFirstAppearsInTheAndLevel()
+        {
+            Assert.AreEqual("3-1", FirstLevelWith(l => l.AllowAnd));
+            Assert.AreEqual("and", LevelDatabase.Get("3-1").Guide.Concept);
+        }
+
+        [Test]
+        public void LevelWithoutAndNeverOffersAnAndCard()
+        {
+            foreach (var level in LevelDatabase.All.Where(l => !l.AllowAnd))
+                Assert.IsFalse(LevelAnalyzer.CardPool(level).Any(r => r.And), level.Id);
+        }
+
+        [Test]
         public void EveryNewDemoRunsWithoutDying()
         {
+            bool Offered(LevelDef level, Condition c) => level.Conditions.Contains(c) || c == Condition.Ground;
             foreach (var level in LevelDatabase.All)
                 foreach (var d in level.Guide.NewItems)
                 {
                     var r = Simulator.Run(d.Map, d.Start, d.Dir, d.Qi, d.Rules, true, d.Steps);
                     bool ok = r.Outcome == Outcome.Win || r.Outcome == Outcome.Timeout;
                     Assert.AreEqual(!d.ExpectFailure, ok, level.Id + " demo '" + d.Title + "' ends with " + r.Outcome);
-                    Assert.IsTrue(d.Rules.All(rule => level.Conditions.Contains(rule.Condition) || rule.Condition == Condition.Ground),
+                    Assert.IsTrue(d.Rules.All(rule => Offered(level, rule.Condition) && (!rule.And || Offered(level, rule.Condition2))),
                         level.Id + " demo uses a condition the level does not offer");
+                    Assert.IsTrue(level.AllowAnd || d.Rules.All(rule => !rule.And), level.Id + " demo uses AND before it is introduced");
                 }
         }
     }

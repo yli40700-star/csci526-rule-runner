@@ -60,7 +60,9 @@ namespace RuleRunner.Cards
             }
         }
 
-        public void ShowActions(string heading, string sub, IList<ActionType> options, ActionType selected, Action<ActionType> onPick)
+        /// <summary>Action tiles; extraQi is added to every shown cost (an AND card pays 1 more).</summary>
+        public void ShowActions(string heading, string sub, IList<ActionType> options, ActionType selected, Action<ActionType> onPick,
+            int extraQi = 0)
         {
             Open(heading, sub, options.Count);
             foreach (var a in options)
@@ -70,7 +72,7 @@ namespace RuleRunner.Cards
                 var band = UIKit.Box(tile, "Band", Theme.ActionColor(a), 6f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(8, -12), new Vector2(-8, -6));
                 band.raycastTarget = false;
                 Icons.DrawAction(UIKit.Centered(tile, "Icon", new Vector2(0, 12), Icons.Size), a);
-                int cost = Vocabulary.Cost(a);
+                int cost = Vocabulary.Cost(a) + extraQi;
                 UIKit.Label(UIKit.Rect(tile, "Name", Vector2.zero, new Vector2(1, 0), new Vector2(6, 8), new Vector2(-6, 34)),
                     "Text", Vocabulary.Display(a) + (cost == 0 ? "   free" : "   -" + cost + " qi"), 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
             }

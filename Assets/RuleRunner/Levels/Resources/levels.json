@@ -586,6 +586,115 @@
       ],
       "qiLine": "You paid for jumps you didn't need.",
       "previousLine": "Your 2-4 cards have never met a trap."
+    },
+    {
+      "id": "3-1",
+      "chapter": 3,
+      "title": "Both Must Hold",
+      "hint": "One pit can be jumped; two pits in a row cannot. With this little qi, Big Jump only where it is needed.",
+      "map": "gggggpggsggppggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 6,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "pit",
+      "concept": "and",
+      "hints": [
+        "Only the double pit needs a Big Jump. Everything else is a 1-qi Jump.",
+        "Tap +AND on a card: IF Pit ahead AND NOT Ground 2 ahead is true only right before the double pit.",
+        "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "That pit had another pit behind it.",
+        "Ground 2 ahead fired a step too early."
+      ],
+      "deathSpike": [
+        "None of your cards looked at the spike."
+      ],
+      "qiLine": "A Big Jump at every pit costs too much. AND picks out the double pit.",
+      "previousLine": "Your 2-3 cards: on long ground, Ground 2 ahead fires a step too early.",
+      "newItems": [
+        {
+          "title": "NEW: AND",
+          "line": "+AND adds a second condition. The card fires only when BOTH are true, and costs 1 extra qi.",
+          "map": "gpggppgg",
+          "start": 0,
+          "dir": 1,
+          "qi": 6,
+          "rules": [
+            "IF pit AND NOT ground2 THEN bigjump",
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 5
+        }
+      ]
+    },
+    {
+      "id": "3-2",
+      "chapter": 3,
+      "title": "Look Before You Leap",
+      "hint": "A Jump lands two tiles ahead. Jump only when that tile is ground; otherwise Big Jump.",
+      "map": "ggggwggggppggspggf",
+      "start": 0,
+      "dir": 1,
+      "qi": 8,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF NOT ground AND ground2 THEN jump",
+        "IF NOT ground THEN bigjump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "pit",
+      "concept": "and",
+      "hints": [
+        "Before every jump, ask: is the landing tile ground?",
+        "IF NOT Ground ahead AND Ground 2 ahead: something is in the way, and a Jump would land safely.",
+        "IF NOT Ground ahead AND Ground 2 ahead THEN Jump, then IF NOT Ground ahead THEN Big Jump."
+      ],
+      "deathPit": [
+        "A Jump over the spike landed in the pit behind it.",
+        "Two pits in a row need a Big Jump."
+      ],
+      "deathSpike": [
+        "Nothing fired before the spike."
+      ],
+      "qiLine": "A Big Jump over the low wall wastes qi. A Jump is enough there.",
+      "previousLine": "Your 3-1 cards only check pits. Here a spike hides a pit behind it."
     }
   ]
 }

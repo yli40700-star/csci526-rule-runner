@@ -21,6 +21,8 @@ namespace RuleRunner.Core
         public List<ActionType> Actions = new List<ActionType>();
         /// <summary>False before NOT is introduced: cards cannot be negated in this level.</summary>
         public bool AllowNot = true;
+        /// <summary>True when cards may test two conditions with AND (off unless the level turns it on).</summary>
+        public bool AllowAnd;
 
         /// <summary>False for placeholder levels that are still being designed.</summary>
         public bool Playable = true;
