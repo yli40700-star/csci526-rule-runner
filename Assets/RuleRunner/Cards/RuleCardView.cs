@@ -20,11 +20,11 @@ namespace RuleRunner.Cards
     public class RuleCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         public static readonly Vector2 CardSize = new Vector2(156, 226);
-        /// <summary>Card size in AND levels: room for two full conditions, close to the usual card's proportions.</summary>
-        public static readonly Vector2 TallCardSize = new Vector2(184, 276);
-        /// <summary>Diagrams on the tall card are drawn smaller so two conditions and the action fit.</summary>
-        const float TallIconScale = 0.72f;
-        public static Vector2 SizeFor(bool tall) => tall ? TallCardSize : CardSize;
+        /// <summary>Card size in AND levels with one condition (room for "+ AND" under it).</summary>
+        public static readonly Vector2 TallCardSize = new Vector2(184, 268);
+        /// <summary>An AND card grows downward by the second condition; diagrams stay full size.</summary>
+        public static readonly Vector2 AndCardSize = new Vector2(184, 322);
+        public static Vector2 SizeFor(bool tall, bool and = false) => !tall ? CardSize : and ? AndCardSize : TallCardSize;
 
         public event Action<RuleCardView> ToggleNot, PickCondition, PickAction, MoveLeft, MoveRight, Remove;
         /// <summary>AND cards: + AND / x, the second NOT button and the second condition.</summary>
@@ -53,7 +53,7 @@ namespace RuleRunner.Cards
         GameObject classic;
 
         // Tall layout (AND levels).
-        bool tall, sized;
+        bool tall, sized, andSized;
         GameObject tallRoot;
         TallCondition cond1, cond2;
         Button addAndButton, tallActionArea;
@@ -150,12 +150,12 @@ namespace RuleRunner.Cards
             card.tallRoot = root.gameObject;
             card.cond1 = TallCondition.Build(root, "If1", 38f, "IF", () => card.PickCondition?.Invoke(card), () => card.ToggleNot?.Invoke(card));
 
-            var addRt = UIKit.TopStrip(root, "AddAnd", 97f, 20f, 56f, 56f);
+            var addRt = UIKit.TopStrip(root, "AddAnd", 116f, 20f, 56f, 56f);
             card.addAndButton = UIKit.Button(addRt, "Button", "+ AND", 12, Theme.Raised, () => card.ToggleAnd?.Invoke(card), 8f);
             UIKit.ButtonText(card.addAndButton).color = Theme.Dim;
 
             // Divider: line, AND, x (back to one condition), line.
-            card.andDivider = UIKit.TopStrip(root, "AndDivider", 96f, 20f, 10f, 10f);
+            card.andDivider = UIKit.TopStrip(root, "AndDivider", 115f, 20f, 10f, 10f);
             UIKit.Panel(card.andDivider, "LineL", Theme.Line, new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -0.5f), new Vector2(-36, 0.5f));
             UIKit.Panel(card.andDivider, "LineR", Theme.Line, new Vector2(0.5f, 0.5f), new Vector2(1, 0.5f), new Vector2(38, -0.5f), new Vector2(0, 0.5f));
             UIKit.Label(UIKit.Centered(card.andDivider, "And", new Vector2(-12, 0), new Vector2(42, 20)), "Text", "AND", 14,
@@ -164,27 +164,26 @@ namespace RuleRunner.Cards
                 Theme.Raised, () => card.ToggleAnd?.Invoke(card), 6f);
             UIKit.ButtonText(x).color = Theme.Dim;
 
-            card.cond2 = TallCondition.Build(root, "If2", 117f, null, () => card.PickCondition2?.Invoke(card), () => card.ToggleNot2?.Invoke(card));
+            card.cond2 = TallCondition.Build(root, "If2", 136f, null, () => card.PickCondition2?.Invoke(card), () => card.ToggleNot2?.Invoke(card));
 
             // THEN sits on the bottom, so the actions line up across a row of cards.
-            UIKit.Panel(root, "Divider", Theme.Line, new Vector2(0, 0), new Vector2(1, 0), new Vector2(16, 100), new Vector2(-16, 101));
-            var thenRt = UIKit.Rect(root, "Then", new Vector2(0, 0), new Vector2(1, 0), new Vector2(6, 28), new Vector2(-6, 98));
+            UIKit.Panel(root, "Divider", Theme.Line, new Vector2(0, 0), new Vector2(1, 0), new Vector2(16, 110), new Vector2(-16, 111));
+            var thenRt = UIKit.Rect(root, "Then", new Vector2(0, 0), new Vector2(1, 0), new Vector2(6, 28), new Vector2(-6, 108));
             card.tallActionArea = UIKit.HitArea(thenRt, () => card.PickAction?.Invoke(card), new Color(1, 1, 1, 0.07f));
             UIKit.Label(UIKit.TopStrip(thenRt, "Label", 2f, 14f, 6f, 6f), "Text", "THEN", 12, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-            card.tallActionIcon = TopCentered(thenRt, "Icon", 2f, Icons.Size, TallIconScale);
-            card.tallActionText = UIKit.Label(UIKit.TopStrip(thenRt, "Name", 35f, 17f), "Text", "", 14, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
-            card.costText = UIKit.Label(UIKit.TopStrip(thenRt, "Cost", 52f, 14f), "Text", "", 11, TextAnchor.MiddleCenter, Theme.Dim);
+            card.tallActionIcon = TopCentered(thenRt, "Icon", 4f, Icons.Size);
+            card.tallActionText = UIKit.Label(UIKit.TopStrip(thenRt, "Name", 47f, 17f), "Text", "", 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
+            card.costText = UIKit.Label(UIKit.TopStrip(thenRt, "Cost", 64f, 14f), "Text", "", 12, TextAnchor.MiddleCenter, Theme.Dim);
             card.costText.supportRichText = true;
             root.gameObject.SetActive(false);
         }
 
-        static RectTransform TopCentered(RectTransform parent, string name, float top, Vector2 size, float scale = 1f)
+        static RectTransform TopCentered(RectTransform parent, string name, float top, Vector2 size)
         {
             var rt = UIKit.Rect(parent, name, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = size;
             rt.anchoredPosition = new Vector2(0f, -top);
-            rt.localScale = new Vector3(scale, scale, 1f);
             return rt;
         }
 
@@ -201,7 +200,7 @@ namespace RuleRunner.Cards
 
         public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true, bool allowAnd = false)
         {
-            SetTall(allowAnd);
+            SetTall(allowAnd, rule.And);
             negated = rule.Negate;
             notVisible = allowNot;
             Index = index;
@@ -216,14 +215,15 @@ namespace RuleRunner.Cards
             removeButton.interactable = editable;
         }
 
-        void SetTall(bool on)
+        void SetTall(bool on, bool and)
         {
-            if (sized && tall == on) return;
+            if (sized && tall == on && andSized == and) return;
             sized = true;
             tall = on;
+            andSized = and;
             classic.SetActive(!on);
             tallRoot.SetActive(on);
-            var size = SizeFor(on);
+            var size = SizeFor(on, on && and);
             UIKit.Layout(this, size.x, size.y);
         }
 
@@ -335,13 +335,13 @@ namespace RuleRunner.Cards
             public static TallCondition Build(RectTransform parent, string name, float top, string label, Action pick, Action toggleNot)
             {
                 var c = new TallCondition();
-                var rt = UIKit.TopStrip(parent, name, top, 56f, 6f, 6f);
+                var rt = UIKit.TopStrip(parent, name, top, 74f, 6f, 6f);
                 c.Area = UIKit.HitArea(rt, () => pick(), new Color(1, 1, 1, 0.07f));
                 if (label != null)
                     UIKit.Label(UIKit.TopStrip(rt, "Label", 2f, 14f, 6f, 6f), "Text", label, 12, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-                c.icon = TopCentered(rt, "Icon", 2f, Icons.Size, TallIconScale);
+                c.icon = TopCentered(rt, "Icon", 4f, Icons.Size);
 
-                var row = UIKit.TopStrip(rt, "Row", 34f, 21f, 4f, 4f);
+                var row = UIKit.TopStrip(rt, "Row", 50f, 21f, 4f, 4f);
                 c.NotChip = UIKit.Box(row, "Not", Theme.Raised, 7f, Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(40, 0));
                 c.Not = c.NotChip.gameObject.AddComponent<Button>();
                 c.Not.targetGraphic = c.NotChip;

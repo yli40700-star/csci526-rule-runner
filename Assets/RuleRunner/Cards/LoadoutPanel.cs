@@ -54,7 +54,8 @@ namespace RuleRunner.Cards
             UIKit.Label(head, "Default", "No card fires -> Walk (free)", 14, TextAnchor.MiddleRight, Theme.Faint);
 
             panel.cardRow = UIKit.Rect(tray.transform, "Row", Vector2.zero, Vector2.one, new Vector2(14, 12), new Vector2(-14, -40));
-            UIKit.HRow(panel.cardRow, 12, null, false, TextAnchor.MiddleLeft);
+            // Top-aligned, so an AND card grows downward instead of pushing its row up.
+            UIKit.HRow(panel.cardRow, 12, null, false, TextAnchor.UpperLeft);
             panel.BuildRunnerPanel(panel.cardRow);
             return panel;
         }
