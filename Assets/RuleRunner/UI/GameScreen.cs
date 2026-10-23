@@ -21,8 +21,8 @@ namespace RuleRunner.UI
 
         const float HeaderPx = 64f;
         const float BottomPx = 300f;
-        /// <summary>AND levels: cards show two full conditions, so the bottom area grows and the map gets shorter.</summary>
-        const float TallBottomPx = 350f;
+        /// <summary>AND levels: an AND card shows two full-size conditions, so the bottom area grows and the map gets shorter.</summary>
+        const float TallBottomPx = 396f;
         public const float HeaderFraction = HeaderPx / 720f;
         public static float BottomFraction(bool tall) => (tall ? TallBottomPx : BottomPx) / 720f;
         const int MaxLogLines = 250;
