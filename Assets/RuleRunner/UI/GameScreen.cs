@@ -21,8 +21,10 @@ namespace RuleRunner.UI
 
         const float HeaderPx = 64f;
         const float BottomPx = 300f;
+        /// <summary>AND levels: cards show two full conditions, so the bottom area grows and the map gets shorter.</summary>
+        const float TallBottomPx = 350f;
         public const float HeaderFraction = HeaderPx / 720f;
-        public const float BottomFraction = BottomPx / 720f;
+        public static float BottomFraction(bool tall) => (tall ? TallBottomPx : BottomPx) / 720f;
         const int MaxLogLines = 250;
 
         public LevelDef Level { get; private set; }
@@ -34,6 +36,7 @@ namespace RuleRunner.UI
 
         Text levelChipText, titleText, hintText, floatText, bannerText;
         RectTransform logContent, floatBubble, banner;
+        RectTransform legendRect, controlsRect, logRect;
         Button hintButton, helpButton;
         RectTransform nudge, nudgeArrow;
         Text nudgeText;
@@ -94,6 +97,7 @@ namespace RuleRunner.UI
         void BuildLegend(Transform root)
         {
             var legend = UIKit.Rect(root, "Legend", new Vector2(0, 0), new Vector2(1, 0), new Vector2(16, BottomPx + 2), new Vector2(-16, BottomPx + 28));
+            legendRect = legend;
             UIKit.HRow(legend, 6, null, false, TextAnchor.MiddleCenter);
             var items = new (string, Color)[]
             {
@@ -116,6 +120,7 @@ namespace RuleRunner.UI
         {
             var controls = UIKit.Box(root, "Controls", Theme.Surface, 16f, new Vector2(1, 0), new Vector2(1, 0),
                 new Vector2(-364, BottomPx - 8 - 112), new Vector2(-12, BottomPx - 8));
+            controlsRect = controls.rectTransform;
             UIKit.DropShadow(controls, 4f, 0.35f);
 
             runButton = UIKit.Button(controls.transform, "Run", "RUN", 24, Theme.Accent, () => Run?.Invoke(), 12f);
@@ -143,6 +148,7 @@ namespace RuleRunner.UI
 
             var log = UIKit.Box(root, "Log", Theme.Surface, 16f, new Vector2(1, 0), new Vector2(1, 0),
                 new Vector2(-364, 12), new Vector2(-12, BottomPx - 8 - 112 - 10));
+            logRect = log.rectTransform;
             UIKit.DropShadow(log, 4f, 0.35f);
             UIKit.Label(UIKit.TopStrip(log.transform, "Title", 8f, 20f, 14f, 14f), "Text", "RUN LOG", 13, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
             var logArea = UIKit.Rect(log.transform, "Area", Vector2.zero, Vector2.one, new Vector2(8, 8), new Vector2(-8, -30));
@@ -176,6 +182,7 @@ namespace RuleRunner.UI
         public void Setup(LevelDef level)
         {
             Level = level;
+            SetTall(level.AllowAnd);
             levelChipText.text = level.Id;
             titleText.text = level.Title;
             hintText.text = level.Hint;
@@ -183,6 +190,18 @@ namespace RuleRunner.UI
             ClearLog();
             Log("Equip cards, then press RUN.", Theme.Dim);
             HideFloat();
+        }
+
+        /// <summary>Moves the legend, loadout, controls and log up for AND levels, or back to the usual height.</summary>
+        void SetTall(bool tall)
+        {
+            float bottom = tall ? TallBottomPx : BottomPx;
+            legendRect.offsetMin = new Vector2(16, bottom + 2);
+            legendRect.offsetMax = new Vector2(-16, bottom + 28);
+            LoadoutArea.offsetMax = new Vector2(-376, bottom - 8);
+            controlsRect.offsetMin = new Vector2(-364, bottom - 8 - 112);
+            controlsRect.offsetMax = new Vector2(-12, bottom - 8);
+            logRect.offsetMax = new Vector2(-12, bottom - 8 - 112 - 10);
         }
 
         /// <summary>RUN is disabled while a run is playing.</summary>

@@ -73,7 +73,7 @@ namespace RuleRunner.App
             cameraFitter = cam.GetComponent<CameraFitter>();
             if (cameraFitter == null) cameraFitter = cam.gameObject.AddComponent<CameraFitter>();
             cameraFitter.headerHeight = GameScreen.HeaderFraction;
-            cameraFitter.viewportHeight = 1f - GameScreen.HeaderFraction - GameScreen.BottomFraction - 34f / 720f;
+            cameraFitter.viewportHeight = MapViewportHeight(false);
 
             // The main camera only draws the map strip; this one clears the rest of the screen every frame.
             var bg = new GameObject("Background Camera").AddComponent<Camera>();
@@ -85,6 +85,10 @@ namespace RuleRunner.App
             map = new GameObject("MapView").AddComponent<MapView>();
             runner = new GameObject("Runner").AddComponent<RunnerView>();
         }
+
+        /// <summary>Screen fraction left for the map: AND levels have a taller card area, so the map is shorter.</summary>
+        static float MapViewportHeight(bool andLevel) =>
+            1f - GameScreen.HeaderFraction - GameScreen.BottomFraction(andLevel) - 34f / 720f;
 
         void BuildUI()
         {
@@ -161,6 +165,7 @@ namespace RuleRunner.App
             map.gameObject.SetActive(true);
             runner.gameObject.SetActive(true);
             map.Build(level);
+            cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd);
             cameraFitter.Fit(level.Map.Length);
 
             if (!rulesByLevel.TryGetValue(level.Id, out var rules))

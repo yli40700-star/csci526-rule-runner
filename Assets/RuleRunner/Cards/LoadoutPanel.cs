@@ -114,6 +114,8 @@ namespace RuleRunner.Cards
         void RebuildCards()
         {
             int slots = Level != null ? Level.Slots : 0;
+            bool tall = Level != null && Level.AllowAnd;
+            UIKit.Layout(RunnerPanel, 138, RuleCardView.SizeFor(tall).y);
             while (cards.Count < Rules.Count)
             {
                 var card = RuleCardView.Create(cardRow);
@@ -139,8 +141,7 @@ namespace RuleRunner.Cards
                 cards[i].gameObject.SetActive(show);
                 if (!show) continue;
                 cards[i].transform.SetSiblingIndex(1 + i);
-                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot,
-                    Level != null && Level.AllowAnd);
+                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot, tall);
                 cards[i].PulseNot = pulseNot;
                 cards[i].SetState(false);
                 cards[i].SetHits(0);
@@ -151,6 +152,7 @@ namespace RuleRunner.Cards
                 emptySlots[i].gameObject.SetActive(show);
                 emptySlots[i].transform.SetAsLastSibling();
                 emptySlots[i].SetInteractable(editable);
+                emptySlots[i].SetTall(tall);
             }
 
             loadoutText.text = Rules.Count + " / " + slots + " cards   -   checked left to right, the first true card fires";
