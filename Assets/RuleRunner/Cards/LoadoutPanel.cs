@@ -31,7 +31,7 @@ namespace RuleRunner.Cards
         public event Action AndToggled;
         bool pulseNot;
 
-        Text loadoutText, qiText;
+        Text loadoutText, qiText, defaultText;
         RectTransform cardRow, pipGrid;
         OptionPicker picker;
         readonly List<RuleCardView> cards = new List<RuleCardView>();
@@ -51,7 +51,7 @@ namespace RuleRunner.Cards
             UIKit.Label(head, "Title", "LOADOUT", 15, TextAnchor.MiddleLeft, Theme.Gold, FontStyle.Bold);
             panel.loadoutText = UIKit.Label(UIKit.Rect(head, "Info", Vector2.zero, Vector2.one, new Vector2(84, 0), Vector2.zero),
                 "Text", "", 14, TextAnchor.MiddleLeft, Theme.Dim);
-            UIKit.Label(head, "Default", "No card fires -> Walk (free)", 14, TextAnchor.MiddleRight, Theme.Faint);
+            panel.defaultText = UIKit.Label(head, "Default", "No card fires -> Walk (free)", 14, TextAnchor.MiddleRight, Theme.Faint);
 
             panel.cardRow = UIKit.Rect(tray.transform, "Row", Vector2.zero, Vector2.one, new Vector2(14, 12), new Vector2(-14, -40));
             // Top-aligned, so an AND card grows downward instead of pushing its row up.
@@ -102,7 +102,20 @@ namespace RuleRunner.Cards
         {
             Level = level;
             Rules = rules;
+            // Tutorial levels keep the tray wordless; the qi pool only shows once qi has been taught.
+            loadoutText.gameObject.SetActive(!level.Tutorial);
+            defaultText.gameObject.SetActive(!level.Tutorial);
+            RunnerPanel.gameObject.SetActive(!level.HideQi);
             SetEditable(true);
+        }
+
+        /// <summary>Cards can be changed (not just moved) in this level.</summary>
+        bool CanEditCards => editable && Level != null && !Level.LockCards;
+
+        /// <summary>Equips the level's default card if the tray is empty (the tutorial does this after the first failed run).</summary>
+        public void EnsureOneCard()
+        {
+            if (Rules.Count == 0) AddRule();
         }
 
         public void SetEditable(bool canEdit)
@@ -128,7 +141,7 @@ namespace RuleRunner.Cards
                 card.PickAction += OnPickAction;
                 card.MoveLeft += c => Move(c.Index, -1);
                 card.MoveRight += c => Move(c.Index, +1);
-                card.Remove += c => { if (editable) { Rules.RemoveAt(c.Index); RebuildCards(); Changed?.Invoke(); } };
+                card.Remove += c => { if (CanEditCards) { Rules.RemoveAt(c.Index); RebuildCards(); Changed?.Invoke(); } };
                 card.Hover += (c, inside) => { if (editable) CardHover?.Invoke(inside ? c.Index : -1); };
                 cards.Add(card);
             }
@@ -161,7 +174,7 @@ namespace RuleRunner.Cards
 
         void AddRule()
         {
-            if (!editable || Level == null || Rules.Count >= Level.Slots) return;
+            if (!CanEditCards || Rules.Count >= Level.Slots) return;
             Rules.Add(new Rule(Level.Conditions[0], false, Level.Actions[0]));
             RebuildCards();
             Changed?.Invoke();
@@ -169,7 +182,7 @@ namespace RuleRunner.Cards
 
         void Edit(int index, Action<Rule> change)
         {
-            if (!editable) return;
+            if (!CanEditCards) return;
             change(Rules[index]);
             RebuildCards();
             Changed?.Invoke();
@@ -224,10 +237,10 @@ namespace RuleRunner.Cards
 
         void OnPickCondition(RuleCardView card)
         {
-            if (!editable) return;
+            if (!CanEditCards) return;
             var rule = Rules[card.Index];
             // On an AND card, picking what the AND line already checks swaps the two, so a card never checks one thing twice.
-            picker.ShowConditions("IF ...", "What should card " + (card.Index + 1) + " look for?", Level.Conditions, rule.Negate,
+            picker.ShowConditions("IF ...", Level.Tutorial ? "" : "What should card " + (card.Index + 1) + " look for?", Level.Conditions, rule.Negate,
                 rule.Condition, c => Edit(card.Index, r =>
                 {
                     if (r.And && r.Condition2 == c) r.Condition2 = r.Condition;
@@ -237,7 +250,7 @@ namespace RuleRunner.Cards
 
         void OnPickCondition2(RuleCardView card)
         {
-            if (!editable) return;
+            if (!CanEditCards) return;
             var rule = Rules[card.Index];
             // "What else": the condition the card already checks is not offered again.
             var others = Level.Conditions.FindAll(c => c != rule.Condition);
@@ -247,11 +260,11 @@ namespace RuleRunner.Cards
 
         void OnPickAction(RuleCardView card)
         {
-            if (!editable) return;
+            if (!CanEditCards) return;
             var rule = Rules[card.Index];
             int extra = rule.And ? Vocabulary.AndExtraQi : 0;
-            picker.ShowActions("THEN ...", "What should card " + (card.Index + 1) + " do?" + (rule.And ? "  (AND: 1 extra qi)" : ""),
-                Level.Actions, rule.Action, a => Edit(card.Index, r => r.Action = a), extra);
+            picker.ShowActions("THEN ...", Level.Tutorial ? "" : "What should card " + (card.Index + 1) + " do?" + (rule.And ? "  (AND: 1 extra qi)" : ""),
+                Level.Actions, rule.Action, a => Edit(card.Index, r => r.Action = a), extra, !Level.HideQi);
         }
 
         // ---------- Run feedback ----------

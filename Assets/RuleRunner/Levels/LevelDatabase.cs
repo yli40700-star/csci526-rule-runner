@@ -34,6 +34,12 @@ namespace RuleRunner.Levels
             public string[] actions;
             public bool noNot;          // true before NOT is introduced
             public bool allowAnd;       // true when cards can test two conditions with AND
+            public bool tutorial;       // no-text tutorial level (see LevelDef.Tutorial)
+            public bool hideQi;
+            public bool cardsAfterFail;
+            public bool lockCards;
+            public string[] startCards;
+            public string[] steps;
             public string[] solution;
             public int solutionQiLeft;
             public string[] previousSolution;
@@ -129,6 +135,12 @@ namespace RuleRunner.Levels
             Actions = (j.actions ?? new string[0]).Select(Vocabulary.ParseAction).ToList(),
             AllowNot = !j.noNot,
             AllowAnd = j.allowAnd,
+            Tutorial = j.tutorial,
+            HideQi = j.hideQi,
+            CardsAfterFail = j.cardsAfterFail,
+            LockCards = j.lockCards,
+            StartCards = Rule.ParseList(j.startCards),
+            Steps = (j.steps ?? new string[0]).ToList(),
             Solution = Rule.ParseList(j.solution),
             SolutionQiLeft = j.solutionQiLeft,
             PreviousSolution = Rule.ParseList(j.previousSolution),

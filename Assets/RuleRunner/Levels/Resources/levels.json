@@ -1,6 +1,179 @@
 {
   "levels": [
     {
+      "id": "T1",
+      "chapter": 0,
+      "title": "Cards",
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 1,
+      "conditions": [
+        "ground",
+        "pit"
+      ],
+      "actions": [
+        "walk",
+        "jump"
+      ],
+      "noNot": true,
+      "hideQi": true,
+      "cardsAfterFail": true,
+      "map": "gggpgggpggf",
+      "startCards": [],
+      "steps": [
+        "if",
+        "then"
+      ],
+      "solution": [
+        "IF pit THEN jump"
+      ],
+      "solutionQiLeft": 7,
+      "previousSolution": [],
+      "previousExpected": "pit"
+    },
+    {
+      "id": "T2",
+      "chapter": 0,
+      "title": "NOT",
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 1,
+      "conditions": [
+        "pit",
+        "ground"
+      ],
+      "actions": [
+        "jump"
+      ],
+      "hideQi": true,
+      "map": "gggpgggsggf",
+      "startCards": [
+        "IF pit THEN jump"
+      ],
+      "steps": [
+        "if",
+        "not"
+      ],
+      "solution": [
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 7,
+      "previousSolution": [
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "spike"
+    },
+    {
+      "id": "T3",
+      "chapter": 0,
+      "title": "Big Jump",
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 1,
+      "conditions": [
+        "pit"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "noNot": true,
+      "hideQi": true,
+      "map": "gggppgggf",
+      "startCards": [
+        "IF pit THEN jump"
+      ],
+      "steps": [
+        "then"
+      ],
+      "solution": [
+        "IF pit THEN bigjump"
+      ],
+      "solutionQiLeft": 6,
+      "previousSolution": [
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "pit"
+    },
+    {
+      "id": "T4",
+      "chapter": 0,
+      "title": "Order",
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "qi": 9,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "hideQi": true,
+      "lockCards": true,
+      "map": "ggsgpggppggf",
+      "startCards": [
+        "IF NOT ground THEN jump",
+        "IF pit THEN bigjump"
+      ],
+      "steps": [
+        "order"
+      ],
+      "solution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF NOT ground THEN jump",
+        "IF pit THEN bigjump"
+      ],
+      "previousExpected": "pit"
+    },
+    {
+      "id": "T5",
+      "chapter": 0,
+      "title": "Qi",
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "qi": 6,
+      "slots": 1,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "map": "ggpggsggpggsggf",
+      "startCards": [
+        "IF NOT ground THEN bigjump"
+      ],
+      "steps": [
+        "then"
+      ],
+      "solution": [
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF NOT ground THEN bigjump"
+      ],
+      "previousExpected": "pit"
+    },
+    {
       "id": "1-1",
       "chapter": 1,
       "title": "Rules Fire Themselves",

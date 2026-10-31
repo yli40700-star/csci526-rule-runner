@@ -10,7 +10,7 @@ namespace RuleRunner.Tests
     public class GuideTextTests
     {
         static IEnumerable<string> PlayableLevelIds() =>
-            LevelDatabase.All.Where(l => l.Playable).Select(l => l.Id);
+            LevelDatabase.All.Where(l => l.Playable && !l.Tutorial).Select(l => l.Id); // tutorial levels are wordless
 
         [TestCaseSource(nameof(PlayableLevelIds))]
         public void EveryLevelHasIntroConceptAndThreeHints(string id)

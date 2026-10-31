@@ -24,6 +24,22 @@ namespace RuleRunner.Core
         /// <summary>True when cards may test two conditions with AND (off unless the level turns it on).</summary>
         public bool AllowAnd;
 
+        /// <summary>Tutorial levels teach one thing with no text: the screen shows only the map, RUN and the cards.</summary>
+        public bool Tutorial;
+        /// <summary>Tutorial: the qi pool stays hidden (qi has its own tutorial level).</summary>
+        public bool HideQi;
+        /// <summary>Tutorial: the card tray only appears after the first failed run.</summary>
+        public bool CardsAfterFail;
+        /// <summary>Tutorial: the cards cannot be edited, added or removed - only moved (the card-order lesson).</summary>
+        public bool LockCards;
+        /// <summary>Tutorial: cards already in the tray when the level opens.</summary>
+        public List<Rule> StartCards = new List<Rule>();
+        /// <summary>
+        /// Tutorial: after a failed run a pointer walks through these card parts, in order, until each matches the
+        /// solution: "if", "then", "not" (card 1) or "order" (the cards in solution order).
+        /// </summary>
+        public List<string> Steps = new List<string>();
+
         /// <summary>False for placeholder levels that are still being designed.</summary>
         public bool Playable = true;
 

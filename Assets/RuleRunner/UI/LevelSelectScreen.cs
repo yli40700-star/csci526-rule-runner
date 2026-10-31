@@ -40,11 +40,6 @@ namespace RuleRunner.UI
                 UIKit.Shape(deco, "Dot", UISprites.Circle, new Color(1, 1, 1, 0.5f),
                     new Vector2(-38 + i * 9, -16 + 28 * Mathf.Sin(i / 4f * Mathf.PI * 0.8f)), new Vector2(4, 4));
 
-            UIKit.Label(UIKit.TopStrip(root.transform, "Tagline", 158f, 60f, 160f, 160f), "Text",
-                "You never press jump during a run. Equip your runner with IF-THEN skill cards.\n" +
-                "Cards are checked left to right: the first one whose condition is true fires - and every firing spends qi.",
-                19, TextAnchor.MiddleCenter, Theme.Dim);
-
             // Two chapters fit as before; from chapter 3 on the list scrolls, with a hint under it.
             var view = UIKit.Rect(root.transform, "Chapters", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-540, -660), new Vector2(540, -240));
             screen.chapters = UIKit.ScrollView(view, "Scroll", out screen.scroll);
@@ -98,7 +93,7 @@ namespace RuleRunner.UI
                 chapterHeads[group.Key] = head;
                 int cleared = group.Count(l => l.Playable && isCleared(l.Id));
                 int playable = group.Count(l => l.Playable);
-                UIKit.Label(head, "Name", "CHAPTER " + group.Key, 18, TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);
+                UIKit.Label(head, "Name", group.Key == 0 ? "TUTORIAL" : "CHAPTER " + group.Key, 18, TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);
                 UIKit.Label(head, "Progress", cleared + " / " + playable + " cleared", 15, TextAnchor.MiddleRight, Theme.Dim);
 
                 var row = UIKit.Rect(chapters, "Row " + group.Key, Vector2.zero, Vector2.one);
@@ -134,7 +129,7 @@ namespace RuleRunner.UI
             if (playable)
             {
                 UIKit.Label(UIKit.Rect(t, "Meta", new Vector2(0, 0), new Vector2(1, 0), new Vector2(12, 26), new Vector2(-12, 44)),
-                    "Text", level.Qi + " qi   -   " + level.Slots + (level.Slots == 1 ? " card" : " cards"), 13, TextAnchor.MiddleLeft, Theme.Dim);
+                    "Text", (level.HideQi ? "" : level.Qi + " qi   -   ") + level.Slots + (level.Slots == 1 ? " card" : " cards"), 13, TextAnchor.MiddleLeft, Theme.Dim);
                 MiniMap(UIKit.Rect(t, "Map", new Vector2(0, 0), new Vector2(1, 0), new Vector2(12, 10), new Vector2(-12, 22)), level.Map);
             }
         }

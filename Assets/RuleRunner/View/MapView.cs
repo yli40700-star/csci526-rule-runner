@@ -125,9 +125,9 @@ namespace RuleRunner.View
         }
 
         /// <summary>Small markers in front of the cells where a card would fire (hover preview).</summary>
-        public void ShowPreview(IEnumerable<(int x, int dir)> spots, Color color)
+        public void ShowPreview(IEnumerable<(int x, int dir)> spots, Color color, bool clear = true)
         {
-            ClearMarks();
+            if (clear) ClearMarks();
             if (!marks) return;
             foreach (var (x, dir) in spots)
             {

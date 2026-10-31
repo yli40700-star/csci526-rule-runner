@@ -38,6 +38,8 @@ namespace RuleRunner.Cards
         public RectTransform IfArea => (RectTransform)(tall ? cond1.Area : condArea).transform;
         public RectTransform NotChip => (tall ? cond1.NotChip : notChip).rectTransform;
         public RectTransform AndChip => (RectTransform)addAndButton.transform;
+        public RectTransform ThenArea => (RectTransform)actionArea.transform;
+        public RectTransform MoveRightButton => (RectTransform)rightButton.transform;
 
         /// <summary>When true, an unpressed NOT chip gently blinks (until the player has tried NOT once).</summary>
         public bool PulseNot { get; set; }

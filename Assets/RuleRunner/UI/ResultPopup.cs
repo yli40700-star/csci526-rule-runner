@@ -75,9 +75,11 @@ namespace RuleRunner.UI
             accent.color = won ? Theme.Accent : Theme.Danger;
             cause.text = won ? "The runner reached the flag." : Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
             qiValue.text = result.QiLeft.ToString();
+            qiValue.transform.parent.gameObject.SetActive(!level.HideQi);  // qi is not shown before its tutorial level
             stepValue.text = result.Steps.ToString();
             cardValue.text = cardCount.ToString();
-            hint.text = won
+            hint.text = won && level.HideQi ? ""
+                : won
                 ? (result.QiLeft >= level.SolutionQiLeft ? "Perfect run - no qi wasted." : "This level can be cleared with " + level.SolutionQiLeft + " qi left.")
                 : (string.IsNullOrEmpty(guideLine) ? HintFor(result) : guideLine);
             nextButton.gameObject.SetActive(won && hasNextLevel);

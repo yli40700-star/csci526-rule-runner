@@ -36,7 +36,7 @@ namespace RuleRunner.UI
 
         Text levelChipText, titleText, hintText, floatText, bannerText;
         RectTransform logContent, floatBubble, banner;
-        RectTransform legendRect, controlsRect, logRect;
+        RectTransform legendRect, controlsRect, logRect, controlRow;
         Button hintButton, helpButton;
         RectTransform nudge, nudgeArrow;
         Text nudgeText;
@@ -132,6 +132,7 @@ namespace RuleRunner.UI
             UIKit.DropShadow((Image)runButton.targetGraphic, 3f, 0.4f);
 
             var row = UIKit.Rect(controls.transform, "Row", new Vector2(0, 0), new Vector2(1, 0), new Vector2(12, 10), new Vector2(-12, 44));
+            controlRow = row;
             UIKit.HRow(row, 6, null, true, TextAnchor.MiddleLeft);
             resetButton = UIKit.Button(row, "Reset", "Reset", 16, Theme.Raised, () => Reset?.Invoke(), 9f);
             UIKit.Layout(resetButton, -1, 34, 1.4f);
@@ -186,6 +187,14 @@ namespace RuleRunner.UI
             levelChipText.text = level.Id;
             titleText.text = level.Title;
             hintText.text = level.Hint;
+            // Tutorial levels are wordless: only the map, RUN and the cards. No hint line, ?, Hint, legend, speed or log.
+            bool full = !level.Tutorial;
+            hintText.gameObject.SetActive(full);
+            helpButton.gameObject.SetActive(full);
+            legendRect.gameObject.SetActive(full);
+            controlRow.gameObject.SetActive(full);
+            logRect.gameObject.SetActive(full);
+            SetLoadoutVisible(true);
             SetRunning(false);
             ClearLog();
             Log("Equip cards, then press RUN.", Theme.Dim);
@@ -203,6 +212,9 @@ namespace RuleRunner.UI
             controlsRect.offsetMax = new Vector2(-12, bottom - 8);
             logRect.offsetMax = new Vector2(-12, bottom - 8 - 112 - 10);
         }
+
+        /// <summary>The card tray area (hidden at the start of the first tutorial level).</summary>
+        public void SetLoadoutVisible(bool visible) => LoadoutArea.gameObject.SetActive(visible);
 
         /// <summary>RUN is disabled while a run is playing.</summary>
         public void SetRunning(bool running) => runButton.interactable = !running;
@@ -318,7 +330,7 @@ namespace RuleRunner.UI
         /// <summary>Shows the Hint button with "Hint 2/3" style label, or hides it.</summary>
         public void SetHintButton(bool visible, int next, int total)
         {
-            hintButton.gameObject.SetActive(visible);
+            hintButton.gameObject.SetActive(visible && (Level == null || !Level.Tutorial));
             UIKit.ButtonText(hintButton).text = "Hint " + next + "/" + total;
         }
 

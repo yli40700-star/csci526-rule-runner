@@ -5,11 +5,14 @@ using RuleRunner.Levels;
 
 namespace RuleRunner.Tests
 {
-    /// <summary>Cards only appear in the level that first needs them, and each new card's demo plays cleanly.</summary>
+    /// <summary>
+    /// Cards only appear in the level that first needs them (in the chapters; the tutorial teaches its own subset first),
+    /// and each new card's demo plays cleanly.
+    /// </summary>
     public class CardIntroductionTests
     {
         static string FirstLevelWith(System.Func<LevelDef, bool> has) =>
-            LevelDatabase.All.Where(l => l.Playable).First(has).Id;
+            LevelDatabase.All.Where(l => l.Playable && !l.Tutorial).First(has).Id;
 
         [TestCase(Condition.Pit, "1-1")]
         [TestCase(Condition.Ground, "1-2")]
