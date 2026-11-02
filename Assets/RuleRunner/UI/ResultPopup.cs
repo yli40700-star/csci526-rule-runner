@@ -31,7 +31,7 @@ namespace RuleRunner.UI
 
             var stats = UIKit.TopStrip(b, "Stats", 112f, 64f, 40f, 40f);
             UIKit.HRow(stats, 12, null, true);
-            popup.qiValue = Stat(stats, "QI LEFT", Theme.Qi);
+            popup.qiValue = Stat(stats, "ENERGY LEFT", Theme.Qi);
             popup.stepValue = Stat(stats, "STEPS", Theme.Text);
             popup.cardValue = Stat(stats, "CARDS", Theme.Gold);
 
@@ -80,7 +80,7 @@ namespace RuleRunner.UI
             cardValue.text = cardCount.ToString();
             hint.text = won && level.HideQi ? ""
                 : won
-                ? (result.QiLeft >= level.SolutionQiLeft ? "Perfect run - no qi wasted." : "This level can be cleared with " + level.SolutionQiLeft + " qi left.")
+                ? (result.QiLeft >= level.SolutionQiLeft ? "Perfect run - no Energy wasted." : "This level can be cleared with " + level.SolutionQiLeft + " Energy left.")
                 : (string.IsNullOrEmpty(guideLine) ? HintFor(result) : guideLine);
             nextButton.gameObject.SetActive(won && hasNextLevel);
             UIKit.ButtonText(editButton).text = won ? "Try again" : "Edit cards";

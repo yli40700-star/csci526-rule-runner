@@ -21,17 +21,21 @@ namespace RuleRunner.Cards
         RectTransform board;
         RectTransform runner, eye;
         Text qiText, actionText;
+        bool showEnergy = true;
         readonly List<Image> trapSpikes = new List<Image>();
         readonly Dictionary<int, Image> orbs = new Dictionary<int, Image>();
         float cell, baseY, x0;
         bool built;
 
-        public static DemoPlayer Create(RectTransform area, DemoSpec spec)
+        /// <param name="showEnergy">False in the tutorial levels before Energy is taught: no Energy counter, no costs.</param>
+        public static DemoPlayer Create(RectTransform area, DemoSpec spec, bool showEnergy = true)
         {
             var player = area.gameObject.AddComponent<DemoPlayer>();
             player.spec = spec;
+            player.showEnergy = showEnergy;
             player.result = Simulator.Run(spec.Map, spec.Start, spec.Dir, spec.Qi, spec.Rules, true, spec.Steps);
             player.Build(area);
+            player.qiText.gameObject.SetActive(showEnergy);
             player.built = true;
             player.StartCoroutine(player.Loop());
             return player;
@@ -119,7 +123,7 @@ namespace RuleRunner.Cards
                 runner.GetComponent<Image>().color = Palette.Runner;
                 Place(X(spec.Start), 0f, spec.Dir);
                 SetTraps(0);
-                qiText.text = "qi " + spec.Qi;
+                qiText.text = "Energy " + spec.Qi;
                 actionText.text = "";
                 yield return Wait(0.6f);
 
@@ -130,9 +134,9 @@ namespace RuleRunner.Cards
                     {
                         var rule = spec.Rules[f.FiredRule];
                         int cost = rule.Cost;
-                        actionText.text = Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
+                        actionText.text = Vocabulary.Display(rule.Action) + (cost > 0 && showEnergy ? " -" + cost : "");
                     }
-                    else if (f.StarvedRule >= 0) actionText.text = "no qi!";
+                    else if (f.StarvedRule >= 0) actionText.text = "not enough Energy!";
                     else actionText.text = f.HoldingRule >= 0 ? "waiting..." : "";
                     actionText.color = f.StarvedRule >= 0 ? Theme.Danger : Theme.Gold;
                     actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), baseY + cell * 1.5f);
@@ -147,11 +151,11 @@ namespace RuleRunner.Cards
                         yield return null;
                     }
                     Place(X(f.X), 0f, f.Dir);
-                    qiText.text = "qi " + f.Qi;
+                    qiText.text = "Energy " + f.Qi;
                     if (f.CollectedOrb && orbs.TryGetValue(f.X, out var orb))
                     {
                         orb.enabled = false;
-                        actionText.text = "+2 qi";
+                        actionText.text = "+2 Energy";
                     }
                     if (f.Outcome != Outcome.Running && f.Outcome != Outcome.Win)
                         runner.GetComponent<Image>().color = Palette.Dead;

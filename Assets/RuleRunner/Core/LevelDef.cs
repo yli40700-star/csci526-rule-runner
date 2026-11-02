@@ -24,21 +24,28 @@ namespace RuleRunner.Core
         /// <summary>True when cards may test two conditions with AND (off unless the level turns it on).</summary>
         public bool AllowAnd;
 
-        /// <summary>Tutorial levels teach one thing with no text: the screen shows only the map, RUN and the cards.</summary>
+        /// <summary>Tutorial levels teach one thing each; the cards ride above the runner and are read out loud, card by card.</summary>
         public bool Tutorial;
-        /// <summary>Tutorial: the qi pool stays hidden (qi has its own tutorial level).</summary>
+        /// <summary>Tutorial: the Energy pool stays hidden (Energy has its own tutorial level).</summary>
         public bool HideQi;
-        /// <summary>Tutorial: the card tray only appears after the first failed run.</summary>
-        public bool CardsAfterFail;
-        /// <summary>Tutorial: the cards cannot be edited, added or removed - only moved (the card-order lesson).</summary>
-        public bool LockCards;
+        /// <summary>Tutorial: the start cards first play the level once by themselves, then they are taken away.</summary>
+        public bool DemoFirst;
+        /// <summary>Tutorial: IF and NOT are fixed; only THEN and the card order can change (the card-order lesson).</summary>
+        public bool LockConditions;
+        /// <summary>
+        /// Negated conditions offered as options of their own in the IF picker while the NOT button is not shown yet
+        /// (the NOT lesson offers "NOT Ground ahead" next to Ground, Pit and Spike).
+        /// </summary>
+        public List<Condition> NotOptions = new List<Condition>();
         /// <summary>Tutorial: cards already in the tray when the level opens.</summary>
         public List<Rule> StartCards = new List<Rule>();
         /// <summary>
-        /// Tutorial: after a failed run a pointer walks through these card parts, in order, until each matches the
-        /// solution: "if", "then", "not" (card 1) or "order" (the cards in solution order).
+        /// Tutorial: card parts that blink after a failed run until the player uses them:
+        /// "slot" (an empty slot), "if", "not", "then" (card 1), "move" (card 1's move-right button).
         /// </summary>
-        public List<string> Steps = new List<string>();
+        public List<string> Blink = new List<string>();
+        /// <summary>Tutorial: the Blink parts take turns (the next one starts once the one before is used) instead of all at once.</summary>
+        public bool BlinkOneByOne;
 
         /// <summary>False for placeholder levels that are still being designed.</summary>
         public bool Playable = true;

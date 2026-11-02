@@ -8,7 +8,8 @@ namespace RuleRunner.Cards
     /// <summary>Fills the intro card: one panel per new card / tile / rule with a looping demo, or a static diagram.</summary>
     public static class IntroItems
     {
-        public static void Build(RectTransform area, LevelGuide guide)
+        /// <param name="showEnergy">False before Energy is taught (the early tutorial levels).</param>
+        public static void Build(RectTransform area, LevelGuide guide, bool showEnergy = true)
         {
             UIKit.DestroyChildren(area);
             var items = guide.NewItems;
@@ -35,7 +36,7 @@ namespace RuleRunner.Cards
 
                 var demoArea = UIKit.TopStrip(p, "Demo", 28f, 86f, 10f, 10f);
                 demoArea.gameObject.AddComponent<RectMask2D>();
-                DemoPlayer.Create(demoArea, item);
+                DemoPlayer.Create(demoArea, item, showEnergy);
 
                 // One card per line, numbered when there are several (order matters).
                 var lines = item.Rules.ConvertAll(r => r.ToDisplayString());

@@ -10,7 +10,7 @@ namespace RuleRunner.Tests
     public class GuideTextTests
     {
         static IEnumerable<string> PlayableLevelIds() =>
-            LevelDatabase.All.Where(l => l.Playable && !l.Tutorial).Select(l => l.Id); // tutorial levels are wordless
+            LevelDatabase.All.Where(l => l.Playable && !l.Tutorial).Select(l => l.Id); // tutorial levels teach without these lines
 
         [TestCaseSource(nameof(PlayableLevelIds))]
         public void EveryLevelHasIntroConceptAndThreeHints(string id)
@@ -32,26 +32,26 @@ namespace RuleRunner.Tests
         }
 
         [Test]
-        public void PreviousSolutionLineIsUsedOnLevel1_2()
+        public void PreviousSolutionLineIsUsedOnLevel1_3()
         {
-            var level = LevelDatabase.Get("1-2");
+            var level = LevelDatabase.Get("1-3");
             var result = Simulator.Run(level, level.PreviousSolution);
             Assert.AreEqual(level.Guide.PreviousLine, GuideText.DeathLine(level, level.PreviousSolution, result, 0));
         }
 
         [Test]
-        public void EmptyLoadoutOnLevel1_1UsesItsOwnLine()
+        public void EmptyLoadoutOnLevel1_1GetsALine()
         {
             var level = LevelDatabase.Get("1-1");
             var none = new List<Rule>();
-            Assert.AreEqual(level.Guide.PreviousLine, GuideText.DeathLine(level, none, Simulator.Run(level, none), 0));
+            Assert.IsNotEmpty(GuideText.DeathLine(level, none, Simulator.Run(level, none), 0));
         }
 
         [Test]
         public void StarvedRunUsesQiLine()
         {
-            // 1-4 reference solution with one less Big Jump budget: spends all qi and starves.
-            var level = LevelDatabase.Get("1-4");
+            // Big Jump over everything in 2-1: the Energy is gone before the double pit.
+            var level = LevelDatabase.Get("2-1");
             var rules = Rule.ParseList(new[] { "IF NOT ground THEN bigjump" });
             var result = Simulator.Run(level, rules);
             Assert.IsTrue(result.RanOutOfQi);
@@ -61,8 +61,8 @@ namespace RuleRunner.Tests
         [Test]
         public void LinesRotateWithFailCount()
         {
-            var level = LevelDatabase.Get("1-4");
-            var rules = Rule.ParseList(new[] { "IF NOT ground THEN jump", "IF pit THEN bigjump" });
+            var level = LevelDatabase.Get("1-5");
+            var rules = Rule.ParseList(new[] { "IF NOT ground THEN bigjump" });
             var result = Simulator.Run(level, rules);
             Assert.AreEqual(Outcome.Spike, result.Outcome);
             var first = GuideText.DeathLine(level, rules, result, 0);

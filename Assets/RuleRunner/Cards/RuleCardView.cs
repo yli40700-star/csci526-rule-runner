@@ -144,7 +144,7 @@ namespace RuleRunner.Cards
 
         /// <summary>
         /// The AND-level card: first condition, then "+ AND" or (on an AND card) an "AND x" divider and the
-        /// second condition, then the action with its cost spelled out ("3 qi + 1 for AND").
+        /// second condition, then the action with its cost spelled out ("3 Energy + 1 for AND").
         /// </summary>
         static void BuildTall(RuleCardView card)
         {
@@ -200,7 +200,9 @@ namespace RuleRunner.Cards
             rt.anchoredPosition = Vector2.zero;
         }
 
-        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true, bool allowAnd = false)
+        /// <param name="lockConditions">IF and NOT are fixed (the card-order lesson): only THEN and the order can change.</param>
+        public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true, bool allowAnd = false,
+            bool lockConditions = false)
         {
             SetTall(allowAnd, rule.And);
             negated = rule.Negate;
@@ -209,12 +211,12 @@ namespace RuleRunner.Cards
             priorityText.text = (index + 1).ToString();
             band.color = Theme.ActionColor(rule.Action);
             BuildPips(Vocabulary.Cost(rule.Action), rule.And ? Vocabulary.AndExtraQi : 0);
-            if (tall) BindTall(rule, editable, allowNot);
-            else BindClassic(rule, editable, allowNot);
+            if (tall) BindTall(rule, editable, allowNot, lockConditions);
+            else BindClassic(rule, editable, allowNot, lockConditions);
 
             leftButton.interactable = editable && !isFirst;
             rightButton.interactable = editable && !isLast;
-            removeButton.interactable = editable;
+            removeButton.interactable = editable && !lockConditions;
         }
 
         void SetTall(bool on, bool and)
@@ -229,7 +231,7 @@ namespace RuleRunner.Cards
             UIKit.Layout(this, size.x, size.y);
         }
 
-        void BindClassic(Rule rule, bool editable, bool allowNot)
+        void BindClassic(Rule rule, bool editable, bool allowNot, bool lockConditions)
         {
             notChip.gameObject.SetActive(allowNot);
             // Reads like a toggle: "+NOT" (off, outlined) / "NOT" (on, red).
@@ -243,17 +245,17 @@ namespace RuleRunner.Cards
             actionText.text = Vocabulary.Display(rule.Action);
             Icons.DrawAction(actionIcon, rule.Action);
 
-            notButton.interactable = editable;
-            condArea.interactable = editable;
+            notButton.interactable = editable && !lockConditions;
+            condArea.interactable = editable && !lockConditions;
             actionArea.interactable = editable;
         }
 
-        void BindTall(Rule rule, bool editable, bool allowNot)
+        void BindTall(Rule rule, bool editable, bool allowNot, bool lockConditions)
         {
             bool and = rule.And;
-            cond1.Bind(rule.Condition, rule.Negate, allowNot, editable);
+            cond1.Bind(rule.Condition, rule.Negate, allowNot, editable && !lockConditions);
             addAndButton.gameObject.SetActive(!and);
-            addAndButton.interactable = editable;
+            addAndButton.interactable = editable && !lockConditions;
             andDivider.gameObject.SetActive(and);
             foreach (var b in andDivider.GetComponentsInChildren<Button>()) b.interactable = editable;
             cond2.Area.gameObject.SetActive(and);
@@ -262,12 +264,12 @@ namespace RuleRunner.Cards
             Icons.DrawAction(tallActionIcon, rule.Action);
             tallActionText.text = Vocabulary.Display(rule.Action);
             int cost = Vocabulary.Cost(rule.Action);
-            costText.text = (cost == 0 ? "free" : cost + " qi") +
+            costText.text = (cost == 0 ? "free" : cost + " Energy") +
                 (and ? "  <color=#F5C542><b>+ " + Vocabulary.AndExtraQi + " for AND</b></color>" : "");
             tallActionArea.interactable = editable;
         }
 
-        /// <summary>One pip per qi a firing costs: the action's in qi color, AND's extra in gold.</summary>
+        /// <summary>One pip per Energy a firing costs: the action's in Energy color, AND's extra in gold.</summary>
         void BuildPips(int cost, int andExtra)
         {
             UIKit.DestroyChildren(pips);
@@ -294,7 +296,7 @@ namespace RuleRunner.Cards
 
         public void SetHits(int hits) => hitsText.text = hits > 0 ? "x" + hits : "";
 
-        /// <summary>Firing cards lift and glow gold; a card that lacked qi glows red.</summary>
+        /// <summary>Firing cards lift and glow gold; a card that lacked Energy glows red.</summary>
         public void SetState(bool firing, bool starved = false)
         {
             glow.enabled = firing || starved;
@@ -323,7 +325,7 @@ namespace RuleRunner.Cards
         public static string ActionLabel(ActionType a)
         {
             int cost = Vocabulary.Cost(a);
-            return Vocabulary.Display(a) + (cost == 0 ? "  (free)" : "  (-" + cost + " qi)");
+            return Vocabulary.Display(a) + (cost == 0 ? "  (free)" : "  (-" + cost + " Energy)");
         }
 
         /// <summary>One condition on a tall card: diagram, then the NOT button and the name. Click it to change the condition.</summary>

@@ -36,10 +36,12 @@ namespace RuleRunner.Levels
             public bool allowAnd;       // true when cards can test two conditions with AND
             public bool tutorial;       // no-text tutorial level (see LevelDef.Tutorial)
             public bool hideQi;
-            public bool cardsAfterFail;
-            public bool lockCards;
+            public bool demoFirst;
+            public bool lockConditions;
+            public string[] notOptions;
             public string[] startCards;
-            public string[] steps;
+            public string[] blink;
+            public bool blinkOneByOne;
             public string[] solution;
             public int solutionQiLeft;
             public string[] previousSolution;
@@ -137,10 +139,12 @@ namespace RuleRunner.Levels
             AllowAnd = j.allowAnd,
             Tutorial = j.tutorial,
             HideQi = j.hideQi,
-            CardsAfterFail = j.cardsAfterFail,
-            LockCards = j.lockCards,
+            DemoFirst = j.demoFirst,
+            LockConditions = j.lockConditions,
+            NotOptions = (j.notOptions ?? new string[0]).Select(Vocabulary.ParseCondition).ToList(),
             StartCards = Rule.ParseList(j.startCards),
-            Steps = (j.steps ?? new string[0]).ToList(),
+            Blink = (j.blink ?? new string[0]).ToList(),
+            BlinkOneByOne = j.blinkOneByOne,
             Solution = Rule.ParseList(j.solution),
             SolutionQiLeft = j.solutionQiLeft,
             PreviousSolution = Rule.ParseList(j.previousSolution),

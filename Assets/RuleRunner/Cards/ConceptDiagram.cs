@@ -51,7 +51,7 @@ namespace RuleRunner.Cards
             UIKit.Label(UIKit.Centered(area, "Label3", new Vector2(xs[2], -24), new Vector2(150, 20)), "Text", "THEN Jump", 13,
                 TextAnchor.MiddleCenter, Theme.ActionColor(ActionType.Jump), FontStyle.Bold);
             UIKit.Label(UIKit.Centered(area, "Note", new Vector2(0, -56), new Vector2(640, 20)), "Text",
-                "Fires only when BOTH are true: something is in the way, and the landing is safe. Costs 1 extra qi.", 13,
+                "Fires only when BOTH are true: something is in the way, and the landing is safe. Costs 1 extra Energy.", 13,
                 TextAnchor.MiddleCenter, Theme.Dim);
         }
 

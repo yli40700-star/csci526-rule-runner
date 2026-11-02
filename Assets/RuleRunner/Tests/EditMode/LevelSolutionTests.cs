@@ -31,46 +31,32 @@ namespace RuleRunner.Tests
         }
 
         // Explicit table from the design doc, so a JSON edit cannot silently change the intent.
-        [TestCase("1-1", "pit")]
-        [TestCase("1-2", "spike")]
-        [TestCase("1-3", "win")]
-        [TestCase("1-4", "spike")]
-        [TestCase("1-5", "win")]
-        [TestCase("2-1", "trap")]
-        [TestCase("2-2", "timeout")]
-        [TestCase("2-3", "spike")]
-        [TestCase("2-4", "pit")]
-        [TestCase("2-5", "trap")]
-        [TestCase("3-1", "pit")]
-        [TestCase("3-2", "pit")]
+        [TestCase("1-1", "win")]
+        [TestCase("1-2", "win")]
+        [TestCase("1-3", "trap")]
+        [TestCase("1-4", "timeout")]
+        [TestCase("1-5", "spike")]
+        [TestCase("1-6", "pit")]
+        [TestCase("1-7", "trap")]
+        [TestCase("2-1", "pit")]
+        [TestCase("2-2", "pit")]
         public void PreviousExpectedMatchesDesignDoc(string id, string expected)
         {
             Assert.AreEqual(Vocabulary.ParseOutcome(expected), LevelDatabase.Get(id).PreviousExpected);
         }
 
-        [TestCase("1-1", 2)]
+        [TestCase("1-1", 1)]
         [TestCase("1-2", 2)]
-        [TestCase("1-3", 1)]
-        [TestCase("1-4", 1)]
-        [TestCase("1-5", 2)]
+        [TestCase("1-3", 0)]
+        [TestCase("1-4", 0)]
+        [TestCase("1-5", 0)]
+        [TestCase("1-6", 0)]
+        [TestCase("1-7", 0)]
         [TestCase("2-1", 0)]
         [TestCase("2-2", 0)]
-        [TestCase("2-3", 0)]
-        [TestCase("2-4", 0)]
-        [TestCase("2-5", 0)]
-        [TestCase("3-1", 0)]
-        [TestCase("3-2", 0)]
         public void SolutionQiMatchesDesignDoc(string id, int qiLeft)
         {
             Assert.AreEqual(qiLeft, LevelDatabase.Get(id).SolutionQiLeft);
-        }
-
-        [Test]
-        public void Level1_4_ReversedRuleOrderHitsSpike()
-        {
-            var level = LevelDatabase.Get("1-4");
-            var reversed = level.Solution.AsEnumerable().Reverse().ToList();
-            Assert.AreEqual(Outcome.Spike, Simulator.Run(level, reversed).Outcome);
         }
     }
 }

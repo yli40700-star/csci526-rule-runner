@@ -103,7 +103,7 @@ namespace RuleRunner.UI
             {
                 ("Ground", Palette.Ground), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
                 ("Low wall (jump over)", Palette.LowWall), ("High wall / edge", Palette.HighWall),
-                ("Trap (up 2, down 2)", Palette.TrapUp), ("Qi orb +2", Palette.Orb), ("Finish", Palette.Finish),
+                ("Trap (up 2, down 2)", Palette.TrapUp), ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
             };
             foreach (var (name, color) in items)
             {
@@ -187,13 +187,9 @@ namespace RuleRunner.UI
             levelChipText.text = level.Id;
             titleText.text = level.Title;
             hintText.text = level.Hint;
-            // Tutorial levels are wordless: only the map, RUN and the cards. No hint line, ?, Hint, legend, speed or log.
-            bool full = !level.Tutorial;
-            hintText.gameObject.SetActive(full);
-            helpButton.gameObject.SetActive(full);
-            legendRect.gameObject.SetActive(full);
-            controlRow.gameObject.SetActive(full);
-            logRect.gameObject.SetActive(full);
+            // Tutorial levels use the same screen as the chapters; "?" only when there is an intro card to reopen.
+            hintText.gameObject.SetActive(true);
+            helpButton.gameObject.SetActive(!level.Tutorial || level.Guide.NewItems.Count > 0);
             SetLoadoutVisible(true);
             SetRunning(false);
             ClearLog();
@@ -330,7 +326,7 @@ namespace RuleRunner.UI
         /// <summary>Shows the Hint button with "Hint 2/3" style label, or hides it.</summary>
         public void SetHintButton(bool visible, int next, int total)
         {
-            hintButton.gameObject.SetActive(visible && (Level == null || !Level.Tutorial));
+            hintButton.gameObject.SetActive(visible);
             UIKit.ButtonText(hintButton).text = "Hint " + next + "/" + total;
         }
 

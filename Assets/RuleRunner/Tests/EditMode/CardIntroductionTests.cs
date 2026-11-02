@@ -15,41 +15,43 @@ namespace RuleRunner.Tests
             LevelDatabase.All.Where(l => l.Playable && !l.Tutorial).First(has).Id;
 
         [TestCase(Condition.Pit, "1-1")]
-        [TestCase(Condition.Ground, "1-2")]
-        [TestCase(Condition.Spike, "1-2")]
-        [TestCase(Condition.Trap, "2-1")]
-        [TestCase(Condition.Wall, "2-2")]
-        [TestCase(Condition.Ground2, "2-3")]
+        [TestCase(Condition.Ground, "1-1")]
+        [TestCase(Condition.Spike, "1-1")]
+        [TestCase(Condition.Trap, "1-3")]
+        [TestCase(Condition.Wall, "1-4")]
+        [TestCase(Condition.Ground2, "1-5")]
         public void ConditionFirstAppears(Condition c, string level) =>
             Assert.AreEqual(level, FirstLevelWith(l => l.Conditions.Contains(c)));
 
         [TestCase(ActionType.Jump, "1-1")]
-        [TestCase(ActionType.BigJump, "1-4")]
-        [TestCase(ActionType.Wait, "2-1")]
-        [TestCase(ActionType.Turn, "2-2")]
-        [TestCase(ActionType.Walk, "2-4")]
+        [TestCase(ActionType.BigJump, "1-2")]
+        [TestCase(ActionType.Wait, "1-3")]
+        [TestCase(ActionType.Turn, "1-4")]
+        [TestCase(ActionType.Walk, "1-6")]
         public void ActionFirstAppears(ActionType a, string level) =>
             Assert.AreEqual(level, FirstLevelWith(l => l.Actions.Contains(a)));
 
         [Test]
-        public void NotFirstAppearsInTheNotLevel()
+        public void NotIsTaughtInTheTutorialBeforeChapter1()
         {
-            Assert.AreEqual("1-2", FirstLevelWith(l => l.AllowNot));
-            Assert.AreEqual("not", LevelDatabase.All.First(l => l.Id == "1-2").Guide.Concept);
+            // T2 offers "NOT Ground ahead" as an option; from T3 on it is the NOT button, as in the chapters.
+            Assert.AreEqual("T2", LevelDatabase.All.First(l => l.NotOptions.Count > 0 || l.AllowNot).Id);
+            Assert.AreEqual("T3", LevelDatabase.All.First(l => l.AllowNot).Id);
+            Assert.AreEqual("1-1", FirstLevelWith(l => l.AllowNot));
         }
 
         [Test]
         public void LevelWithoutNotNeverOffersANotCard()
         {
             foreach (var level in LevelDatabase.All.Where(l => !l.AllowNot))
-                Assert.IsFalse(LevelAnalyzer.CardPool(level).Any(r => r.Negate), level.Id);
+                Assert.IsFalse(LevelAnalyzer.CardPool(level).Any(r => r.Negate && !level.NotOptions.Contains(r.Condition)), level.Id);
         }
 
         [Test]
         public void AndFirstAppearsInTheAndLevel()
         {
-            Assert.AreEqual("3-1", FirstLevelWith(l => l.AllowAnd));
-            Assert.AreEqual("and", LevelDatabase.Get("3-1").Guide.Concept);
+            Assert.AreEqual("2-1", FirstLevelWith(l => l.AllowAnd));
+            Assert.AreEqual("and", LevelDatabase.Get("2-1").Guide.Concept);
         }
 
         [Test]

@@ -17,6 +17,7 @@ namespace RuleRunner.View
         readonly List<(SpriteRenderer slab, SpriteRenderer spikes)> traps = new List<(SpriteRenderer, SpriteRenderer)>();
         Transform root;
         Transform marks;
+        Transform highlight;
 
         public int Length { get; private set; }
 
@@ -135,6 +136,27 @@ namespace RuleRunner.View
                 Shapes.Create(marks, "PreviewLine", Shapes.Square, new Color(color.r, color.g, color.b, 0.35f),
                     new Vector2(x + 0.5f * dir, 0.05f), new Vector2(0.05f, 1.05f), 7);
             }
+        }
+
+        /// <summary>A gold frame around one cell: the tile a card's IF is looking at (tutorial).</summary>
+        public void HighlightCell(int x)
+        {
+            ClearHighlight();
+            if (!root) return;
+            highlight = new GameObject("Highlight").transform;
+            highlight.SetParent(root, false);
+            var gold = new Color(0.96f, 0.77f, 0.26f);
+            const float w = 0.07f, top = 1.25f, bottom = -0.35f;
+            Shapes.Create(highlight, "L", Shapes.Square, gold, new Vector2(x - 0.47f, bottom), new Vector2(w, top - bottom), 9);
+            Shapes.Create(highlight, "R", Shapes.Square, gold, new Vector2(x + 0.47f, bottom), new Vector2(w, top - bottom), 9);
+            Shapes.Create(highlight, "T", Shapes.Square, gold, new Vector2(x, top - w), new Vector2(0.94f + w, w), 9);
+            Shapes.Create(highlight, "B", Shapes.Square, gold, new Vector2(x, bottom), new Vector2(0.94f + w, w), 9);
+        }
+
+        public void ClearHighlight()
+        {
+            if (highlight) Destroy(highlight.gameObject);
+            highlight = null;
         }
 
         public void ClearMarks()

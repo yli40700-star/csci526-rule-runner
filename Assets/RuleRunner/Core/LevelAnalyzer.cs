@@ -40,6 +40,11 @@ namespace RuleRunner.Core
                 foreach (var neg in negations)
                     foreach (var a in level.Actions)
                         pool.Add(new Rule(c, neg, a));
+            // Before the NOT button exists, a level can still offer a few negated conditions as options of their own.
+            if (!level.AllowNot)
+                foreach (var c in level.NotOptions)
+                    foreach (var a in level.Actions)
+                        pool.Add(new Rule(c, true, a));
 
             if (level.AllowAnd && includeAnd)
             {

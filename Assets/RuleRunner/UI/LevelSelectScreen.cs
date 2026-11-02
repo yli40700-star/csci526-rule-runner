@@ -22,6 +22,8 @@ namespace RuleRunner.UI
 
         static readonly Vector2 TileSize = new Vector2(196, 132);
 
+        const int TilesPerRow = 5;
+
         public static LevelSelectScreen Create(Transform canvas, Func<string, bool> isCleared)
         {
             var root = UIKit.Panel(canvas, "LevelSelect", Theme.Background, Vector2.zero, Vector2.one);
@@ -96,10 +98,19 @@ namespace RuleRunner.UI
                 UIKit.Label(head, "Name", group.Key == 0 ? "TUTORIAL" : "CHAPTER " + group.Key, 18, TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);
                 UIKit.Label(head, "Progress", cleared + " / " + playable + " cleared", 15, TextAnchor.MiddleRight, Theme.Dim);
 
-                var row = UIKit.Rect(chapters, "Row " + group.Key, Vector2.zero, Vector2.one);
-                UIKit.HRow(row, 15);
-                UIKit.Layout(row, -1, TileSize.y + 8);
-                foreach (var level in group) Tile(row, level);
+                // Five tiles fit across; a longer chapter continues on the next row.
+                RectTransform row = null;
+                int i = 0;
+                foreach (var level in group)
+                {
+                    if (i++ % TilesPerRow == 0)
+                    {
+                        row = UIKit.Rect(chapters, "Row " + group.Key, Vector2.zero, Vector2.one);
+                        UIKit.HRow(row, 15);
+                        UIKit.Layout(row, -1, TileSize.y + 8);
+                    }
+                    Tile(row, level);
+                }
             }
         }
 
@@ -129,7 +140,7 @@ namespace RuleRunner.UI
             if (playable)
             {
                 UIKit.Label(UIKit.Rect(t, "Meta", new Vector2(0, 0), new Vector2(1, 0), new Vector2(12, 26), new Vector2(-12, 44)),
-                    "Text", (level.HideQi ? "" : level.Qi + " qi   -   ") + level.Slots + (level.Slots == 1 ? " card" : " cards"), 13, TextAnchor.MiddleLeft, Theme.Dim);
+                    "Text", (level.HideQi ? "" : level.Qi + " Energy   -   ") + level.Slots + (level.Slots == 1 ? " card" : " cards"), 13, TextAnchor.MiddleLeft, Theme.Dim);
                 MiniMap(UIKit.Rect(t, "Map", new Vector2(0, 0), new Vector2(1, 0), new Vector2(12, 10), new Vector2(-12, 22)), level.Map);
             }
         }

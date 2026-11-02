@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using RuleRunner.Cards;
 using RuleRunner.Core;
@@ -7,25 +8,27 @@ using UnityEngine;
 namespace RuleRunner.App
 {
     /// <summary>
-    /// Drives the wordless tutorial levels (chapter 0): the only guidance is a tapping finger.
-    /// It first points at RUN, so every lesson starts with a run that fails. After that it walks through the
-    /// level's Steps ("if", "then", "not", "order"), pointing at each card part until it matches the solution,
-    /// and finally points at RUN again.
+    /// Guidance in the tutorial levels (chapter 0). After a failed run, the card parts the level lists in Blink start
+    /// blinking (IF, NOT, THEN, an empty slot, or the button that moves card 1); a part stops once the player uses it.
+    /// A tapping finger on RUN shows when there is nothing left to change.
     /// </summary>
     public class Tutorial
     {
-        readonly TapHint hint;
+        readonly TapHint finger;
         readonly GameScreen screen;
         readonly LoadoutPanel loadout;
         LevelDef level;
-        bool failedOnce;
+        readonly HashSet<string> used = new HashSet<string>();
+        readonly List<string> blinking = new List<string>();
+        bool running;
 
-        public Tutorial(TapHint hint, GameScreen screen, LoadoutPanel loadout)
+        public Tutorial(TapHint finger, GameScreen screen, LoadoutPanel loadout)
         {
-            this.hint = hint;
+            this.finger = finger;
             this.screen = screen;
             this.loadout = loadout;
-            loadout.Changed += () => { if (Active && failedOnce) PointAtNextStep(); };
+            loadout.PartUsed += OnPartUsed;
+            loadout.Changed += OnChanged;
         }
 
         bool Active => level != null && level.Tutorial;
@@ -34,85 +37,103 @@ namespace RuleRunner.App
         public static bool Done(System.Func<string, bool> isCleared) =>
             Levels.LevelDatabase.All.Where(l => l.Tutorial).All(l => isCleared(l.Id));
 
-        public void LevelLoaded(LevelDef def)
+        /// <param name="demoPending">The level's cards are about to play once by themselves, so RUN is not pointed at yet.</param>
+        public void LevelLoaded(LevelDef def, bool demoPending)
         {
             level = def;
-            failedOnce = false;
-            if (!Active)
-            {
-                hint.Hide();
-                return;
-            }
-            // The first lesson opens with nothing but the map and RUN; the cards arrive after the first fall.
-            if (level.CardsAfterFail && loadout.Rules.Count == 0) screen.SetLoadoutVisible(false);
-            hint.Show(screen.RunButtonRect);
+            used.Clear();
+            blinking.Clear();
+            running = false;
+            Blink.AllOff();
+            if (Active && !demoPending) finger.Show(screen.RunButtonRect);
+            else finger.Hide();
         }
 
         public void RunStarted()
         {
-            if (Active) hint.Hide();
+            running = true;
+            finger.Hide();
+            Blink.AllOff();
         }
 
         public void RunFinished(RunResult result)
         {
+            running = false;
             if (!Active) return;
             if (result.Won)
             {
-                hint.Hide();
+                blinking.Clear();
+                Blink.AllOff();
                 return;
             }
-            failedOnce = true;
-            screen.SetLoadoutVisible(true);
-            loadout.EnsureOneCard();
-            PointAtNextStep();
+            // Parts not used yet start blinking: all at once, or (card-order lesson) the next one in the list.
+            foreach (var part in level.Blink)
+            {
+                if (used.Contains(part) || blinking.Contains(part)) continue;
+                blinking.Add(part);
+                if (level.BlinkOneByOne) break;
+            }
+            Apply();
+        }
+
+        /// <summary>The first level's cards have played once and been taken away: the empty slot is the next thing to tap.</summary>
+        public void DemoFinished()
+        {
+            running = false;
+            if (!Active) return;
+            if (level.Blink.Contains("slot") && !blinking.Contains("slot")) blinking.Add("slot");
+            Apply();
         }
 
         public void Stop()
         {
             level = null;
-            hint.Hide();
+            blinking.Clear();
+            Blink.AllOff();
+            finger.Hide();
         }
 
-        void PointAtNextStep()
+        void OnPartUsed(string part)
         {
-            foreach (var step in level.Steps)
+            if (!Active) return;
+            used.Add(part);
+            blinking.Remove(part);
+        }
+
+        void OnChanged()
+        {
+            if (!Active || running) return;
+            Apply();
+        }
+
+        /// <summary>Blinks the current parts; with nothing left to blink, the finger points at RUN.</summary>
+        void Apply()
+        {
+            Blink.AllOff();
+            bool any = false;
+            foreach (var part in blinking)
             {
-                if (Satisfied(step)) continue;
-                var target = Target(step);
-                if (target != null)
-                {
-                    hint.Show(target);
-                    return;
-                }
+                var target = Target(part);
+                if (target == null) continue;
+                Blink.On(target);
+                any = true;
             }
-            hint.Show(screen.RunButtonRect);
+            // With nothing to blink, point at RUN - except in levels with no blinking at all (the player works it out).
+            if (!any && level.Blink.Count > 0 && blinking.Count == 0) finger.Show(screen.RunButtonRect);
+            else finger.Hide();
         }
 
-        bool Satisfied(string step)
+        RectTransform Target(string part)
         {
-            var rules = loadout.Rules;
-            var want = level.Solution;
-            if (rules.Count == 0 || want.Count == 0) return false;
-            switch (step)
-            {
-                case "if": return rules[0].Condition == want[0].Condition;
-                case "then": return rules[0].Action == want[0].Action;
-                case "not": return rules[0].Negate == want[0].Negate;
-                case "order": return rules.Count == want.Count && rules.Zip(want, (a, b) => a.Equals(b)).All(x => x);
-                default: return true;
-            }
-        }
-
-        RectTransform Target(string step)
-        {
+            if (part == "slot") return loadout.FirstEmptySlot;
             var card = loadout.CardAt(0);
             if (card == null) return null;
-            switch (step)
+            switch (part)
             {
                 case "if": return card.IfArea;
                 case "then": return card.ThenArea;
-                case "not": return card.NotChip;
-                case "order": return card.MoveRightButton;
+                case "not": return card.NotChip.gameObject.activeInHierarchy ? card.NotChip : null;
+                case "move": return card.MoveRightButton;
                 default: return null;
             }
         }

@@ -27,7 +27,7 @@ namespace RuleRunner.Core
 
             if (g.DeathLines.TryGetValue(result.Outcome, out var lines) && lines.Count > 0)
                 return lines[failCount % lines.Count];
-            if (result.RanOutOfQi) return "You ran out of qi before you ran out of course.";
+            if (result.RanOutOfQi) return "You ran out of Energy before you ran out of course.";
             return Fallback.TryGetValue(result.Outcome, out var fb) ? fb[failCount % fb.Length] : "";
         }
 

@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace RuleRunner.Cards
 {
     /// <summary>
-    /// The runner's loadout tray: runner portrait with the qi pool, then the equipped skill cards
+    /// The runner's loadout tray: runner portrait with the Energy pool, then the equipped skill cards
     /// (checked left to right) and empty slots up to the level's limit. Owns the rule list being edited.
     /// </summary>
     public class LoadoutPanel : MonoBehaviour
@@ -17,7 +17,7 @@ namespace RuleRunner.Cards
         const int MaxPips = 24;
 
         public List<Rule> Rules { get; private set; } = new List<Rule>();
-        /// <summary>The runner portrait and qi pool panel (tutorial target).</summary>
+        /// <summary>The runner portrait and Energy pool panel.</summary>
         public RectTransform RunnerPanel { get; private set; }
         public LevelDef Level { get; private set; }
 
@@ -29,10 +29,12 @@ namespace RuleRunner.Cards
         public event Action NotToggled;
         /// <summary>The player pressed a +AND / AND chip.</summary>
         public event Action AndToggled;
+        /// <summary>Which part of a card the player just used: "slot" (equipped a card), "if", "not", "then" or "move".</summary>
+        public event Action<string> PartUsed;
         bool pulseNot;
 
         Text loadoutText, qiText, defaultText;
-        RectTransform cardRow, pipGrid;
+        RectTransform cardRow, pipGrid, qiBlock;
         OptionPicker picker;
         readonly List<RuleCardView> cards = new List<RuleCardView>();
         readonly List<EmptySlotView> emptySlots = new List<EmptySlotView>();
@@ -78,10 +80,15 @@ namespace RuleRunner.Cards
             Top(eye.rectTransform, 62f, 10f);
 
             UIKit.Panel(p, "Divider", Theme.Line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(14, -122), new Vector2(-14, -121));
-            UIKit.Label(UIKit.TopStrip(p, "QiLabel", 128f, 16f, 12f, 12f), "Text", "QI POOL", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
-            qiText = UIKit.Label(UIKit.TopStrip(p, "QiValue", 145f, 24f, 12f, 12f), "Text", "0", 22, TextAnchor.MiddleCenter, Theme.Qi, FontStyle.Bold);
+            // The Energy block (label, value, pips) has its own rect so it can be lit up when Energy is spent.
+            qiBlock = UIKit.TopStrip(p, "Energy", 124f, 102f, 6f, 6f);
+            qiBlock.pivot = new Vector2(0.5f, 0.75f);
+            var glow = UIKit.FillBox(qiBlock, "Glow", Theme.Qi.WithAlpha(0f), 10f);
+            glow.raycastTarget = false;
+            UIKit.Label(UIKit.TopStrip(qiBlock, "QiLabel", 4f, 16f, 6f, 6f), "Text", "ENERGY", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            qiText = UIKit.Label(UIKit.TopStrip(qiBlock, "QiValue", 21f, 24f, 6f, 6f), "Text", "0", 22, TextAnchor.MiddleCenter, Theme.Qi, FontStyle.Bold);
 
-            pipGrid = UIKit.TopStrip(p, "Pips", 176f, 46f, 12f, 12f);
+            pipGrid = UIKit.TopStrip(qiBlock, "Pips", 52f, 46f, 6f, 6f);
             var grid = pipGrid.gameObject.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(11, 11);
             grid.spacing = new Vector2(3, 3);
@@ -102,20 +109,22 @@ namespace RuleRunner.Cards
         {
             Level = level;
             Rules = rules;
-            // Tutorial levels keep the tray wordless; the qi pool only shows once qi has been taught.
-            loadoutText.gameObject.SetActive(!level.Tutorial);
-            defaultText.gameObject.SetActive(!level.Tutorial);
+            // The Energy pool only shows once Energy has been taught (the last tutorial level).
             RunnerPanel.gameObject.SetActive(!level.HideQi);
             SetEditable(true);
         }
 
         /// <summary>Cards can be changed (not just moved) in this level.</summary>
-        bool CanEditCards => editable && Level != null && !Level.LockCards;
+        bool CanEditCards => editable && Level != null;
+        /// <summary>IF and NOT can be changed, and cards added or removed (not in the card-order lesson).</summary>
+        bool CanEditConditions => CanEditCards && !Level.LockConditions;
 
-        /// <summary>Equips the level's default card if the tray is empty (the tutorial does this after the first failed run).</summary>
-        public void EnsureOneCard()
+        /// <summary>Takes every card away (the first tutorial level, after its cards have played once by themselves).</summary>
+        public void ClearRules()
         {
-            if (Rules.Count == 0) AddRule();
+            Rules.Clear();
+            RebuildCards();
+            Changed?.Invoke();
         }
 
         public void SetEditable(bool canEdit)
@@ -133,7 +142,7 @@ namespace RuleRunner.Cards
             while (cards.Count < Rules.Count)
             {
                 var card = RuleCardView.Create(cardRow);
-                card.ToggleNot += c => { NotToggled?.Invoke(); Edit(c.Index, r => r.Negate = !r.Negate); };
+                card.ToggleNot += c => { if (!CanEditConditions) return; NotToggled?.Invoke(); PartUsed?.Invoke("not"); Edit(c.Index, r => r.Negate = !r.Negate); };
                 card.ToggleAnd += c => { AndToggled?.Invoke(); Edit(c.Index, ToggleAnd); };
                 card.ToggleNot2 += c => { NotToggled?.Invoke(); Edit(c.Index, r => r.Negate2 = !r.Negate2); };
                 card.PickCondition2 += OnPickCondition2;
@@ -141,7 +150,7 @@ namespace RuleRunner.Cards
                 card.PickAction += OnPickAction;
                 card.MoveLeft += c => Move(c.Index, -1);
                 card.MoveRight += c => Move(c.Index, +1);
-                card.Remove += c => { if (CanEditCards) { Rules.RemoveAt(c.Index); RebuildCards(); Changed?.Invoke(); } };
+                card.Remove += c => { if (CanEditConditions) { Rules.RemoveAt(c.Index); RebuildCards(); Changed?.Invoke(); } };
                 card.Hover += (c, inside) => { if (editable) CardHover?.Invoke(inside ? c.Index : -1); };
                 cards.Add(card);
             }
@@ -155,7 +164,8 @@ namespace RuleRunner.Cards
                 cards[i].gameObject.SetActive(show);
                 if (!show) continue;
                 cards[i].transform.SetSiblingIndex(1 + i);
-                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot, tall);
+                cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot, tall,
+                    Level != null && Level.LockConditions);
                 cards[i].PulseNot = pulseNot;
                 cards[i].SetState(false);
                 cards[i].SetHits(0);
@@ -165,17 +175,18 @@ namespace RuleRunner.Cards
                 bool show = i < slots - Rules.Count;
                 emptySlots[i].gameObject.SetActive(show);
                 emptySlots[i].transform.SetAsLastSibling();
-                emptySlots[i].SetInteractable(editable);
+                emptySlots[i].SetInteractable(editable && (Level == null || !Level.LockConditions));
                 emptySlots[i].SetTall(tall);
             }
 
-            loadoutText.text = Rules.Count + " / " + slots + " cards   -   checked left to right, the first true card fires";
+            loadoutText.text = Rules.Count + " / " + slots + " cards   -   checked left to right, the first true card acts";
         }
 
         void AddRule()
         {
-            if (!CanEditCards || Rules.Count >= Level.Slots) return;
+            if (!CanEditConditions || Rules.Count >= Level.Slots) return;
             Rules.Add(new Rule(Level.Conditions[0], false, Level.Actions[0]));
+            PartUsed?.Invoke("slot");
             RebuildCards();
             Changed?.Invoke();
         }
@@ -208,6 +219,7 @@ namespace RuleRunner.Cards
             int j = index + delta;
             if (!editable || j < 0 || j >= Rules.Count) return;
             (Rules[index], Rules[j]) = (Rules[j], Rules[index]);
+            PartUsed?.Invoke("move");
             RebuildCards();
             Changed?.Invoke();
         }
@@ -237,12 +249,22 @@ namespace RuleRunner.Cards
 
         void OnPickCondition(RuleCardView card)
         {
-            if (!CanEditCards) return;
+            if (!CanEditConditions) return;
             var rule = Rules[card.Index];
+            if (!Level.AllowNot && Level.NotOptions.Count > 0)
+            {
+                // Before the NOT button: "NOT Ground ahead" is an option of its own, next to the plain conditions.
+                var options = Level.Conditions.ConvertAll(c => (c, false));
+                foreach (var c in Level.NotOptions) options.Add((c, true));
+                picker.ShowConditionChoices("IF ...", "What should card " + (card.Index + 1) + " look for?", options, (rule.Condition, rule.Negate),
+                    (c, negate) => { PartUsed?.Invoke("if"); Edit(card.Index, r => { r.Condition = c; r.Negate = negate; }); });
+                return;
+            }
             // On an AND card, picking what the AND line already checks swaps the two, so a card never checks one thing twice.
-            picker.ShowConditions("IF ...", Level.Tutorial ? "" : "What should card " + (card.Index + 1) + " look for?", Level.Conditions, rule.Negate,
+            picker.ShowConditions("IF ...", "What should card " + (card.Index + 1) + " look for?", Level.Conditions, rule.Negate,
                 rule.Condition, c => Edit(card.Index, r =>
                 {
+                    PartUsed?.Invoke("if");
                     if (r.And && r.Condition2 == c) r.Condition2 = r.Condition;
                     r.Condition = c;
                 }));
@@ -250,7 +272,7 @@ namespace RuleRunner.Cards
 
         void OnPickCondition2(RuleCardView card)
         {
-            if (!CanEditCards) return;
+            if (!CanEditConditions) return;
             var rule = Rules[card.Index];
             // "What else": the condition the card already checks is not offered again.
             var others = Level.Conditions.FindAll(c => c != rule.Condition);
@@ -263,8 +285,8 @@ namespace RuleRunner.Cards
             if (!CanEditCards) return;
             var rule = Rules[card.Index];
             int extra = rule.And ? Vocabulary.AndExtraQi : 0;
-            picker.ShowActions("THEN ...", Level.Tutorial ? "" : "What should card " + (card.Index + 1) + " do?" + (rule.And ? "  (AND: 1 extra qi)" : ""),
-                Level.Actions, rule.Action, a => Edit(card.Index, r => r.Action = a), extra, !Level.HideQi);
+            picker.ShowActions("THEN ...", "What should card " + (card.Index + 1) + " do?" + (rule.And ? "  (AND: 1 extra Energy)" : ""),
+                Level.Actions, rule.Action, a => { PartUsed?.Invoke("then"); Edit(card.Index, r => r.Action = a); }, extra, !Level.HideQi);
         }
 
         // ---------- Run feedback ----------
@@ -288,7 +310,32 @@ namespace RuleRunner.Cards
             }
         }
 
-        /// <summary>Lifts the card that fired this step; a card that lacked qi glows red.</summary>
+        /// <summary>
+        /// Lights up the Energy block for a moment: cyan and a little bigger when Energy is spent,
+        /// red when a card needed more than was left.
+        /// </summary>
+        public void FlashEnergy(bool spent, float seconds)
+        {
+            if (!RunnerPanel.gameObject.activeInHierarchy) return;
+            StopAllCoroutines();
+            StartCoroutine(Flash(spent ? Theme.Qi : Theme.Danger, seconds));
+        }
+
+        System.Collections.IEnumerator Flash(Color color, float seconds)
+        {
+            var glow = qiBlock.GetChild(0).GetComponent<Image>();
+            for (float t = 0f; t < seconds; t += Time.deltaTime)
+            {
+                float k = Mathf.Sin(Mathf.Clamp01(t / seconds) * Mathf.PI);
+                qiBlock.localScale = Vector3.one * (1f + 0.18f * k);
+                glow.color = color.WithAlpha(0.35f * k);
+                yield return null;
+            }
+            qiBlock.localScale = Vector3.one;
+            glow.color = color.WithAlpha(0f);
+        }
+
+        /// <summary>Lifts the card that fired this step; a card that lacked Energy glows red.</summary>
         public void HighlightRule(int fired, int starved)
         {
             for (int i = 0; i < Rules.Count && i < cards.Count; i++)

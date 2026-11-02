@@ -41,6 +41,7 @@ namespace RuleRunner.App
         IntroCard introCard;
         CoachOverlay coach;
         TapHint tapHint;
+        HeadCards headCards;
         Tutorial tutorial;
         AnalyticsTracker analytics;
 
@@ -48,6 +49,8 @@ namespace RuleRunner.App
         readonly Dictionary<string, List<Rule>> rulesByLevel = new Dictionary<string, List<Rule>>();
         Coroutine playback;
         float speed = 1f;
+        /// <summary>The first tutorial level's cards are playing once by themselves (not a player run).</summary>
+        bool demoRun;
 
         // Guidance state per level (this session): failed runs, hints opened, where the last run died.
         readonly Dictionary<string, int> fails = new Dictionary<string, int>();
@@ -115,6 +118,7 @@ namespace RuleRunner.App
             var picker = OptionPicker.Create(canvasRect);
             gameScreen = GameScreen.Create(canvasRect);
             loadout = LoadoutPanel.Create(gameScreen.LoadoutArea, picker);
+            headCards = HeadCards.Create(gameScreen.transform);
             levelSelect = LevelSelectScreen.Create(canvasRect, IsCleared);
             resultPopup = ResultPopup.Create(canvasRect);
             introCard = IntroCard.Create(canvasRect);
@@ -132,7 +136,7 @@ namespace RuleRunner.App
             gameScreen.HintRequested += () => { gameScreen.HideNudge(); ShowNextHint(); };
             introCard.Closed += OnIntroClosed;
             loadout.CardHover += PreviewCard;
-            loadout.Changed += ShowTutorialPreview;
+            loadout.Changed += BindHeadCards;
             loadout.NotToggled += OnNotToggled;
             loadout.Changed += MaybeCoachNot;
             loadout.AndToggled += EndAndCoach;
@@ -145,8 +149,9 @@ namespace RuleRunner.App
             resultPopup.EditRules += ResetRun;
             resultPopup.NextLevel += () =>
             {
+                // The last tutorial level leads to the level list, not straight into chapter 1.
                 var next = LevelDatabase.Next(level);
-                if (next != null) LoadLevel(next); else ShowLevelSelect();
+                if (next != null && (next.Tutorial || !level.Tutorial)) LoadLevel(next); else ShowLevelSelect();
             };
         }
 
@@ -182,17 +187,41 @@ namespace RuleRunner.App
             gameScreen.Show();
             gameScreen.Setup(level);
             loadout.Setup(level, rules);
-            loadout.SetNotPulse(level.AllowNot && PlayerPrefs.GetInt(NotTriedKey, 0) == 0);
+            loadout.SetNotPulse(level.AllowNot && !level.Tutorial && PlayerPrefs.GetInt(NotTriedKey, 0) == 0);
+            headCards.Show(level.Tutorial);
+            BindHeadCards();
             ResetRun();
             gameScreen.HideBanner();
             gameScreen.HideNudge();
             UpdateHintButton();
             analytics.LevelStarted(level.Id);
 
-            tutorial.LevelLoaded(level);
-            ShowTutorialPreview();
-            // Tutorial levels have no intro card: the level itself is the lesson.
-            if (!level.Tutorial && PlayerPrefs.GetInt(IntroKey(level), 0) == 0) ShowIntro();
+            // The first tutorial level opens with its cards playing the level once by themselves.
+            bool demo = level.DemoFirst && rules.Count > 0 && rules.SequenceEqual(level.StartCards);
+            tutorial.LevelLoaded(level, demo);
+            // A tutorial level shows an intro card only when it brings something new (Big Jump, card order, Energy).
+            bool hasIntro = !level.Tutorial || level.Guide.NewItems.Count > 0;
+            if (hasIntro && PlayerPrefs.GetInt(IntroKey(level), 0) == 0) ShowIntro();
+            if (demo) StartCoroutine(StartDemo());
+        }
+
+        IEnumerator StartDemo()
+        {
+            yield return new WaitForSeconds(0.8f);
+            if (level != null && level.DemoFirst && playback == null) StartRun(true);
+        }
+
+        void BindHeadCards()
+        {
+            if (level == null || !level.Tutorial) return;
+            headCards.Bind(loadout.Rules, level.AllowNot || level.NotOptions.Count > 0);
+        }
+
+        /// <summary>The tutorial's cards ride above the runner's head.</summary>
+        void LateUpdate()
+        {
+            if (level == null || !level.Tutorial || !headCards.gameObject.activeInHierarchy) return;
+            headCards.Follow(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), gameScreen.CanvasRect);
         }
 
         // ---------- Intro card, tutorial, hints ----------
@@ -212,9 +241,9 @@ namespace RuleRunner.App
 
         void ShowIntro()
         {
-            if (level == null || playback != null || level.Tutorial) return;
+            if (level == null || playback != null) return;
             introCard.Show(level);
-            IntroItems.Build(introCard.DiagramArea, level.Guide);
+            IntroItems.Build(introCard.DiagramArea, level.Guide, !level.HideQi);
         }
 
         void OnIntroClosed()
@@ -281,7 +310,7 @@ namespace RuleRunner.App
             var card = loadout.CardAt(0);
             if (card == null) return;
             andCoachActive = true;
-            coach.Show(card.AndChip, "Tap +AND to add a second condition. The card fires only when BOTH are true, for 1 extra qi.", true);
+            coach.Show(card.AndChip, "Tap +AND to add a second condition. The card fires only when BOTH are true, for 1 extra Energy.", true);
         }
 
         void EndAndCoach()
@@ -300,7 +329,6 @@ namespace RuleRunner.App
             {
                 map.ClearMarks();
                 if (deathX >= 0) map.MarkDeath(deathX);
-                ShowTutorialPreview();
                 return;
             }
             var result = Simulator.Run(level, loadout.Rules);
@@ -310,32 +338,15 @@ namespace RuleRunner.App
             map.ShowPreview(spots, Theme.ActionColor(loadout.Rules[index].Action));
         }
 
-        /// <summary>
-        /// Tutorial levels always show where the cards would fire, so every edit visibly changes the map
-        /// (the player sees the card and the runner's moves are linked before pressing RUN).
-        /// </summary>
-        void ShowTutorialPreview()
-        {
-            if (level == null || !level.Tutorial || playback != null) return;
-            map.ClearMarks();
-            if (deathX >= 0) map.MarkDeath(deathX);
-            var rules = loadout.Rules;
-            if (rules.Count == 0) return;
-            var result = Simulator.Run(level, rules);
-            for (int i = 0; i < rules.Count; i++)
-            {
-                var spots = new List<(int, int)>();
-                foreach (var f in result.Frames)
-                    if (f.FiredRule == i) spots.Add((f.XBefore, f.DirBefore));
-                map.ShowPreview(spots, Theme.ActionColor(rules[i].Action), false);
-            }
-        }
-
         // ---------- Run / Reset ----------
 
-        void StartRun()
+        void StartRun() => StartRun(false);
+
+        /// <param name="demo">The first tutorial level's cards play once by themselves: not counted, not cleared.</param>
+        void StartRun(bool demo)
         {
             if (level == null || playback != null) return;
+            demoRun = demo;
             deathX = -1;
             ResetRun();
             gameScreen.HideBanner();
@@ -344,9 +355,9 @@ namespace RuleRunner.App
             var rules = new List<Rule>(loadout.Rules.ConvertAll(r => r.Clone()));
             var result = Simulator.Run(level, rules);
             hintsShown.TryGetValue(level.Id, out int hintsUsed);
-            analytics.RunFinished(level, rules, result, hintsUsed);
+            if (!demo) analytics.RunFinished(level, rules, result, hintsUsed);
             tutorial.RunStarted();
-            gameScreen.Log("--- Run: " + rules.Count + (rules.Count == 1 ? " card" : " cards") + ", qi " + level.Qi + " ---", Theme.Dim);
+            gameScreen.Log("--- Run: " + rules.Count + (rules.Count == 1 ? " card" : " cards") + ", Energy " + level.Qi + " ---", Theme.Dim);
             playback = StartCoroutine(Play(rules, result));
         }
 
@@ -363,7 +374,8 @@ namespace RuleRunner.App
             loadout.SetQi(level.Qi, level.Qi);
             loadout.HighlightRule(-1, -1);
             gameScreen.HideFloat();
-            ShowTutorialPreview();
+            headCards.Clear();
+            map.ClearHighlight();
         }
 
         void StopPlayback()
@@ -375,19 +387,20 @@ namespace RuleRunner.App
         IEnumerator Play(List<Rule> rules, RunResult result)
         {
             var hits = new int[rules.Count];
+            var cells = level.Map.ToCharArray();
             bool firstFiring = true;
             foreach (var f in result.Frames)
             {
                 float step = BaseStepSeconds / speed;
-                // Tutorial: the first time a card fires, play it in slow motion so the card lighting up
-                // and the runner acting are seen as one thing.
-                if (level.Tutorial && firstFiring && f.FiredRule >= 0)
-                {
-                    step *= 3f;
-                    firstFiring = false;
-                }
                 map.SetTime(f.T);
                 loadout.HighlightRule(f.FiredRule >= 0 ? f.FiredRule : f.HoldingRule, f.StarvedRule);
+
+                if (level.Tutorial && (f.FiredRule >= 0 || f.StarvedRule >= 0))
+                {
+                    // The cards above the runner are read out loud before it acts; the first time slowly.
+                    yield return ReadCards(f, rules, cells, firstFiring);
+                    firstFiring = false;
+                }
 
                 if (f.FiredRule >= 0)
                 {
@@ -396,10 +409,17 @@ namespace RuleRunner.App
                     var rule = rules[f.FiredRule];
                     int cost = rule.Cost;
                     string label = level.Tutorial
-                        ? (level.HideQi || cost == 0 ? "" : "-" + cost)
+                        ? (level.HideQi || cost == 0 ? "" : "-" + cost + " Energy")
                         : "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     if (label.Length > 0)
                         gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
+                    if (level.Tutorial && !level.HideQi && cost > 0)
+                    {
+                        // Spending Energy is shown: the Energy pool lights up and the runner waits a moment.
+                        loadout.SetQi(f.Qi, level.Qi);
+                        loadout.FlashEnergy(true, 0.9f / speed);
+                        yield return new WaitForSeconds(0.9f / speed);
+                    }
                 }
                 else if (f.HoldingRule >= 0 && !level.Tutorial)
                 {
@@ -409,21 +429,37 @@ namespace RuleRunner.App
                 else if (f.StarvedRule >= 0)
                 {
                     gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect),
-                        level.Tutorial ? "no qi!" : "Card " + (f.StarvedRule + 1) + ": no qi!", step * 1.2f);
+                        level.Tutorial ? "not enough Energy!" : "Card " + (f.StarvedRule + 1) + ": not enough Energy!", step * 1.2f);
                 }
                 loadout.SetQi(f.Qi, level.Qi);
                 gameScreen.Log(DescribeStep(f, rules), f.StarvedRule >= 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
 
                 yield return runner.PlayStep(f, step);
                 if (f.CollectedOrb) map.CollectOrb(f.X);
+                if (level.Tutorial)
+                {
+                    headCards.Clear();
+                    map.ClearHighlight();
+                }
             }
 
             loadout.HighlightRule(-1, -1);
-            gameScreen.Log("Result: " + Vocabulary.Describe(result.Outcome) + "  (qi left " + result.QiLeft + ")",
+            if (!demoRun) gameScreen.Log("Result: " + Vocabulary.Describe(result.Outcome) + "  (Energy left " + result.QiLeft + ")",
                 result.Won ? new Color(0.5f, 0.9f, 0.55f) : new Color(1f, 0.55f, 0.55f));
             yield return runner.PlayOutcome(result.Outcome, 0.7f);
 
             string line = "";
+            if (demoRun)
+            {
+                // The cards have shown how it is done; now they are taken away and the slot is the player's.
+                demoRun = false;
+                playback = null;
+                yield return new WaitForSeconds(0.5f);
+                loadout.ClearRules();
+                ResetRun();
+                tutorial.DemoFinished();
+                yield break;
+            }
             if (result.Won) PlayerPrefs.SetInt(ClearedKey + level.Id, 1);
             else if (level.Tutorial)
             {
@@ -440,7 +476,9 @@ namespace RuleRunner.App
                     runner.Place(last.XBefore, last.DirBefore);
                 }
                 tutorial.RunFinished(result);
-                ShowTutorialPreview();
+                UpdateHintButton();
+                hintsShown.TryGetValue(level.Id, out int seen);
+                if (f + 1 == FailsBeforeHint && seen == 0 && level.Guide.Hints.Count > 0) gameScreen.ShowNudge(true);
                 yield break;
             }
             else
@@ -469,20 +507,66 @@ namespace RuleRunner.App
             tutorial.RunFinished(result);
         }
 
+        /// <summary>
+        /// Tutorial: reads the cards above the runner before it acts. The tile ahead is framed; with several cards a pointer
+        /// moves from the left, each card it reaches gets a cross on its IF (no match, then grey) until the first tick.
+        /// The THEN of that card lights gold, or red when there is not enough Energy. Cards after it are never read and
+        /// stay grey; when one of them would also have matched, the moment is held longer (the order decided it).
+        /// </summary>
+        IEnumerator ReadCards(StepFrame f, List<Rule> rules, char[] cells, bool slow)
+        {
+            int k = f.FiredRule >= 0 ? f.FiredRule : f.StarvedRule;
+            float pace = 1f / speed;
+            map.HighlightCell(f.XBefore + f.DirBefore);
+            if (rules.Count > 1)
+            {
+                headCards.GreyAll();
+                for (int i = 0; i < k; i++)
+                {
+                    headCards.Read(i);
+                    yield return new WaitForSeconds(0.32f * pace);
+                    headCards.Miss(i);
+                    yield return new WaitForSeconds(0.9f * pace);
+                    headCards.Unread(i);
+                }
+                headCards.Read(k);
+                yield return new WaitForSeconds(0.32f * pace);
+            }
+            headCards.Hit(k);
+            yield return new WaitForSeconds((slow ? 0.7f : 0.26f) * pace);
+
+            bool starved = f.StarvedRule >= 0;
+            headCards.Then(k, !starved);
+            if (starved)
+            {
+                loadout.FlashEnergy(false, 1f * pace);
+                yield return new WaitForSeconds(1f * pace);
+                yield break;
+            }
+            bool shadowed = false;
+            for (int j = k + 1; j < rules.Count; j++)
+                if (Simulator.Holds(cells, rules[j], f.XBefore, f.DirBefore, f.T))
+                {
+                    shadowed = true;
+                    headCards.Unread(j, 0.15f);
+                }
+            yield return new WaitForSeconds((shadowed ? 1.4f : slow ? 0.45f : 0.16f) * pace);
+        }
+
         static string DescribeStep(StepFrame f, List<Rule> rules)
         {
             string s = "Step " + (f.T + 1) + " - ";
             if (f.FiredRule >= 0)
-                s += "Card " + (f.FiredRule + 1) + " (" + rules[f.FiredRule].ToDisplayString() + ") fired, qi left " + f.Qi;
+                s += "Card " + (f.FiredRule + 1) + " (" + rules[f.FiredRule].ToDisplayString() + ") fired, Energy left " + f.Qi;
             else if (f.HoldingRule >= 0)
-                s += "Card " + (f.HoldingRule + 1) + " keeps waiting for the trap to go down (no extra qi)";
+                s += "Card " + (f.HoldingRule + 1) + " keeps waiting for the trap to go down (no extra Energy)";
             else if (f.StarvedRule >= 0)
                 s += "Card " + (f.StarvedRule + 1) + " was true but needs " + rules[f.StarvedRule].Cost +
-                     " qi (have " + f.QiBefore + ") - walked instead";
+                     " Energy (have " + f.QiBefore + ") - walked instead";
             else
                 s += "no card fired, Walk";
             if (f.Blocked) s += " - blocked by a wall";
-            if (f.CollectedOrb) s += " - picked up a qi orb (+" + Vocabulary.OrbQi + ")";
+            if (f.CollectedOrb) s += " - picked up an Energy orb (+" + Vocabulary.OrbQi + ")";
             return s;
         }
 

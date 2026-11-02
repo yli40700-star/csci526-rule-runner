@@ -1,12 +1,12 @@
 {
   "levels": [
     {
-      "id": "T1",
       "chapter": 0,
-      "title": "Cards",
       "tutorial": true,
       "start": 0,
       "dir": 1,
+      "id": "T1",
+      "title": "Cards",
       "qi": 9,
       "slots": 1,
       "conditions": [
@@ -14,17 +14,18 @@
         "pit"
       ],
       "actions": [
-        "walk",
         "jump"
       ],
       "noNot": true,
       "hideQi": true,
-      "cardsAfterFail": true,
-      "map": "gggpgggpggf",
-      "startCards": [],
-      "steps": [
-        "if",
-        "then"
+      "demoFirst": true,
+      "map": "gggpggpggf",
+      "startCards": [
+        "IF pit THEN jump"
+      ],
+      "blink": [
+        "slot",
+        "if"
       ],
       "solution": [
         "IF pit THEN jump"
@@ -34,119 +35,52 @@
       "previousExpected": "pit"
     },
     {
-      "id": "T2",
       "chapter": 0,
-      "title": "NOT",
       "tutorial": true,
       "start": 0,
       "dir": 1,
+      "id": "T2",
+      "title": "NOT",
+      "hint": "Sometimes there is more than one kind of danger. Maybe we need a different way of thinking.",
       "qi": 9,
       "slots": 1,
       "conditions": [
+        "ground",
         "pit",
-        "ground"
+        "spike"
       ],
       "actions": [
         "jump"
       ],
+      "noNot": true,
+      "notOptions": [
+        "ground"
+      ],
       "hideQi": true,
-      "map": "gggpgggsggf",
+      "map": "ggpggsggpggf",
       "startCards": [
         "IF pit THEN jump"
       ],
-      "steps": [
-        "if",
-        "not"
+      "blink": [
+        "if"
       ],
       "solution": [
         "IF NOT ground THEN jump"
       ],
-      "solutionQiLeft": 7,
+      "solutionQiLeft": 6,
       "previousSolution": [
         "IF pit THEN jump"
       ],
       "previousExpected": "spike"
     },
     {
+      "chapter": 0,
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
       "id": "T3",
-      "chapter": 0,
       "title": "Big Jump",
-      "tutorial": true,
-      "start": 0,
-      "dir": 1,
       "qi": 9,
-      "slots": 1,
-      "conditions": [
-        "pit"
-      ],
-      "actions": [
-        "jump",
-        "bigjump"
-      ],
-      "noNot": true,
-      "hideQi": true,
-      "map": "gggppgggf",
-      "startCards": [
-        "IF pit THEN jump"
-      ],
-      "steps": [
-        "then"
-      ],
-      "solution": [
-        "IF pit THEN bigjump"
-      ],
-      "solutionQiLeft": 6,
-      "previousSolution": [
-        "IF pit THEN jump"
-      ],
-      "previousExpected": "pit"
-    },
-    {
-      "id": "T4",
-      "chapter": 0,
-      "title": "Order",
-      "tutorial": true,
-      "start": 0,
-      "dir": 1,
-      "qi": 9,
-      "slots": 2,
-      "conditions": [
-        "ground",
-        "pit"
-      ],
-      "actions": [
-        "jump",
-        "bigjump"
-      ],
-      "hideQi": true,
-      "lockCards": true,
-      "map": "ggsgpggppggf",
-      "startCards": [
-        "IF NOT ground THEN jump",
-        "IF pit THEN bigjump"
-      ],
-      "steps": [
-        "order"
-      ],
-      "solution": [
-        "IF pit THEN bigjump",
-        "IF NOT ground THEN jump"
-      ],
-      "solutionQiLeft": 2,
-      "previousSolution": [
-        "IF NOT ground THEN jump",
-        "IF pit THEN bigjump"
-      ],
-      "previousExpected": "pit"
-    },
-    {
-      "id": "T5",
-      "chapter": 0,
-      "title": "Qi",
-      "tutorial": true,
-      "start": 0,
-      "dir": 1,
-      "qi": 6,
       "slots": 1,
       "conditions": [
         "ground",
@@ -157,73 +91,159 @@
         "jump",
         "bigjump"
       ],
-      "map": "ggpggsggpggsggf",
-      "startCards": [
-        "IF NOT ground THEN bigjump"
-      ],
-      "steps": [
+      "hideQi": true,
+      "map": "ggssgggppggf",
+      "startCards": [],
+      "blink": [
+        "slot",
+        "if",
+        "not",
         "then"
       ],
       "solution": [
-        "IF NOT ground THEN jump"
-      ],
-      "solutionQiLeft": 2,
-      "previousSolution": [
         "IF NOT ground THEN bigjump"
       ],
-      "previousExpected": "pit"
-    },
-    {
-      "id": "1-1",
-      "chapter": 1,
-      "title": "Rules Fire Themselves",
-      "hint": "You never press jump. Give the runner a card, press RUN, and watch.",
-      "map": "ggggpggggpgggpggf",
-      "start": 0,
-      "dir": 1,
-      "qi": 5,
-      "slots": 2,
-      "conditions": [
-        "pit"
+      "solutionQiLeft": 3,
+      "previousSolution": [
+        "IF NOT ground THEN jump"
       ],
-      "actions": [
-        "jump"
-      ],
-      "noNot": true,
-      "solution": [
-        "IF pit THEN jump"
-      ],
-      "solutionQiLeft": 2,
-      "previousSolution": [],
-      "previousExpected": "pit",
-      "concept": "basics",
+      "previousExpected": "spike",
       "hints": [
-        "The runner only knows what its cards tell it.",
-        "Every pit looks the same from one step away.",
-        "IF Pit ahead THEN Jump."
+        "Spikes and pits are both \"not ground\".",
+        "Both dangers are two tiles wide.",
+        "Try: IF NOT Ground ahead, THEN Big Jump."
       ],
-      "deathPit": [
-        "Nobody told it to jump.",
-        "It can't see a pit unless a card is looking for one."
-      ],
-      "qiLine": "Every pit costs a jump. Count them.",
-      "previousLine": "An empty hand plays itself.",
       "newItems": [
         {
-          "title": "NEW CARD: IF Pit ahead THEN Jump",
-          "line": "A card fires by itself every time its condition is true. Jump hops over one tile for 1 qi.",
-          "map": "gpgpggg",
+          "title": "NEW ACTION: Big Jump",
+          "line": "Jump clears one tile. Big Jump clears two tiles in a row.",
+          "map": "gppggg",
           "start": 0,
           "dir": 1,
           "qi": 5,
           "rules": [
-            "IF pit THEN jump"
+            "IF pit THEN bigjump"
           ],
-          "steps": 4
+          "steps": 3
         },
         {
-          "title": "NEW: Qi",
-          "line": "Every firing costs qi. With too little qi a card cannot fire - the runner just walks on.",
+          "title": "NOT is now a button",
+          "line": "Tap +NOT on a card to flip its condition. NOT Ground ahead is true before a pit and before a spike.",
+          "map": "gpgsggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 4
+        }
+      ]
+    },
+    {
+      "chapter": 0,
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "id": "T4",
+      "title": "Order",
+      "hint": "Order matters.",
+      "qi": 12,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "hideQi": true,
+      "lockConditions": true,
+      "map": "ggsgsggppggf",
+      "startCards": [
+        "IF NOT ground THEN jump",
+        "IF pit THEN jump"
+      ],
+      "blink": [
+        "move",
+        "then"
+      ],
+      "blinkOneByOne": true,
+      "solution": [
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 7,
+      "previousSolution": [
+        "IF NOT ground THEN jump",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "pit",
+      "hints": [
+        "At the pit, watch the pointer: which card does it stop at?",
+        "Move the Pit card to the front, so it is read first.",
+        "A normal Jump is too short for a two-tile pit: use Big Jump."
+      ],
+      "newItems": [
+        {
+          "title": "NEW RULE: card order",
+          "line": "Cards are checked from left to right. The first card whose IF is true acts; the cards after it are not checked.",
+          "map": "gppgsggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 8,
+          "rules": [
+            "IF pit THEN bigjump",
+            "IF NOT ground THEN jump"
+          ],
+          "steps": 4
+        }
+      ]
+    },
+    {
+      "chapter": 0,
+      "tutorial": true,
+      "start": 0,
+      "dir": 1,
+      "id": "T5",
+      "title": "Energy",
+      "hint": "One card for every danger costs too much Energy. Does every danger need a Big Jump?",
+      "qi": 4,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "map": "ggsgggppggf",
+      "startCards": [
+        "IF NOT ground THEN bigjump"
+      ],
+      "blink": [],
+      "solution": [
+        "IF spike THEN jump",
+        "IF NOT ground THEN bigjump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF NOT ground THEN bigjump"
+      ],
+      "previousExpected": "pit",
+      "hints": [
+        "Watch the Energy bar: how much is left when you reach the pit?",
+        "The spike only needs a normal Jump (1 Energy).",
+        "Use the second slot: Spike -> Jump, in front of the Big Jump card."
+      ],
+      "newItems": [
+        {
+          "title": "NEW: Energy",
+          "line": "Every jump costs Energy: Jump 1, Big Jump 3. A card without enough Energy does nothing - the runner just walks on.",
           "map": "gpgpggg",
           "start": 0,
           "dir": 1,
@@ -237,61 +257,7 @@
       ]
     },
     {
-      "id": "1-2",
-      "chapter": 1,
-      "title": "One Card, Many Dangers",
-      "hint": "One slot. Pits and spikes. One card has to care about both.",
-      "map": "gggpgggsggpggsgggf",
-      "start": 0,
-      "dir": 1,
-      "qi": 6,
-      "slots": 1,
-      "conditions": [
-        "ground",
-        "pit",
-        "spike"
-      ],
-      "actions": [
-        "jump"
-      ],
-      "solution": [
-        "IF NOT ground THEN jump"
-      ],
-      "solutionQiLeft": 2,
-      "previousSolution": [
-        "IF pit THEN jump"
-      ],
-      "previousExpected": "spike",
-      "concept": "not",
-      "hints": [
-        "Don't describe the danger. Describe the safe ground.",
-        "What is true before every pit and before every spike?",
-        "IF NOT Ground ahead THEN Jump."
-      ],
-      "deathPit": [
-        "One card, two dangers. Yours only knows one."
-      ],
-      "deathSpike": [
-        "A card that only fears pits will walk into spikes."
-      ],
-      "previousLine": "Your card still only knows about pits.",
-      "newItems": [
-        {
-          "title": "NEW: NOT",
-          "line": "NOT flips a condition. IF NOT Ground ahead fires before a pit and before a spike.",
-          "map": "gpgsggg",
-          "start": 0,
-          "dir": 1,
-          "qi": 5,
-          "rules": [
-            "IF NOT ground THEN jump"
-          ],
-          "steps": 4
-        }
-      ]
-    },
-    {
-      "id": "1-3",
+      "id": "1-1",
       "chapter": 1,
       "title": "Breather",
       "hint": "Nothing new here. Trust what you learned - a low wall isn't ground either.",
@@ -347,81 +313,10 @@
       ]
     },
     {
-      "id": "1-4",
-      "chapter": 1,
-      "title": "Top To Bottom",
-      "hint": "Cards are checked left to right. Only the first true one fires.",
-      "map": "gggsggpsgggpggppgggf",
-      "start": 0,
-      "dir": 1,
-      "qi": 11,
-      "slots": 2,
-      "conditions": [
-        "ground",
-        "pit",
-        "spike"
-      ],
-      "actions": [
-        "jump",
-        "bigjump"
-      ],
-      "solution": [
-        "IF pit THEN bigjump",
-        "IF NOT ground THEN jump"
-      ],
-      "solutionQiLeft": 1,
-      "previousSolution": [
-        "IF NOT ground THEN jump"
-      ],
-      "previousExpected": "spike",
-      "concept": "order",
-      "hints": [
-        "Some gaps are wider than one jump.",
-        "When two cards are true, the left one wins.",
-        "IF Pit ahead THEN Big Jump, and to its right IF NOT Ground ahead THEN Jump."
-      ],
-      "deathPit": [
-        "Two pits in a row need more than a hop."
-      ],
-      "deathSpike": [
-        "You cleared the gap and landed on the spike.",
-        "The jump was right. The distance was not."
-      ],
-      "qiLine": "Big Jumps are expensive. Save them for the wide gaps.",
-      "previousLine": "Last level's card jumps - just not far enough here.",
-      "newItems": [
-        {
-          "title": "NEW ACTION: Big Jump",
-          "line": "Clears two tiles and lands on the third. Costs 3 qi.",
-          "map": "gppggg",
-          "start": 0,
-          "dir": 1,
-          "qi": 5,
-          "rules": [
-            "IF pit THEN bigjump"
-          ],
-          "steps": 3
-        },
-        {
-          "title": "NEW RULE: card order",
-          "line": "When two cards are true, the leftmost one fires.",
-          "map": "gppgsggg",
-          "start": 0,
-          "dir": 1,
-          "qi": 8,
-          "rules": [
-            "IF pit THEN bigjump",
-            "IF NOT ground THEN jump"
-          ],
-          "steps": 4
-        }
-      ]
-    },
-    {
-      "id": "1-5",
+      "id": "1-2",
       "chapter": 1,
       "title": "All Together",
-      "hint": "Everything from Chapter 1, one course.",
+      "hint": "Everything from the tutorial, one course.",
       "map": "ggpgggsggpsggwggppggpggsggpsgggf",
       "start": 0,
       "dir": 1,
@@ -450,7 +345,7 @@
       "hints": [
         "You've seen every piece of this before.",
         "Order matters as much as the cards.",
-        "Same two cards as 1-4, in the same order."
+        "Same two cards as the Order lesson (T4), in the same order."
       ],
       "deathPit": [
         "Some pits are wider than they look."
@@ -461,10 +356,10 @@
       "qiLine": "Big Jumps are expensive. Save them for the wide gaps."
     },
     {
-      "id": "2-1",
-      "chapter": 2,
+      "id": "1-3",
+      "chapter": 1,
       "title": "Wait For It",
-      "hint": "Traps rise and fall. A Wait card costs 1 qi and holds until the trap is down.",
+      "hint": "Traps rise and fall. A Wait card costs 1 Energy and holds until the trap is down.",
       "map": "ggTggggTggggTggf",
       "start": 0,
       "dir": 1,
@@ -500,7 +395,7 @@
       "newItems": [
         {
           "title": "NEW: Trap + Wait",
-          "line": "Traps rise and fall. Wait costs 1 qi and holds until the trap ahead is down.",
+          "line": "Traps rise and fall. Wait costs 1 Energy and holds until the trap ahead is down.",
           "map": "ggTggg",
           "start": 0,
           "dir": 1,
@@ -513,8 +408,8 @@
       ]
     },
     {
-      "id": "2-2",
-      "chapter": 2,
+      "id": "1-4",
+      "chapter": 1,
       "title": "Turn Around",
       "hint": "The flag is behind you.",
       "map": "fggpgggggH",
@@ -551,12 +446,12 @@
       "deathTimeout": [
         "It's been walking into the same wall for a while now."
       ],
-      "qiLine": "Turning and jumping both cost qi. Do each only once.",
+      "qiLine": "Turning and jumping both cost Energy. Do each only once.",
       "previousLine": "Waiting won't move the wall.",
       "newItems": [
         {
           "title": "NEW: Wall ahead + Turn",
-          "line": "High walls and the course edge block everything. Turn faces the other way for 1 qi.",
+          "line": "High walls and the course edge block everything. Turn faces the other way for 1 Energy.",
           "map": "fggggg",
           "start": 1,
           "dir": 1,
@@ -569,8 +464,8 @@
       ]
     },
     {
-      "id": "2-3",
-      "chapter": 2,
+      "id": "1-5",
+      "chapter": 1,
       "title": "Stepping Stones",
       "hint": "One tile of ground between every gap. Look where you will land before you leave.",
       "map": "gpgsgppgsgspgf",
@@ -630,10 +525,10 @@
       ]
     },
     {
-      "id": "2-4",
-      "chapter": 2,
+      "id": "1-6",
+      "chapter": 1,
       "title": "Free Steps",
-      "hint": "Too little qi to waste. A free Walk card can stop the costly cards after it - and orbs refill you.",
+      "hint": "Too little Energy to waste. A free Walk card can stop the costly cards after it - and orbs refill you.",
       "map": "ggsogpgggppggsggf",
       "start": 0,
       "dir": 1,
@@ -665,7 +560,7 @@
       "hints": [
         "Safe ground deserves a free card.",
         "A Walk card on the left stops every card to its right while the ground ahead is safe.",
-        "IF Ground ahead THEN Walk, then the two cards from 2-3."
+        "IF Ground ahead THEN Walk, then the two cards from 1-5."
       ],
       "deathPit": [
         "Your Big Jump left too early.",
@@ -691,8 +586,8 @@
           "steps": 5
         },
         {
-          "title": "NEW TILE: Qi orb",
-          "line": "Walk or land on it for +2 qi. The pool can go above its start.",
+          "title": "NEW TILE: Energy orb",
+          "line": "Walk or land on it for +2 Energy. The pool can go above its start.",
           "map": "gogogg",
           "start": 0,
           "dir": 1,
@@ -703,8 +598,8 @@
       ]
     },
     {
-      "id": "2-5",
-      "chapter": 2,
+      "id": "1-7",
+      "chapter": 1,
       "title": "Everything You Know",
       "hint": "Every tool so far, one course. The trap card has to come before the ground card.",
       "map": "ggpgggsggpsgggTgggoggwggppggf",
@@ -758,13 +653,13 @@
         "It's waiting for a jump it can't afford."
       ],
       "qiLine": "You paid for jumps you didn't need.",
-      "previousLine": "Your 2-4 cards have never met a trap."
+      "previousLine": "Your 1-6 cards have never met a trap."
     },
     {
-      "id": "3-1",
-      "chapter": 3,
+      "id": "2-1",
+      "chapter": 2,
       "title": "Both Must Hold",
-      "hint": "One pit can be jumped; two pits in a row cannot. With this little qi, Big Jump only where it is needed.",
+      "hint": "One pit can be jumped; two pits in a row cannot. With this little Energy, Big Jump only where it is needed.",
       "map": "gggggpggsggppggf",
       "start": 0,
       "dir": 1,
@@ -793,7 +688,7 @@
       "previousExpected": "pit",
       "concept": "and",
       "hints": [
-        "Only the double pit needs a Big Jump. Everything else is a 1-qi Jump.",
+        "Only the double pit needs a Big Jump. Everything else is a 1-Energy Jump.",
         "Tap +AND on a card: IF Pit ahead AND NOT Ground 2 ahead is true only right before the double pit.",
         "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump."
       ],
@@ -805,11 +700,11 @@
         "None of your cards looked at the spike."
       ],
       "qiLine": "A Big Jump at every pit costs too much. AND picks out the double pit.",
-      "previousLine": "Your 2-3 cards: on long ground, Ground 2 ahead fires a step too early.",
+      "previousLine": "Your 1-5 cards: on long ground, Ground 2 ahead fires a step too early.",
       "newItems": [
         {
           "title": "NEW: AND",
-          "line": "+AND adds a second condition. The card fires only when BOTH are true, and costs 1 extra qi.",
+          "line": "+AND adds a second condition. The card fires only when BOTH are true, and costs 1 extra Energy.",
           "map": "gpggppgg",
           "start": 0,
           "dir": 1,
@@ -823,8 +718,8 @@
       ]
     },
     {
-      "id": "3-2",
-      "chapter": 3,
+      "id": "2-2",
+      "chapter": 2,
       "title": "Look Before You Leap",
       "hint": "A Jump lands two tiles ahead. Jump only when that tile is ground; otherwise Big Jump.",
       "map": "ggggwggggppggspggf",
@@ -866,8 +761,8 @@
       "deathSpike": [
         "Nothing fired before the spike."
       ],
-      "qiLine": "A Big Jump over the low wall wastes qi. A Jump is enough there.",
-      "previousLine": "Your 3-1 cards only check pits. Here a spike hides a pit behind it."
+      "qiLine": "A Big Jump over the low wall wastes Energy. A Jump is enough there.",
+      "previousLine": "Your 2-1 cards only check pits. Here a spike hides a pit behind it."
     }
   ]
 }
