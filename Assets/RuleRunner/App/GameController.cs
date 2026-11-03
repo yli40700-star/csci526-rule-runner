@@ -43,6 +43,7 @@ namespace RuleRunner.App
         TapHint tapHint;
         HeadCards headCards;
         Tutorial tutorial;
+        TutorialScreen tutorialScreen;
         AnalyticsTracker analytics;
 
         LevelDef level;
@@ -129,6 +130,18 @@ namespace RuleRunner.App
             tapHint = TapHint.Create(canvasRect);
             picker.transform.SetAsLastSibling();
             tutorial = new Tutorial(tapHint, gameScreen, loadout);
+            // The tutorial levels (T1-T5) play in their own screen, a port of docs/proto/tutorial.html.
+            tutorialScreen = TutorialScreen.Create(canvasRect);
+            tutorialScreen.Back += ShowLevelSelect;
+            tutorialScreen.Finished += ShowLevelSelect;
+            tutorialScreen.Cleared += id => PlayerPrefs.SetInt(ClearedKey + id, 1);
+            tutorialScreen.StageStarted += id => analytics.LevelStarted(id);
+            tutorialScreen.RunEnded += (id, ids, won, hints) =>
+            {
+                var def = LevelDatabase.Get(id);
+                var rules = Rule.ParseList(ids);
+                if (def != null) analytics.RunFinished(def, rules, Simulator.Run(def, rules), hints);
+            };
 
             levelSelect.LevelChosen += LoadLevel;
             gameScreen.Back += ShowLevelSelect;
@@ -164,6 +177,7 @@ namespace RuleRunner.App
         {
             StopPlayback();
             tutorial.Stop();
+            tutorialScreen.Close();
             introCard.gameObject.SetActive(false);
             resultPopup.Hide();
             gameScreen.Hide();
@@ -175,6 +189,20 @@ namespace RuleRunner.App
         void LoadLevel(LevelDef def)
         {
             StopPlayback();
+            if (def.Tutorial)
+            {
+                level = null;
+                tutorial.Stop();
+                levelSelect.Hide();
+                resultPopup.Hide();
+                introCard.gameObject.SetActive(false);
+                gameScreen.Hide();
+                map.gameObject.SetActive(false);
+                runner.gameObject.SetActive(false);
+                tutorialScreen.Open(def.Id);
+                return;
+            }
+            tutorialScreen.Close();
             level = def;
             deathX = -1;
             levelSelect.Hide();
