@@ -294,7 +294,19 @@ namespace RuleRunner.Cards
             }
         }
 
-        public void SetHits(int hits) => hitsText.text = hits > 0 ? "x" + hits : "";
+        public void SetHits(int hits) => hitsText.text = hits > 0 && !plain ? "x" + hits : "";
+
+        bool plain;
+
+        /// <summary>Tutorial cards: no hit counter and no remove button; the move arrows only when there is more than one card.</summary>
+        public void SetPlain(bool on, bool canMove)
+        {
+            plain = on;
+            removeButton.gameObject.SetActive(!on);
+            leftButton.gameObject.SetActive(!on || canMove);
+            rightButton.gameObject.SetActive(!on || canMove);
+            if (on) hitsText.text = "";
+        }
 
         /// <summary>Firing cards lift and glow gold; a card that lacked Energy glows red.</summary>
         public void SetState(bool firing, bool starved = false)

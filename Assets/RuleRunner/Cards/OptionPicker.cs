@@ -62,16 +62,17 @@ namespace RuleRunner.Cards
 
         /// <summary>
         /// Condition tiles where some options are negated (e.g. "NOT Ground ahead" offered next to Ground, Pit and Spike
-        /// before the player has met the NOT button).
+        /// before the player has met the NOT button). With blinkNegated, the negated options that are not picked blink.
         /// </summary>
         public void ShowConditionChoices(string heading, string sub, IList<(Condition cond, bool negate)> options,
-            (Condition cond, bool negate) selected, Action<Condition, bool> onPick)
+            (Condition cond, bool negate) selected, Action<Condition, bool> onPick, bool blinkNegated = false)
         {
             Open(heading, sub, options.Count);
             foreach (var o in options)
             {
                 var option = o;
                 var tile = Tile(o.Equals(selected), () => onPick(option.cond, option.negate));
+                if (blinkNegated && o.negate && !o.Equals(selected)) Blink.On(tile);
                 Icons.DrawCondition(UIKit.Centered(tile, "Icon", new Vector2(0, 14), Icons.Size), o.cond, o.negate);
                 UIKit.Label(UIKit.Rect(tile, "Name", Vector2.zero, new Vector2(1, 0), new Vector2(6, 10), new Vector2(-6, 36)),
                     "Text", (o.negate ? "NOT " : "") + Vocabulary.Display(o.cond), 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);

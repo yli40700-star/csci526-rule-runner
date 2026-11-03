@@ -13,6 +13,8 @@ namespace RuleRunner.View
         public float viewportHeight = 0.42f;
         /// <summary>Fraction of the screen height reserved at the very top for the level header.</summary>
         public float headerHeight = 0.13f;
+        /// <summary>World units between the bottom of the view and the ground line (lower = more room above the runner).</summary>
+        public float groundFromBottom = 1.3f;
 
         Camera cam;
         int mapLength = 10;
@@ -50,7 +52,7 @@ namespace RuleRunner.View
             cam.orthographicSize = Mathf.Max(sizeForWidth, worldHeight * 0.5f);
 
             // Center horizontally on the map; keep the ground line a little below the middle.
-            float centerY = cam.orthographicSize - 1.3f;
+            float centerY = cam.orthographicSize - groundFromBottom;
             transform.position = new Vector3((mapLength - 1) * 0.5f, centerY, -10f);
         }
 

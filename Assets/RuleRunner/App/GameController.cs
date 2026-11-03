@@ -97,9 +97,12 @@ namespace RuleRunner.App
             runner = new GameObject("Runner").AddComponent<RunnerView>();
         }
 
-        /// <summary>Screen fraction left for the map: AND levels have a taller card area, so the map is shorter.</summary>
-        static float MapViewportHeight(bool andLevel) =>
-            1f - GameScreen.HeaderFraction - GameScreen.BottomFraction(andLevel) - 34f / 720f;
+        /// <summary>
+        /// Screen fraction left for the map: AND levels have a taller card area, so the map is shorter.
+        /// The tutorial has no tile legend under the map, so the map takes that strip too.
+        /// </summary>
+        static float MapViewportHeight(bool andLevel, bool tutorial = false) =>
+            1f - GameScreen.HeaderFraction - GameScreen.BottomFraction(andLevel) - (tutorial ? 6f : 34f) / 720f;
 
         void BuildUI()
         {
@@ -179,7 +182,9 @@ namespace RuleRunner.App
             map.gameObject.SetActive(true);
             runner.gameObject.SetActive(true);
             map.Build(level);
-            cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd);
+            cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd, level.Tutorial);
+            // The tutorial's cards ride above the runner, so the ground sits lower to leave them room.
+            cameraFitter.groundFromBottom = level.Tutorial ? 0.45f : 1.3f;
             cameraFitter.Fit(level.Map.Length);
 
             if (!rulesByLevel.TryGetValue(level.Id, out var rules))
@@ -221,7 +226,8 @@ namespace RuleRunner.App
         void LateUpdate()
         {
             if (level == null || !level.Tutorial || !headCards.gameObject.activeInHierarchy) return;
-            headCards.Follow(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), gameScreen.CanvasRect);
+            headCards.Follow(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), gameScreen.CanvasRect,
+                GameScreen.HeaderFraction * 720f);
         }
 
         // ---------- Intro card, tutorial, hints ----------
@@ -451,10 +457,15 @@ namespace RuleRunner.App
             string line = "";
             if (demoRun)
             {
-                // The cards have shown how it is done; now they are taken away and the slot is the player's.
+                // The cards have shown how it is done; back at the start they shake, fade and are taken away,
+                // and the empty slot is the player's.
                 demoRun = false;
-                playback = null;
-                yield return new WaitForSeconds(0.5f);
+                playback = null;               // ResetRun would stop this coroutine
+                ResetRun();
+                gameScreen.SetRunning(true);
+                loadout.SetEditable(false);
+                yield return new WaitForSeconds(0.9f);
+                yield return headCards.Break();
                 loadout.ClearRules();
                 ResetRun();
                 tutorial.DemoFinished();

@@ -15,7 +15,7 @@ namespace RuleRunner.Cards
     public class HeadCards : MonoBehaviour
     {
         static readonly Vector2 MiniSize = new Vector2(112, 146);
-        const float Scale = 0.82f;
+        const float Scale = 1.4f;
 
         RectTransform row, pointer;
         readonly List<Mini> minis = new List<Mini>();
@@ -43,13 +43,17 @@ namespace RuleRunner.Cards
 
         public void Show(bool on) => gameObject.SetActive(on);
 
-        /// <summary>Places the row so its bottom edge sits just above the given canvas point, kept inside the canvas.</summary>
-        public void Follow(Vector2 canvasPoint, RectTransform canvas)
+        /// <summary>
+        /// Places the row so its bottom edge sits just above the given canvas point, kept inside the canvas and below
+        /// the header (topMargin: canvas units kept free at the top).
+        /// </summary>
+        public void Follow(Vector2 canvasPoint, RectTransform canvas, float topMargin)
         {
             var rt = (RectTransform)transform;
             float half = rt.rect.width * Scale / 2f + 8f;
             float limit = canvas.rect.width / 2f - half;
-            rt.anchoredPosition = new Vector2(Mathf.Clamp(canvasPoint.x, -limit, limit), canvasPoint.y + 14f);
+            float top = canvas.rect.height / 2f - topMargin - rt.rect.height * Scale - 6f;
+            rt.anchoredPosition = new Vector2(Mathf.Clamp(canvasPoint.x, -limit, limit), Mathf.Min(canvasPoint.y + 14f, top));
         }
 
         public void Bind(IList<Rule> rules, bool showNot)
@@ -115,6 +119,22 @@ namespace RuleRunner.Cards
         public void Then(int i, bool canPay)
         {
             if (Valid(i)) minis[i].MarkThen(canPay);
+        }
+
+        /// <summary>The cards shake and fade out: they are taken away (the first tutorial level, after its demo).</summary>
+        public System.Collections.IEnumerator Break()
+        {
+            var rt = (RectTransform)transform;
+            var home = rt.anchoredPosition;
+            const float seconds = 0.5f;
+            for (float t = 0f; t < seconds; t += Time.deltaTime)
+            {
+                float k = t / seconds;
+                rt.anchoredPosition = home + new Vector2(Mathf.Sin(k * Mathf.PI * 8f) * 8f * (1f - k), 0f);
+                foreach (var m in minis) m.SetAlpha(1f - k);
+                yield return null;
+            }
+            rt.anchoredPosition = home;
         }
 
         bool Valid(int i) => i >= 0 && i < minis.Count && minis[i].Root.gameObject.activeSelf;

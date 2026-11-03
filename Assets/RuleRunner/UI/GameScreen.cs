@@ -190,6 +190,12 @@ namespace RuleRunner.UI
             // Tutorial levels use the same screen as the chapters; "?" only when there is an intro card to reopen.
             hintText.gameObject.SetActive(true);
             helpButton.gameObject.SetActive(!level.Tutorial || level.Guide.NewItems.Count > 0);
+            // The tutorial shows only the map, the cards and RUN: no tile legend, run log, speed or Reset.
+            legendRect.gameObject.SetActive(!level.Tutorial);
+            logRect.gameObject.SetActive(!level.Tutorial);
+            controlRow.gameObject.SetActive(!level.Tutorial);
+            var runRt = (RectTransform)runButton.transform;
+            runRt.offsetMin = new Vector2(12, level.Tutorial ? -100 : -64);
             SetLoadoutVisible(true);
             SetRunning(false);
             ClearLog();

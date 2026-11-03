@@ -167,6 +167,7 @@ namespace RuleRunner.Cards
                 cards[i].Bind(i, Rules[i], i == 0, i == Rules.Count - 1, editable, Level == null || Level.AllowNot, tall,
                     Level != null && Level.LockConditions);
                 cards[i].PulseNot = pulseNot;
+                cards[i].SetPlain(Level != null && Level.Tutorial, slots > 1);
                 cards[i].SetState(false);
                 cards[i].SetHits(0);
             }
@@ -179,6 +180,10 @@ namespace RuleRunner.Cards
                 emptySlots[i].SetTall(tall);
             }
 
+            // The tutorial teaches these rules by showing them, so the tray has no text under its title.
+            bool tutorial = Level != null && Level.Tutorial;
+            loadoutText.gameObject.SetActive(!tutorial);
+            defaultText.gameObject.SetActive(!tutorial);
             loadoutText.text = Rules.Count + " / " + slots + " cards   -   checked left to right, the first true card acts";
         }
 
@@ -257,7 +262,8 @@ namespace RuleRunner.Cards
                 var options = Level.Conditions.ConvertAll(c => (c, false));
                 foreach (var c in Level.NotOptions) options.Add((c, true));
                 picker.ShowConditionChoices("IF ...", "What should card " + (card.Index + 1) + " look for?", options, (rule.Condition, rule.Negate),
-                    (c, negate) => { PartUsed?.Invoke("if"); Edit(card.Index, r => { r.Condition = c; r.Negate = negate; }); });
+                    (c, negate) => { PartUsed?.Invoke("if"); Edit(card.Index, r => { r.Condition = c; r.Negate = negate; }); },
+                    Level.Tutorial);
                 return;
             }
             // On an AND card, picking what the AND line already checks swaps the two, so a card never checks one thing twice.
