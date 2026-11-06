@@ -7,10 +7,9 @@ namespace RuleRunner.Tests
     /// <summary>Winning-combination counts from the web prototype (design doc section 6.2).</summary>
     public class LevelAnalyzerTests
     {
-        [TestCase("1-1", 6)]  // was 12 before Turn moved later in the chapter
-        [TestCase("1-2", 2)]
-        [TestCase("1-5", 4)]
-        [TestCase("1-6", 6)]
+        [TestCase("1-1", 2)]
+        [TestCase("1-2", 10)]
+        [TestCase("1-3", 1)]
         public void ChapterWinningCombinationCounts(string id, int expected)
         {
             var report = LevelAnalyzer.Analyze(LevelDatabase.Get(id));
@@ -24,33 +23,27 @@ namespace RuleRunner.Tests
         };
 
         [Test]
-        public void Level1_5_NeedsGround2Ahead()
+        public void Level1_2_NeedsGround2Ahead()
         {
-            var l = LevelDatabase.Get("1-5");
+            var l = LevelDatabase.Get("1-2");
             Assert.AreEqual(0, LevelAnalyzer.Analyze(Without(l, c: Condition.Ground2)).WinningCombinations);
         }
 
         [Test]
-        public void Level1_6_NeedsWalkCardAndOrb()
+        public void Level1_3_NeedsTheOrb()
         {
-            var l = LevelDatabase.Get("1-6");
-            Assert.AreEqual(0, LevelAnalyzer.Analyze(Without(l, a: ActionType.Walk)).WinningCombinations);
-            var noOrb = Simulator.Run(l.Map.Replace('o', 'g'), l.Start, l.Dir, l.Qi, l.Solution);
-            Assert.AreNotEqual(Outcome.Win, noOrb.Outcome, "the Energy orb must be needed");
+            var l = Without(LevelDatabase.Get("1-3"));
+            l.Map = l.Map.Replace('o', 'g');
+            Assert.AreEqual(0, LevelAnalyzer.Analyze(l).WinningCombinations, "no deck wins without the Energy orb");
         }
 
         [Test]
-        public void Level1_7_NoWinWithThreeSlots()
+        public void Level1_3_BigJumpEverywhereFliesOverTheOrbAndRunsOut()
         {
-            var report = LevelAnalyzer.Analyze(LevelDatabase.Get("1-7"), slots: 3);
-            Assert.AreEqual(0, report.WinningCombinations);
-        }
-
-        [Test] // ~5.5M combinations, about 2-3 s
-        public void Level1_7_EighteenWinsWithFourSlots()
-        {
-            var report = LevelAnalyzer.Analyze(LevelDatabase.Get("1-7"), slots: 4);
-            Assert.AreEqual(18, report.WinningCombinations);
+            var l = LevelDatabase.Get("1-3");
+            var r = Simulator.Run(l, Rule.ParseList(new[] { "IF NOT ground THEN bigjump" }));
+            Assert.AreEqual(Outcome.Spike, r.Outcome);
+            Assert.IsTrue(r.RanOutOfQi);
         }
 
         [Test]
@@ -61,7 +54,7 @@ namespace RuleRunner.Tests
             var level = LevelDatabase.Get("2-1");
             Assert.AreEqual(200, LevelAnalyzer.CardPool(level).Count);
             Assert.AreEqual(40, LevelAnalyzer.CardPool(level, includeAnd: false).Count);
-            Assert.AreEqual(16, LevelAnalyzer.CardPool(LevelDatabase.Get("1-5")).Count, "no AND before chapter 2");
+            Assert.AreEqual(20, LevelAnalyzer.CardPool(LevelDatabase.Get("1-2")).Count, "no AND before chapter 2");
         }
 
         // Every condition and action except traps and Wait is offered; 2-2 and 2-3 are ~8M combinations each.

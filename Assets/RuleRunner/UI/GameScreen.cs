@@ -103,7 +103,7 @@ namespace RuleRunner.UI
             {
                 ("Ground", Palette.Ground), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
                 ("Low wall (jump over)", Palette.LowWall), ("High wall / edge", Palette.HighWall),
-                ("Trap (up 2, down 2)", Palette.TrapUp), ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
+                ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
             };
             foreach (var (name, color) in items)
             {
@@ -113,12 +113,12 @@ namespace RuleRunner.UI
                 var label = UIKit.Label(legend, "Label", name, 14, TextAnchor.MiddleLeft, Theme.Dim);
                 label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 UIKit.Layout(label, label.preferredWidth + 14, 20);
-                if (color == Palette.TrapUp || color == Palette.Orb) trapOrbLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
+                if (color == Palette.Orb) orbLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
             }
         }
 
-        /// <summary>Legend entries for traps and Energy orbs: chapter 2 has neither, so they are hidden there.</summary>
-        readonly System.Collections.Generic.List<GameObject> trapOrbLegend = new System.Collections.Generic.List<GameObject>();
+        /// <summary>Legend entry for the Energy orb: hidden on levels without one.</summary>
+        readonly System.Collections.Generic.List<GameObject> orbLegend = new System.Collections.Generic.List<GameObject>();
 
         void BuildControls(Transform root)
         {
@@ -196,7 +196,7 @@ namespace RuleRunner.UI
             helpButton.gameObject.SetActive(level.HasIntro);
             // The tutorial shows only the map, the cards and RUN: no tile legend, run log, speed or Reset.
             legendRect.gameObject.SetActive(!level.Tutorial);
-            foreach (var go in trapOrbLegend) go.SetActive(level.Chapter < 2);
+            foreach (var go in orbLegend) go.SetActive(level.Map.IndexOf('o') >= 0);
             logRect.gameObject.SetActive(!level.Tutorial);
             controlRow.gameObject.SetActive(!level.Tutorial);
             var runRt = (RectTransform)runButton.transform;

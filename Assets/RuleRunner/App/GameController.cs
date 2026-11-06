@@ -239,7 +239,7 @@ namespace RuleRunner.App
             bool demo = level.DemoFirst && rules.Count > 0 && rules.SequenceEqual(level.StartCards);
             tutorial.LevelLoaded(level, demo);
             // A tutorial level shows an intro card only when it brings something new (Big Jump, card order, Energy);
-            // chapter 2's levels have none, except 2-2 (high wall and Turn), which shows it until the level is cleared.
+            // chapter levels that teach something (all of chapter 1, and 2-2) show it until the level is cleared.
             bool showIntro = level.IntroUntilCleared ? !IsCleared(level.Id) : PlayerPrefs.GetInt(IntroKey(level), 0) == 0;
             if (level.HasIntro && showIntro) ShowIntro();
             if (demo) StartCoroutine(StartDemo());

@@ -131,7 +131,7 @@ namespace RuleRunner.Tests
         {
             var g = LevelDatabase.Get("2-0");
             Assert.IsTrue(g.Tutorial && g.AllowAnd, "2-0 is the AND guide, played in the tutorial screen");
-            Assert.AreEqual("2-0", LevelDatabase.Next(LevelDatabase.Get("1-7")).Id, "chapter 2 starts with its guide");
+            Assert.AreEqual("2-0", LevelDatabase.Next(LevelDatabase.Get("1-3")).Id, "chapter 2 starts with its guide");
             Assert.AreEqual("2-0", LevelDatabase.All.First(l => l.AllowAnd).Id, "AND is taught in the guide first");
             var start = Simulator.Run(g, g.StartCards);
             Assert.IsFalse(start.Won);

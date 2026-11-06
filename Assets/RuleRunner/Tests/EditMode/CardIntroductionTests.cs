@@ -17,19 +17,31 @@ namespace RuleRunner.Tests
         [TestCase(Condition.Pit, "1-1")]
         [TestCase(Condition.Ground, "1-1")]
         [TestCase(Condition.Spike, "1-1")]
-        [TestCase(Condition.Trap, "1-3")]
-        [TestCase(Condition.Wall, "1-4")]
-        [TestCase(Condition.Ground2, "1-5")]
+        [TestCase(Condition.Wall, "1-1")]
+        [TestCase(Condition.Ground2, "1-2")]
         public void ConditionFirstAppears(Condition c, string level) =>
             Assert.AreEqual(level, FirstLevelWith(l => l.Conditions.Contains(c)));
 
         [TestCase(ActionType.Jump, "1-1")]
-        [TestCase(ActionType.BigJump, "1-2")]
-        [TestCase(ActionType.Wait, "1-3")]
-        [TestCase(ActionType.Turn, "1-4")]
-        [TestCase(ActionType.Walk, "1-6")]
+        [TestCase(ActionType.BigJump, "1-1")]
+        [TestCase(ActionType.Turn, "2-1")]
+        [TestCase(ActionType.Walk, "2-1")]
         public void ActionFirstAppears(ActionType a, string level) =>
             Assert.AreEqual(level, FirstLevelWith(l => l.Actions.Contains(a)));
+
+        [Test]
+        public void TrapsAndWaitAreNotOffered()
+        {
+            Assert.IsFalse(LevelDatabase.All.Any(l => l.Conditions.Contains(Condition.Trap) || l.Actions.Contains(ActionType.Wait)));
+        }
+
+        [Test]
+        public void Chapter1TeachesInEveryLevelUntilItIsCleared()
+        {
+            var chapter = LevelDatabase.All.Where(l => l.Chapter == 1).ToList();
+            CollectionAssert.AreEqual(new[] { "1-1", "1-2", "1-3" }, chapter.Select(l => l.Id).ToArray());
+            Assert.IsTrue(chapter.All(l => l.HasIntro && l.IntroUntilCleared && l.Guide.NewItems.Count > 0));
+        }
 
         [Test]
         public void NotIsTaughtInTheTutorialBeforeChapter1()

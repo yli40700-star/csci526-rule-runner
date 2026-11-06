@@ -62,8 +62,8 @@ namespace RuleRunner.Tests
         [Test]
         public void LinesRotateWithFailCount()
         {
-            var level = LevelDatabase.Get("1-5");
-            var rules = Rule.ParseList(new[] { "IF NOT ground THEN bigjump" });
+            var level = LevelDatabase.Get("1-3");
+            var rules = Rule.ParseList(new[] { "IF NOT ground THEN jump" });
             var result = Simulator.Run(level, rules);
             Assert.AreEqual(Outcome.Spike, result.Outcome);
             var first = GuideText.DeathLine(level, rules, result, 0);
