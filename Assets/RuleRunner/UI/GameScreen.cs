@@ -113,8 +113,12 @@ namespace RuleRunner.UI
                 var label = UIKit.Label(legend, "Label", name, 14, TextAnchor.MiddleLeft, Theme.Dim);
                 label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 UIKit.Layout(label, label.preferredWidth + 14, 20);
+                if (color == Palette.TrapUp || color == Palette.Orb) trapOrbLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
             }
         }
+
+        /// <summary>Legend entries for traps and Energy orbs: chapter 2 has neither, so they are hidden there.</summary>
+        readonly System.Collections.Generic.List<GameObject> trapOrbLegend = new System.Collections.Generic.List<GameObject>();
 
         void BuildControls(Transform root)
         {
@@ -189,9 +193,10 @@ namespace RuleRunner.UI
             hintText.text = level.Hint;
             // Tutorial levels use the same screen as the chapters; "?" only when there is an intro card to reopen.
             hintText.gameObject.SetActive(true);
-            helpButton.gameObject.SetActive(!level.Tutorial || level.Guide.NewItems.Count > 0);
+            helpButton.gameObject.SetActive(level.HasIntro);
             // The tutorial shows only the map, the cards and RUN: no tile legend, run log, speed or Reset.
             legendRect.gameObject.SetActive(!level.Tutorial);
+            foreach (var go in trapOrbLegend) go.SetActive(level.Chapter < 2);
             logRect.gameObject.SetActive(!level.Tutorial);
             controlRow.gameObject.SetActive(!level.Tutorial);
             var runRt = (RectTransform)runButton.transform;

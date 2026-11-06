@@ -50,6 +50,17 @@ namespace RuleRunner.Core
         /// <summary>False for placeholder levels that are still being designed.</summary>
         public bool Playable = true;
 
+        /// <summary>The level opens straight into play: no intro card and no "?" button (chapter 2 teaches only in its guide).</summary>
+        public bool NoIntro;
+        /// <summary>The intro card opens every time the level does, until the level is cleared (not just the first time).</summary>
+        public bool IntroUntilCleared;
+
+        /// <summary>
+        /// Whether the level has an intro card: chapter levels do unless NoIntro is set; tutorial levels only
+        /// when they bring something new.
+        /// </summary>
+        public bool HasIntro => !NoIntro && (!Tutorial || Guide.NewItems.Count > 0);
+
         /// <summary>Reference solution and the qi it should leave.</summary>
         public List<Rule> Solution = new List<Rule>();
         public int SolutionQiLeft;

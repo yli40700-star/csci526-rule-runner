@@ -56,35 +56,40 @@ namespace RuleRunner.Tests
         [Test]
         public void AndCardsJoinThePoolOnlyWhenAllowed()
         {
-            // 2-1: 4 conditions x {IF, IF NOT} x 2 actions = 16 single cards;
-            // 6 pairs of different conditions x 4 NOT combinations x 2 actions = 48 AND cards.
+            // 2-1: 5 conditions x {IF, IF NOT} x 4 actions = 40 single cards;
+            // 10 pairs of different conditions x 4 NOT combinations x 4 actions = 160 AND cards.
             var level = LevelDatabase.Get("2-1");
-            Assert.AreEqual(64, LevelAnalyzer.CardPool(level).Count);
-            Assert.AreEqual(16, LevelAnalyzer.CardPool(level, includeAnd: false).Count);
+            Assert.AreEqual(200, LevelAnalyzer.CardPool(level).Count);
+            Assert.AreEqual(40, LevelAnalyzer.CardPool(level, includeAnd: false).Count);
             Assert.AreEqual(16, LevelAnalyzer.CardPool(LevelDatabase.Get("1-5")).Count, "no AND before chapter 2");
         }
 
+        // Every condition and action except traps and Wait is offered; 2-2 and 2-3 are ~8M combinations each.
         [TestCase("2-1", 2)]
-        [TestCase("2-2", 1)]
+        [TestCase("2-2", 22)]
+        [TestCase("2-3", 58)]
         public void Chapter2WinningCombinationCounts(string id, int expected)
         {
             var report = LevelAnalyzer.Analyze(LevelDatabase.Get(id));
             Assert.AreEqual(expected, report.WinningCombinations);
-            Assert.AreEqual(0, report.MaxQiLeft, "the designed solution spends every Energy");
+            Assert.AreEqual(1, report.MaxQiLeft, "1 Energy to spare, never more");
         }
 
         [TestCase("2-1")]
         [TestCase("2-2")]
+        [TestCase("2-3")]
         public void Chapter2NeedsAnd(string id)
         {
             Assert.AreEqual(0, LevelAnalyzer.Analyze(LevelDatabase.Get(id), includeAnd: false).WinningCombinations);
         }
 
         [Test]
-        public void Level2_1_ThirdSlotDoesNotReplaceAnd()
+        public void Level2_1_KeepsTwoSlotsBecauseAThirdWouldReplaceAnd()
         {
-            var report = LevelAnalyzer.Analyze(LevelDatabase.Get("2-1"), slots: 3, includeAnd: false);
-            Assert.AreEqual(0, report.WinningCombinations);
+            var level = LevelDatabase.Get("2-1");
+            Assert.AreEqual(2, level.Slots);
+            Assert.Greater(LevelAnalyzer.Analyze(level, slots: 3, includeAnd: false).WinningCombinations, 0,
+                "with a third slot a Walk card stands in for AND, which is why 2-1 has two");
         }
     }
 }

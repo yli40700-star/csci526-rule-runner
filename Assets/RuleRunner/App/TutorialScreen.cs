@@ -10,7 +10,8 @@ namespace RuleRunner.App
 {
     /// <summary>
     /// The tutorial (T1-T5), a direct port of docs/proto/tutorial.html: same layout, stages, card reading,
-    /// empty cards, picker, ghost loop, blinking, hints, intros and Next button. Coordinates are the page's CSS
+    /// empty cards, picker, ghost loop, blinking, hints, intros and Next button. The AND guide (2-0) plays here too,
+    /// a port of the guide in docs/proto/chapter2.html: AND cards get a second IF row (Ground 2 ahead) and cost 1 more. Coordinates are the page's CSS
     /// pixels (top-left origin, y down); the whole page is scaled to fit the screen. Only the Energy costs differ:
     /// Big Jump costs 3 here, as in the chapters, so T5 gives 4 Energy instead of 3.
     /// </summary>
@@ -22,23 +23,31 @@ namespace RuleRunner.App
         {
             public string If, Then;
             public bool Not;
-            public CardData Copy() => new CardData { If = If, Not = Not, Then = Then };
+            /// <summary>AND card: a second condition (If2: "ground2"), negated when Not2.</summary>
+            public bool And, Not2;
+            public string If2;
+            public CardData Copy() => new CardData { If = If, Not = Not, Then = Then, And = And, If2 = If2, Not2 = Not2 };
+            public bool Complete => If != null && Then != null && (!And || If2 != null);
         }
 
         sealed class Stage
         {
             public string Id, Map, Hint, NewAction, PulseOpt;
             public CardData[] Cards, BreakFrom;
-            public string[] Ifs, Thens, Blink, Hints;
-            public bool Watch, NotIntro, NotChip, LockIf, Locked, Reorder, NewOrder, NewEnergy, NoBlink;
+            public string[] Ifs, If2s, Thens, Blink, Hints;
+            public bool Watch, NotIntro, NotChip, LockIf, Locked, Reorder, NewOrder, NewEnergy, NoBlink, NewAnd, AndChip;
             public int? Energy;
         }
 
         static CardData Cd(string i, string t, bool n = false) => new CardData { If = i, Then = t, Not = n };
+        static CardData CdAnd(string i, string i2, bool n2, string t) => new CardData { If = i, Then = t, And = true, If2 = i2, Not2 = n2 };
         static readonly string[] BaseIfs = { "ground", "pit", "spike" };
 
-        /// <summary>Tutorial level id per stage: stage 0 is T1's watch part, stage 1 its fix part.</summary>
-        static readonly string[] StageLevel = { "T1", "T1", "T2", "T3", "T4", "T5" };
+        /// <summary>Tutorial level id per stage: stage 0 is T1's watch part, stage 1 its fix part; the last two are 2-0's.</summary>
+        static readonly string[] StageLevel = { "T1", "T1", "T2", "T3", "T4", "T5", "2-0", "2-0" };
+
+        /// <summary>Stages that play as one lesson (dots, Next): the tutorial T1-T5, and the AND guide on its own.</summary>
+        static string Group(int i) => StageLevel[i].StartsWith("T") ? "T" : StageLevel[i];
 
         static readonly Stage[] Stages =
         {
@@ -60,16 +69,32 @@ namespace RuleRunner.App
                 Hint = "One card for every danger costs too much Energy. Does every danger need a Big Jump?",
                 Hints = new[] { "Watch the Energy bar: how much is left when you reach the pit?", "The spike only needs a normal Jump (1 Energy).",
                     "Use the second card: Spike -> Jump, and move it to the front." } },
+            // 2-0, the AND guide: watch an AND card at work, then the AND is taken off and the player puts it back.
+            new Stage { Id = "2-0", Map = "gggpgggppgggpgggf", Energy = 6, Watch = true, NewAnd = true, AndChip = true,
+                Cards = new[] { CdAnd("pit", "ground2", true, "bigjump"), Cd("pit", "jump") },
+                Hint = "Card 1 checks two things. It acts only when BOTH are true." },
+            new Stage { Id = "2-0", Map = "gggpgggppgggpgggf", Energy = 6, AndChip = true,
+                BreakFrom = new[] { CdAnd("pit", "ground2", true, "bigjump"), Cd("pit", "jump") },
+                Cards = new[] { Cd("pit", "bigjump"), Cd("pit", "jump") },
+                Ifs = BaseIfs, If2s = new[] { "ground2", "notground2" }, Thens = new[] { "jump", "bigjump" }, PulseOpt = "notground2",
+                Blink = new[] { "and", "if2" }, Hint = "A Big Jump costs 3. Is every pit that wide?",
+                Hints = new[] { "Watch the Energy: it is gone before the last pit.", "Tap + AND on card 1, then pick NOT Ground 2 ahead.",
+                    "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF Pit ahead THEN Jump." } },
         };
 
         static readonly Dictionary<string, string> Name = new Dictionary<string, string>
         {
             { "ground", "Ground ahead" }, { "pit", "Pit ahead" }, { "spike", "Spike ahead" }, { "notground", "NOT Ground ahead" },
+            { "ground2", "Ground 2 ahead" }, { "notground2", "NOT Ground 2 ahead" },
             { "jump", "Jump" }, { "bigjump", "Big Jump" },
         };
         static readonly Dictionary<string, int> Dist = new Dictionary<string, int> { { "walk", 1 }, { "jump", 2 }, { "bigjump", 3 } };
         static readonly Dictionary<string, int> Cost = new Dictionary<string, int> { { "jump", 1 }, { "bigjump", 3 } };
         static string CondName(string cond, bool neg) => cond == "notground" ? Name["notground"] : (neg ? "NOT " : "") + Name[cond];
+        /// <summary>Energy a card spends when it acts: its action, plus 1 for an AND card.</summary>
+        static int CostOf(CardData c) => Cost[c.Then] + (c.And ? 1 : 0);
+        /// <summary>The picker key of a card's second condition ("ground2" or "notground2").</summary>
+        static string If2Key(CardData c) => c.If2 == null ? null : c.Not2 ? "not" + c.If2 : c.If2;
 
         // ---------- colors (C and the CSS variables) ----------
 
@@ -87,7 +112,9 @@ namespace RuleRunner.App
 
         // ---------- state (S and R in the prototype) ----------
 
-        public event Action Back, Finished;
+        public event Action Back;
+        /// <summary>The Next button after a lesson's last stage (the level id of that stage: "T5" or "2-0").</summary>
+        public event Action<string> Finished;
         /// <summary>The player cleared a tutorial level (its id, e.g. "T2").</summary>
         public event Action<string> Cleared;
         /// <summary>A stage started (level id).</summary>
@@ -102,7 +129,7 @@ namespace RuleRunner.App
         int? energy;
         int hintsShown;
         (int tile, bool lit)? beam;
-        int? hl, mark;
+        int? hl, hl2, mark;
         readonly HashSet<string> pulse = new HashSet<string>(), done = new HashSet<string>();
         float rx, ry, rfall, rrot, ralpha = 1f;
         int token;
@@ -113,7 +140,7 @@ namespace RuleRunner.App
         CanvasGroup bubbleGroup;
         RectTransform app, stageRt, canvasRt, panel, loadoutRow, bubble, reader, mapLayer, fx;
         Image runnerImg, runnerEye;
-        RectTransform hlImg, hlGlow;
+        RectTransform hlImg, hlGlow, hl2Img;
         RectTransform runnerRt;
         readonly List<Image> beamDashes = new List<Image>();
         Image markA, markB;
@@ -308,6 +335,7 @@ namespace RuleRunner.App
             mapLayer = N(canvasRt, "Map", 0, 0, W, Hh);
             hlGlow = Frame(canvasRt, "HlGlow", 10f, CGold.WithAlpha(0.22f));
             hlImg = Frame(canvasRt, "Hl", 4f, CGold);
+            hl2Img = Frame(canvasRt, "Hl2", 4f, CQi);
             for (int i = 0; i < 60; i++)
             {
                 var d = Box(canvasRt, "Beam", 0, 0, 5, 2, Color.white);
@@ -363,7 +391,7 @@ namespace RuleRunner.App
             nextIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             nextIcon.rectTransform.anchoredPosition = new Vector2(31, -29);
             nextIcon.rectTransform.localRotation = Quaternion.Euler(0, 0, -90);
-            Btn(nextBtn, () => PlayStage(stage < Stages.Length - 1 ? stage + 1 : stage, true));
+            Btn(nextBtn, () => PlayStage(stage + 1 < Stages.Length && Group(stage + 1) == Group(stage) ? stage + 1 : stage, true));
 
             BuildPicker(root);
             BuildIntro(root);
@@ -407,20 +435,26 @@ namespace RuleRunner.App
             {
                 string cond = key;
                 if (cond == "notground") { cond = "ground"; neg = true; }
-                char k = cond == "ground" ? 'g' : cond == "pit" ? 'p' : 's';
+                if (cond == "notground2") { cond = "ground2"; neg = true; }
+                // Ground 2 ahead looks at the second tile; everything else at the first.
+                int ti = cond == "ground2" ? 2 : 1;
+                char k = cond == "ground" || cond == "ground2" ? 'g' : cond == "pit" ? 'p' : 's';
                 var col = neg ? CNot : CGold;
-                DiaCell(d, 0, 'g', false); DiaCell(d, 1, k, false); DiaCell(d, 2, '?', true); DiaCell(d, 3, '?', true);
+                DiaCell(d, 0, 'g', false);
+                DiaCell(d, 1, ti == 1 ? k : '?', ti != 1);
+                DiaCell(d, 2, ti == 2 ? k : '?', ti != 2);
+                DiaCell(d, 3, '?', true);
                 DiaRunner(d);
-                Box(d, "Under", X(1) - 10, 39, 20, 4, col, 2f);
-                var tri = Img(N(d, "Marker", X(1) - 4, 2.5f, 8, 7), col, 0, UISprites.Triangle);
+                Box(d, "Under", X(ti) - 10, 39, 20, 4, col, 2f);
+                var tri = Img(N(d, "Marker", X(ti) - 4, 2.5f, 8, 7), col, 0, UISprites.Triangle);
                 tri.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                tri.rectTransform.anchoredPosition = new Vector2(X(1), -6f);
+                tri.rectTransform.anchoredPosition = new Vector2(X(ti), -6f);
                 tri.rectTransform.localRotation = Quaternion.Euler(0, 0, 180);
                 if (neg)
                 {
                     var slash = Box(d, "Not", 0, 0, 3.5f, 26, CNot, 1.5f).rectTransform;
                     slash.pivot = new Vector2(0.5f, 0.5f);
-                    slash.anchoredPosition = new Vector2(X(1), -22f);
+                    slash.anchoredPosition = new Vector2(X(ti), -22f);
                     slash.localRotation = Quaternion.Euler(0, 0, -40);
                 }
             }
@@ -446,21 +480,23 @@ namespace RuleRunner.App
 
         sealed class CardView
         {
-            public RectTransform Root, IfSec, ThenSec, IfDiaArea, ThenDiaArea, NotChip, Move, BandCost;
+            public RectTransform Root, IfSec, If2Sec, ThenSec, IfDiaArea, If2DiaArea, ThenDiaArea, NotChip, AndChip, Move, BandCost;
             public CanvasGroup Group;
-            public Image Border, Glow, IfBg, ThenBg, IfFrame, ThenFrame, Badge;
+            public Image Border, Glow, IfBg, If2Bg, ThenBg, IfFrame, If2Frame, ThenFrame, Badge;
             public RectTransform Tick, Cross;
             public RectTransform NeverBorder;
             public float Height;
         }
 
         /// <summary>Builds a card. big = the loadout card (156 wide), otherwise the one over the runner (120 wide).</summary>
-        CardView BuildCard(Transform parent, CardData card, int n, bool big, bool badge, bool notChip, bool cost, bool foot, int count)
+        CardView BuildCard(Transform parent, CardData card, int n, bool big, bool badge, bool notChip, bool cost, bool foot, int count,
+            bool andChip = false)
         {
             var v = new CardView();
             float w = big ? 156 : 120, cw = w - 14, dia = big ? 46 : 40, nameH = big ? 16 : 14;
             float secH = 2 + 16 + dia + nameH + 4;
-            float h = 7 + 22 + 4 + secH + 3 + 1 + 4 + secH + (foot ? 5 + 23 : 0) + 7;
+            const float andRow = 16;   // the "AND" line between the two IF rows
+            float h = 7 + 22 + 4 + secH + (card.And ? andRow + secH : 0) + 3 + 1 + 4 + secH + (foot ? 5 + 23 : 0) + 7;
             v.Height = h;
             v.Root = N(parent, "Card" + n, 0, 0, w, h);
             v.Group = v.Root.gameObject.AddComponent<CanvasGroup>();
@@ -478,11 +514,28 @@ namespace RuleRunner.App
             var num = Img(N(band.rectTransform, "N", 4, 2.5f, 17, 17), new Color(0, 0, 0, 0.35f), 0, UISprites.Circle);
             Txt(num.rectTransform, "T", 0, 0, 17, 17, n.ToString(), 11, CText, TextAnchor.MiddleCenter, true);
             v.BandCost = N(band.rectTransform, "Cost", 0, 6.5f, cw - 4, 9);
-            if (cost && card.Then != null) Pips(v.BandCost, Cost[card.Then], 9, true);
+            if (cost && card.Then != null) Pips(v.BandCost, CostOf(card), 9, true);
 
             float y = 7 + 22 + 4;
             v.IfSec = Section(v, card, "if", y, cw, dia, nameH, secH, big, notChip, badge);
             y += secH;
+            if (card.And)
+            {
+                Box(v.Root, "AndL", 7 + 10, y + andRow / 2, cw / 2 - 30, 1, CQi.WithAlpha(0.6f));
+                Box(v.Root, "AndR", 7 + cw / 2 + 20, y + andRow / 2, cw / 2 - 30, 1, CQi.WithAlpha(0.6f));
+                Txt(v.Root, "And", 7, y, cw, andRow, "AND", 11, CQi, TextAnchor.MiddleCenter, true);
+                y += andRow;
+                v.If2Sec = Section(v, card, "if2", y, cw, dia, nameH, secH, big, false, false);
+                y += secH;
+            }
+            // "+AND" on a loadout card turns it into an AND card (and back).
+            if (andChip && big)
+            {
+                var chip = N(v.IfSec, "AndChip", cw - 4 - 44 - (notChip ? 40 : 0), 3, 44, 14);
+                Img(chip, card.And ? CQi : CRaised, 7f);
+                Txt(chip, "T", 0, 0, 44, 14, card.And ? "AND x" : "+AND", 10, card.And ? CBg : CDim, TextAnchor.MiddleCenter, true);
+                v.AndChip = chip;
+            }
             Box(v.Root, "Div", 7 + 10, y + 3, cw - 20, 1, CLine);
             y += 4 + 4;
             v.ThenSec = Section(v, card, "then", y, cw, dia, nameH, secH, big, false, false);
@@ -510,13 +563,14 @@ namespace RuleRunner.App
         RectTransform Section(CardView v, CardData card, string kind, float y, float cw, float dia, float nameH, float secH,
             bool big, bool notChip, bool badge)
         {
-            bool isIf = kind == "if";
-            string key = isIf ? card.If : card.Then;
-            var sec = N(v.Root, isIf ? "If" : "Then", 7, y, cw, secH);
+            bool isIf2 = kind == "if2", isIf = kind == "if" || isIf2;
+            string key = isIf2 ? If2Key(card) : isIf ? card.If : card.Then;
+            var sec = N(v.Root, isIf2 ? "If2" : isIf ? "If" : "Then", 7, y, cw, secH);
             var bg = Img(sec, new Color(1, 1, 1, 0f), 8f);
             var frame = Ring(sec, "Frame", 0, 0, cw, secH, new Color(1, 1, 1, 0f), 2f);
-            if (isIf) { v.IfBg = bg; v.IfFrame = frame; } else { v.ThenBg = bg; v.ThenFrame = frame; }
-            Txt(sec, "Lab", 4, 2, 40, 16, isIf ? "IF" : "THEN", 11, CDim, TextAnchor.MiddleLeft, true);
+            if (isIf2) { v.If2Bg = bg; v.If2Frame = frame; }
+            else if (isIf) { v.IfBg = bg; v.IfFrame = frame; } else { v.ThenBg = bg; v.ThenFrame = frame; }
+            Txt(sec, "Lab", 4, 2, 40, 16, isIf2 ? "AND" : isIf ? "IF" : "THEN", 11, isIf2 ? CQi : CDim, TextAnchor.MiddleLeft, true);
             if (isIf && notChip)
             {
                 var chip = N(sec, "NotChip", cw - 4 - 36, 3, 36, 14);
@@ -531,9 +585,9 @@ namespace RuleRunner.App
                 Dashed(sec, "Empty", 4 + 6, 18, cw - 8 - 12, dia, CFaint);
                 diaRt = N(sec, "Dia", (cw - svgW) / 2, 18 + (dia - svgH) / 2, svgW, svgH);
             }
-            else diaRt = Diagram(sec, (cw - svgW) / 2, 18 + (dia - svgH) / 2, svgW, svgH, kind, key, card.Not);
-            if (isIf) v.IfDiaArea = diaRt; else v.ThenDiaArea = diaRt;
-            string name = key == null ? "" : isIf ? CondName(key, card.Not) : Name[key];
+            else diaRt = Diagram(sec, (cw - svgW) / 2, 18 + (dia - svgH) / 2, svgW, svgH, isIf ? "if" : "then", key, !isIf2 && card.Not);
+            if (isIf2) v.If2DiaArea = diaRt; else if (isIf) v.IfDiaArea = diaRt; else v.ThenDiaArea = diaRt;
+            string name = key == null ? "" : isIf2 ? Name[key] : isIf ? CondName(key, card.Not) : Name[key];
             int size = big ? 13 : isIf ? 11 : 12;
             Txt(sec, "Name", 0, 18 + dia, cw, nameH, name, size, CText, TextAnchor.MiddleCenter, !isIf);
             if (badge)
@@ -586,8 +640,9 @@ namespace RuleRunner.App
 
         static void SecState(CardView v, string kind, string state)
         {
-            var bg = kind == "if" ? v.IfBg : v.ThenBg;
-            var frame = kind == "if" ? v.IfFrame : v.ThenFrame;
+            var bg = kind == "if" ? v.IfBg : kind == "if2" ? v.If2Bg : v.ThenBg;
+            var frame = kind == "if" ? v.IfFrame : kind == "if2" ? v.If2Frame : v.ThenFrame;
+            if (bg == null) return;
             switch (state)
             {
                 case "lit": bg.color = CGold.WithAlpha(0.2f); frame.color = CGold; break;
@@ -655,14 +710,20 @@ namespace RuleRunner.App
             float bx = 0;
             for (int i = 0; i < loadout.Count; i++)
             {
-                var v = BuildCard(loadoutRow, loadout[i], i + 1, true, false, s.NotChip, s.Energy.HasValue, s.Reorder, loadout.Count);
+                var v = BuildCard(loadoutRow, loadout[i], i + 1, true, false, s.NotChip, s.Energy.HasValue, s.Reorder, loadout.Count, s.AndChip);
                 v.Root.anchoredPosition = new Vector2(bx, 0);
                 bx += 156 + 12;
                 int idx = i;
                 if (!s.Locked)
                 {
                     if (!ifLocked) Btn(v.IfSec, () => OpenPicker(idx, "if"));
+                    if (v.If2Sec != null) Btn(v.If2Sec, () => OpenPicker(idx, "if2"));
                     Btn(v.ThenSec, () => OpenPicker(idx, "then"));
+                }
+                if (v.AndChip != null)
+                {
+                    Btn(v.AndChip, () => ToggleAnd(idx));
+                    v.AndChip.SetAsLastSibling();
                 }
                 if (v.NotChip != null && !ifLocked)
                 {
@@ -679,6 +740,7 @@ namespace RuleRunner.App
             foreach (var v in headViews)
             {
                 SecState(v, "if", "");
+                SecState(v, "if2", "");
                 SecState(v, "then", "");
                 CardState(v, "");
                 SetBadge(v, null);
@@ -689,7 +751,7 @@ namespace RuleRunner.App
         void ResetRunner()
         {
             rx = Px(0); ry = 0; rfall = 0; rrot = 0; ralpha = ghost ? 0.55f : 1f;
-            beam = null; hl = null; mark = null;
+            beam = null; hl = null; hl2 = null; mark = null;
             ClearLit();
         }
 
@@ -706,7 +768,10 @@ namespace RuleRunner.App
             float w = max.Value * 17 - 3;
             energyPips.sizeDelta = new Vector2(w, 14);
             energyBox.sizeDelta = new Vector2(10 + 56 + 6 + w + 10, 28);
-            energyBox.anchoredPosition = new Vector2(-14, -12);
+            // The AND guide's cards are taller and would cover a top-right Energy bar near the flag: it sits top-left there.
+            bool left = Group(stage) != "T";
+            energyBox.anchorMin = energyBox.anchorMax = energyBox.pivot = new Vector2(left ? 0f : 1f, 1f);
+            energyBox.anchoredPosition = new Vector2(left ? 14 : -14, -12);
         }
 
         IEnumerator FlashEnergy()
@@ -732,12 +797,17 @@ namespace RuleRunner.App
         float OffX => (W - map.Length * T) / 2;
         static bool Standable(char t) => t == 'g' || t == 'f';
 
-        static bool Matches(CardData c, char t)
+        /// <summary>One condition against the tile ahead (t) and the one after it (t2).</summary>
+        static bool Test(string cond, bool neg, char t, char t2)
         {
-            bool b = c.If == "ground" ? Standable(t) : c.If == "pit" ? t == 'p' : c.If == "spike" && t == 's';
-            if (c.If == "notground") return !Standable(t);
-            return c.Not ? !b : b;
+            if (cond == "notground") return !Standable(t);
+            bool b = cond == "ground" ? Standable(t) : cond == "pit" ? t == 'p' : cond == "spike" ? t == 's' : cond == "ground2" && Standable(t2);
+            return neg ? !b : b;
         }
+
+        /// <summary>A card's IF holds; an AND card needs both of its conditions.</summary>
+        static bool Matches(CardData c, char t, char t2) =>
+            Test(c.If, c.Not, t, t2) && (!c.And || (c.If2 != null && Test(c.If2, c.Not2, t, t2)));
 
         static IEnumerator Wait(float ms) { yield return new WaitForSeconds(ms / 1000f); }
 
@@ -764,16 +834,18 @@ namespace RuleRunner.App
             {
                 if (map[x] == 'f') { runResult = "win"; yield break; }
                 char ahead = x + 1 < map.Length ? map[x + 1] : 'g';
-                int fire = cards.FindIndex(c => c.If != null && c.Then != null && Matches(c, ahead));
-                bool starved = fire >= 0 && energy.HasValue && energy.Value < Cost[cards[fire].Then];
+                char ahead2 = x + 2 < map.Length ? map[x + 2] : 'H';
+                int fire = cards.FindIndex(c => c.Complete && Matches(c, ahead, ahead2));
+                bool starved = fire >= 0 && energy.HasValue && energy.Value < CostOf(cards[fire]);
                 beam = (x + 1, fire >= 0);
                 if (cards.Count > 1 && fire >= 0)
                 {
-                    yield return ReadInOrder(fire, ahead, starved);
+                    yield return ReadInOrder(fire, ahead, ahead2, starved);
                 }
                 else if (fire >= 0)
                 {
                     hl = x + 1;
+                    if (cards[fire].And) { hl2 = x + 2; SecState(headViews[fire], "if2", "lit"); }
                     SecState(headViews[fire], "if", "lit");
                     yield return Wait(slow ? 700 : 260);
                     if (starved) { SecState(headViews[fire], "then", "starve"); StartCoroutine(FlashEnergy()); }
@@ -785,11 +857,12 @@ namespace RuleRunner.App
                 string act = fire >= 0 && !starved ? cards[fire].Then : "walk";
                 if (energy.HasValue && act != "walk")
                 {
-                    energy -= Cost[act];
+                    int spent = CostOf(cards[fire]);
+                    energy -= spent;
                     RenderEnergy();
-                    AddFloat(rx, GY - 60, "-" + Cost[act]);
+                    AddFloat(rx, GY - 60, "-" + spent);
                     // The Energy bar lights up, shows what was spent, and the runner waits a moment.
-                    energySpent.text = "-" + Cost[act];
+                    energySpent.text = "-" + spent;
                     energyBox.localScale = Vector3.one * 1.35f;
                     var cardCost = fire >= 0 && fire < headViews.Count ? headViews[fire].BandCost : null;
                     if (cardCost) foreach (Transform pip in cardCost) pip.localScale = Vector3.one * 1.5f;
@@ -807,7 +880,7 @@ namespace RuleRunner.App
                     rx = from + (dest - from) * k;
                     ry = hgt > 0 ? -Mathf.Sin(Mathf.PI * k) * hgt : -Mathf.Abs(Mathf.Sin(Mathf.PI * k * 2)) * 3;
                 });
-                beam = null; hl = null;
+                beam = null; hl = null; hl2 = null;
                 ClearLit();
                 x = to;
                 char t = x < map.Length ? map[x] : 'p';
@@ -833,11 +906,11 @@ namespace RuleRunner.App
 
         // Several cards: every check starts with all cards grey. A pointer moves from the left card to the right one;
         // each card it reaches gets a red cross (no match) or a gold tick (match). At the first tick it stops.
-        IEnumerator ReadInOrder(int fire, char ahead, bool starved)
+        IEnumerator ReadInOrder(int fire, char ahead, char ahead2, bool starved)
         {
             foreach (var v in headViews) { CardState(v, "unread"); SetBadge(v, null); }
             reader.gameObject.SetActive(true);
-            bool shadowed = fire >= 0 && cards.Where((c, i) => i > fire && c.If != null && c.Then != null && Matches(c, ahead)).Any();
+            bool shadowed = fire >= 0 && cards.Where((c, i) => i > fire && c.Complete && Matches(c, ahead, ahead2)).Any();
             int last = fire >= 0 ? fire : headViews.Count - 1;
             for (int i = 0; i <= last; i++)
             {
@@ -849,6 +922,7 @@ namespace RuleRunner.App
                 {
                     SetBadge(headViews[i], true);
                     hl = beam?.tile;
+                    if (cards[i].And) { hl2 = beam?.tile + 1; SecState(headViews[i], "if2", "lit"); }
                     SecState(headViews[i], "if", "lit");
                     yield return Wait(260);
                     if (starved)
@@ -890,8 +964,9 @@ namespace RuleRunner.App
         void ReportRun(bool win)
         {
             if (St.Watch) return;
-            var ids = cards.Where(c => c.If != null && c.Then != null)
-                .Select(c => "IF " + (c.If == "notground" ? "NOT ground" : (c.Not ? "NOT " : "") + c.If) + " THEN " + c.Then).ToList();
+            var ids = cards.Where(c => c.Complete)
+                .Select(c => "IF " + (c.If == "notground" ? "NOT ground" : (c.Not ? "NOT " : "") + c.If) +
+                             (c.And ? " AND " + (c.Not2 ? "NOT " : "") + c.If2 : "") + " THEN " + c.Then).ToList();
             string key = stage + "|" + string.Join(";", ids) + "|" + win;
             // The ghost runs again and again; each card setup counts once.
             if (key == lastReported) return;
@@ -940,7 +1015,7 @@ namespace RuleRunner.App
             else if (s.LockIf) partsList = done.Contains("0:move") ? new[] { "0:then" } : new[] { "0:move" };
             else
             {
-                int empty = cards.FindIndex(c => c.If == null || c.Then == null);
+                int empty = cards.FindIndex(c => !c.Complete);
                 int i = empty >= 0 ? empty : 0;
                 var list = s.Blink ?? new[] { "if", "then" }.Concat(s.NotChip ? new[] { "not" } : new string[0]).ToArray();
                 partsList = list.Select(p => i + ":" + p);
@@ -958,9 +1033,12 @@ namespace RuleRunner.App
             for (int i = 0; i < bigViews.Count; i++)
             {
                 var v = bigViews[i];
-                var el = new Dictionary<string, RectTransform> { { "if", v.IfSec }, { "then", v.ThenSec }, { "not", v.NotChip }, { "move", v.Move } };
+                var el = new Dictionary<string, RectTransform>
+                {
+                    { "if", v.IfSec }, { "if2", v.If2Sec }, { "then", v.ThenSec }, { "not", v.NotChip }, { "and", v.AndChip }, { "move", v.Move },
+                };
                 foreach (var kv in el)
-                    if (kv.Value != null && pulse.Contains(i + ":" + kv.Key)) AddPulse(kv.Value, kv.Key == "not" ? 7f : 8f);
+                    if (kv.Value != null && pulse.Contains(i + ":" + kv.Key)) AddPulse(kv.Value, kv.Key == "not" || kv.Key == "and" ? 7f : 8f);
             }
         }
 
@@ -1033,10 +1111,12 @@ namespace RuleRunner.App
         void RenderDots(bool doneCurrent)
         {
             UIKit.DestroyChildren(dotsRt);
+            int n = 0;
             for (int i = 0; i < Stages.Length; i++)
             {
+                if (Group(i) != Group(stage)) continue;
                 var c = i < stage || (i == stage && doneCurrent) ? CAccent : i == stage ? CGold : CRaised;
-                Img(N(dotsRt, "Dot", i * 18, 0, 11, 11), c, 0, UISprites.Circle);
+                Img(N(dotsRt, "Dot", n++ * 18, 0, 11, 11), c, 0, UISprites.Circle);
             }
         }
 
@@ -1081,10 +1161,10 @@ namespace RuleRunner.App
             if (won || panelOff) return;
             var s = St;
             var card = cards[i];
-            pickTitle.text = kind == "if" ? "IF ..." : "THEN ...";
+            pickTitle.text = kind == "if" ? "IF ..." : kind == "if2" ? "AND ..." : "THEN ...";
             UIKit.DestroyChildren(pickerGrid);
-            string cur = kind == "then" ? card.Then : card.Not && !s.NotChip ? "not" + card.If : card.If;
-            var keys = kind == "if" ? s.Ifs : s.Thens;
+            string cur = kind == "then" ? card.Then : kind == "if2" ? If2Key(card) : card.Not && !s.NotChip ? "not" + card.If : card.If;
+            var keys = kind == "if" ? s.Ifs : kind == "if2" ? s.If2s : s.Thens;
             for (int k = 0; k < keys.Length; k++)
             {
                 string key = keys[k];
@@ -1092,11 +1172,11 @@ namespace RuleRunner.App
                 Img(opt, cur == key ? H(0x3f4a62) : CSurface2, 12f).raycastTarget = true;
                 if (cur == key) Ring(opt, "Sel", 0, 0, 110, 84, CGold, 2f);
                 bool hasCost = kind == "then" && s.Energy.HasValue;
-                Diagram(opt, (110 - 84) / 2f, hasCost ? 6 : 12, 84, 40, kind, key, false);
+                Diagram(opt, (110 - 84) / 2f, hasCost ? 6 : 12, 84, 40, kind == "then" ? "then" : "if", key, false);
                 Txt(opt, "Name", 0, hasCost ? 46 : 54, 110, 16, Name[key], 12, CText, TextAnchor.MiddleCenter, true);
                 if (hasCost)
                 {
-                    int c = Cost[key];
+                    int c = Cost[key] + (card.And ? 1 : 0);
                     var pr = N(opt, "Cost", (110 - (c * 12 - 3)) / 2f, 66, c * 12 - 3, 9);
                     Pips(pr, c, 9, false);
                 }
@@ -1125,16 +1205,17 @@ namespace RuleRunner.App
             var prev = cards.Select(c => c.Copy()).ToList();
             var c2 = cards[i].Copy();
             if (kind == "then") c2.Then = key;
+            else if (kind == "if2") { c2.Not2 = key.StartsWith("not"); c2.If2 = c2.Not2 ? key.Substring(3) : key; }
             else if (key == "notground") { c2.If = "ground"; c2.Not = true; }
             // With a NOT button on the card, picking a new condition keeps the NOT setting.
             else { c2.If = key; c2.Not = St.NotChip && cards[i].Not; }
             cards[i] = c2;
             // The loadout card changes first; the card over the runner catches up when the copy lands.
             RenderCards(prev, cards);
-            var from = kind == "if" ? bigViews[i].IfDiaArea : bigViews[i].ThenDiaArea;
-            var target = kind == "if" ? headViews[i].IfDiaArea : headViews[i].ThenDiaArea;
+            var from = kind == "if" ? bigViews[i].IfDiaArea : kind == "if2" ? bigViews[i].If2DiaArea : bigViews[i].ThenDiaArea;
+            var target = kind == "if" ? headViews[i].IfDiaArea : kind == "if2" ? headViews[i].If2DiaArea : headViews[i].ThenDiaArea;
             int my = token;
-            StartCoroutine(Fly(from, kind, kind == "if" ? c2.If : key, c2.Not, target, () =>
+            StartCoroutine(Fly(from, kind == "then" ? "then" : "if", kind == "if" ? c2.If : key, kind == "if" && c2.Not, target, () =>
             {
                 if (my != token) return;
                 RenderCards();
@@ -1182,6 +1263,22 @@ namespace RuleRunner.App
             SecState(headViews[i], "if", "lit");
             int my = token;
             StartCoroutine(After(350, () => { if (my == token && i < headViews.Count) SecState(headViews[i], "if", ""); }));
+            StartCoroutine(Loop());
+        }
+
+        /// <summary>"+AND" turns card i into an AND card with an empty second row, or back into a one-condition card.</summary>
+        void ToggleAnd(int i)
+        {
+            if (won || panelOff) return;
+            Used(i + ":and");
+            StopRun();
+            var c = cards[i].Copy();
+            c.And = !c.And;
+            c.If2 = null;
+            c.Not2 = false;
+            cards[i] = c;
+            ResetRunner();
+            RenderCards();
             StartCoroutine(Loop());
         }
 
@@ -1254,7 +1351,7 @@ namespace RuleRunner.App
         void PlayStage(int i, bool fromNext)
         {
             // After the last stage, the Next button leads to the level list.
-            if (fromNext && i == stage && won) { StopAll(); Finished?.Invoke(); return; }
+            if (fromNext && i == stage && won) { StopAll(); Finished?.Invoke(StageLevel[stage]); return; }
             StopRun();
             StartCoroutine(PlayStageRoutine(i));
         }
@@ -1301,10 +1398,11 @@ namespace RuleRunner.App
             RenderCards();
             energy = s.Energy;
             RenderEnergy();
-            if (s.NewAction != null || s.NewEnergy || s.NewOrder)
+            if (s.NewAction != null || s.NewEnergy || s.NewOrder || s.NewAnd)
             {
                 bool closed = false;
-                if (s.NewAction != null) ShowNewAction(() => closed = true);
+                if (s.NewAnd) ShowAndIntro(() => closed = true);
+                else if (s.NewAction != null) ShowNewAction(() => closed = true);
                 else if (s.NewEnergy) ShowEnergyIntro(() => closed = true);
                 else ShowOrderIntro(() => closed = true);
                 while (!closed) yield return null;
@@ -1421,6 +1519,21 @@ namespace RuleRunner.App
             h => Opt(h, "then", "jump", Name["jump"], Cost["jump"], false), h => Opt(h, "then", "bigjump", Name["bigjump"], Cost["bigjump"], true), "->",
             "Every jump costs <b><color=#4fd6e8>Energy</color></b>: Jump 1, Big Jump 3. You get 4 per run.\nA card without enough Energy does nothing.", onOk);
 
+        void ShowAndIntro(Action onOk) => ShowIntro("NEW: AND",
+            h => IntroCardOf(h, Cd("pit", "bigjump")), h => IntroCardOf(h, CdAnd("pit", "ground2", true, "bigjump")), "->",
+            "<b><color=#4fd6e8>AND</color></b> adds a second condition. The card acts only when <b><color=#eef1f5>BOTH</color></b> are true.\n" +
+            "An AND card costs 1 more Energy.", onOk);
+
+        /// <summary>A loadout card shrunk to 110 wide, for the intro.</summary>
+        void IntroCardOf(RectTransform holder, CardData card)
+        {
+            UIKit.DestroyChildren(holder);
+            var v = BuildCard(holder, card, 1, true, false, false, true, false, 1);
+            const float scale = 110f / 156f;
+            v.Root.localScale = Vector3.one * scale;
+            holder.sizeDelta = new Vector2(110, v.Height * scale);
+        }
+
         /// <summary>miniCard inside an option tile: number band, condition diagram, action diagram (gap 3, padding 8).</summary>
         static void MiniCard(RectTransform holder, int n, Color color, string cond, string act, bool sel)
         {
@@ -1523,6 +1636,9 @@ namespace RuleRunner.App
                 Place(hlGlow, ox + hl.Value * T + 3, GY - 32, T - 6, T + 28);
             }
             else { hlImg.gameObject.SetActive(false); hlGlow.gameObject.SetActive(false); }
+            // An AND card also looks two tiles ahead (Ground 2 ahead): that tile gets its own frame.
+            hl2Img.gameObject.SetActive(hl2.HasValue);
+            if (hl2.HasValue) Place(hl2Img, ox + hl2.Value * T + 3, GY - 32, T - 6, T + 28);
 
             // What the runner looks at: a dashed line to the next tile, gold when a card's IF matches it.
             int used = 0;

@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rule Runner - Chapter 2 (AND)</title>
+<!--
+  HTML prototype of chapter 2 (AND) on top of the current Unity version, before it is built in Unity.
+  2-0 is the AND guide in the tutorial style (like T1-T5); 2-1 to 2-6 are chapter levels. Only the guide
+  teaches: chapter levels open straight into play (no intro card, no + AND spotlight).
+  Rules: a port of Assets/RuleRunner/Core/Simulator.cs, step order unchanged.
+  Layout and colors follow GameScreen, LoadoutPanel, RuleCardView (tall AND cards), Icons, MapView,
+  RunnerView and TutorialScreen. Every chapter level offers all 6 conditions and 5 actions,
+  and was checked by brute force: none can be cleared without an AND card.
+  Self-contained: open the file in a browser.
+-->
+<style>
+  :root {
+    --bg: #141922; --surface: #1e2531; --surface2: #283041; --raised: #343e53; --raised-hover: #3f4a62;
+    --line: #3a4459; --text: #eef1f5; --dim: #8d97aa; --faint: #5d677a; --accent: #43b86a; --gold: #f5c542;
+    --danger: #e05555; --qi: #4fd6e8; --not: #ff6b4a; --map: #1d232e; --red: #e04f4f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { font-family: Arial, Helvetica, sans-serif; color: var(--text); }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #app { position: relative; width: 1280px; height: 720px; flex: none; overflow: hidden; background: var(--bg);
+    user-select: none; -webkit-user-select: none; transform-origin: center center; }
+  .screen { position: absolute; inset: 0; display: none; }
+  button { font-family: inherit; }
+  .btn { position: absolute; border: 0; border-radius: 10px; background: var(--raised); color: var(--text);
+    font-size: 16px; font-weight: 700; cursor: pointer; padding: 0; }
+  .btn:hover:not(:disabled) { background: var(--raised-hover); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.green { background: var(--accent); }
+  .btn.green:hover:not(:disabled) { background: #4ec776; }
+  .btn.gold { background: var(--gold); color: var(--bg); }
+  .btn.gold:hover:not(:disabled) { background: #f8d364; }
+  .btn.flow { position: relative; }
+  @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+  @keyframes pulseframe { from { box-shadow: 0 0 0 2px rgba(245, 197, 66, .25), 0 0 0 0 rgba(245, 197, 66, 0); }
+    to { box-shadow: 0 0 0 3px rgba(245, 197, 66, 1), 0 0 14px 2px rgba(245, 197, 66, .55); } }
+  .pulse { animation: pulseframe .75s ease-in-out infinite alternate; }
+
+  /* ================= chapter screen (GameScreen) ================= */
+  #chHeader { position: absolute; left: 0; top: 0; width: 1280px; height: 64px; background: var(--surface);
+    border-bottom: 1px solid var(--line); z-index: 3; }
+  #chBack { left: 14px; top: 12px; width: 112px; height: 40px; font-size: 17px; }
+  #chChip { position: absolute; left: 142px; top: 12px; width: 64px; height: 40px; border-radius: 12px; background: var(--gold);
+    color: var(--bg); font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  #chTitle { position: absolute; left: 222px; top: 5px; right: 200px; font-size: 24px; font-weight: 700; white-space: nowrap; }
+  #chHint { position: absolute; left: 222px; top: 36px; right: 200px; font-size: 15px; font-style: italic; color: var(--dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #chHintBtn { right: 14px; top: 12px; width: 118px; height: 40px; display: none; }
+  .nudge { position: absolute; display: none; flex-direction: column; align-items: flex-end; z-index: 7; pointer-events: none;
+    animation: bob .6s ease-in-out infinite alternate; }
+  .nudge .arrow { width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent;
+    border-bottom: 16px solid var(--gold); }
+  .nudge .bubble { background: var(--gold); color: var(--bg); font-weight: 700; font-size: 15px; padding: 7px 13px; border-radius: 10px; }
+  #chNudge { top: 66px; right: 14px; }
+  #chNudge .arrow { margin-right: 48px; }
+  #chMap { position: absolute; left: 0; top: 64px; width: 1280px; display: block; }
+  #legend { position: absolute; left: 16px; right: 16px; height: 26px; display: flex; align-items: center; justify-content: center;
+    gap: 6px; font-size: 14px; color: var(--dim); white-space: nowrap; }
+  #legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  #legend span { margin-right: 14px; }
+  .banner { position: absolute; left: 50%; transform: translateX(-50%); max-width: 1180px; min-height: 38px; padding: 8px 20px;
+    border-radius: 12px; background: rgba(20, 25, 34, .9); box-shadow: 0 0 0 1px rgba(245, 197, 66, .5); color: var(--gold);
+    font-size: 18px; font-style: italic; display: none; align-items: center; justify-content: center; text-align: center;
+    pointer-events: none; z-index: 5; }
+  #chBanner { top: 74px; width: max-content; line-height: 1.3; }
+  #chFloat { position: absolute; height: 32px; padding: 0 14px; border-radius: 12px; background: rgba(20, 25, 34, .92);
+    box-shadow: 0 0 0 1px rgba(245, 197, 66, .8); color: var(--gold); font-size: 16px; font-weight: 700; display: none;
+    align-items: center; white-space: nowrap; pointer-events: none; transform: translate(-50%, -50%); z-index: 6; }
+
+  #tray { position: absolute; left: 12px; width: 892px; bottom: 12px; border-radius: 16px; background: var(--surface);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+  #trayHead { position: absolute; left: 18px; right: 18px; top: 8px; height: 26px; display: flex; align-items: center;
+    font-size: 14px; color: var(--dim); white-space: nowrap; }
+  #trayHead b { color: var(--gold); font-size: 15px; margin-right: 22px; }
+  #trayHead .def { margin-left: auto; color: var(--faint); }
+  #rowWrap { position: absolute; left: 14px; right: 14px; top: 40px; bottom: 12px; }
+  #row { position: absolute; left: 0; top: 0; display: flex; gap: 12px; align-items: flex-start; transform-origin: top left; }
+  .runner-panel { position: relative; width: 138px; flex: none; border-radius: 14px; background: var(--surface2); }
+  .runner-panel .lab { position: absolute; left: 0; right: 0; top: 10px; text-align: center; font-size: 13px; font-weight: 700; color: var(--dim); }
+  .runner-panel .glow { position: absolute; left: 27px; top: 24px; width: 84px; height: 84px; border-radius: 50%; background: rgba(245, 208, 59, .12); }
+  .runner-panel .body { position: absolute; left: 46px; top: 43px; width: 46px; height: 46px; border-radius: 8px; background: #f5d03b; }
+  .runner-panel .eye { position: absolute; left: 75px; top: 54px; width: 8px; height: 12px; border-radius: 2px; background: #1d232e; }
+  .runner-panel .div { position: absolute; left: 14px; right: 14px; top: 121px; height: 1px; background: var(--line); }
+  .energy { position: absolute; left: 6px; right: 6px; top: 124px; height: 102px; border-radius: 10px; transition: transform .25s, background .25s; }
+  .energy.flash { transform: scale(1.15); background: rgba(79, 214, 232, .3); }
+  .energy.flash-red { transform: scale(1.08); background: rgba(224, 85, 85, .3); }
+  .energy .lab2 { position: absolute; left: 0; right: 0; top: 4px; text-align: center; font-size: 12px; font-weight: 700; color: var(--dim); }
+  .energy .val { position: absolute; left: 0; right: 0; top: 21px; text-align: center; font-size: 22px; font-weight: 700; color: var(--qi); }
+  .energy .pipgrid { position: absolute; left: 6px; right: 6px; top: 54px; display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+  .energy .pipgrid i { width: 11px; height: 11px; border-radius: 50%; background: var(--raised); }
+  .energy .pipgrid i.on { background: var(--qi); }
+
+  /* tall AND-level card (RuleCardView.BuildTall): 184 x 268, an AND card 184 x 322 */
+  .card { position: relative; width: 184px; flex: none; }
+  .card .cb { position: absolute; inset: 0; border-radius: 14px; background: var(--surface2); box-shadow: 0 5px 10px rgba(0, 0, 0, .5);
+    transition: transform .14s ease-out, box-shadow .14s, background .14s; }
+  .card.firing .cb { transform: translateY(-12px); box-shadow: 0 0 0 3px var(--gold), 0 5px 10px rgba(0, 0, 0, .5); }
+  .card.starved .cb { transform: translateY(-4px); background: #3a2a30; box-shadow: 0 0 0 3px var(--danger), 0 5px 10px rgba(0, 0, 0, .5); }
+  .band { position: absolute; left: 6px; right: 6px; top: 6px; height: 30px; border-radius: 9px; }
+  .badge { position: absolute; left: 5px; top: 3px; width: 24px; height: 24px; border-radius: 12px; background: rgba(0, 0, 0, .35);
+    font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .hits { position: absolute; left: 0; right: 0; top: 0; height: 30px; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; pointer-events: none; }
+  .pips { position: absolute; right: 8px; top: 0; height: 30px; display: flex; align-items: center; gap: 3px; }
+  .pips i { width: 11px; height: 11px; border-radius: 50%; background: var(--qi); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+  .pips i.g { background: var(--gold); }
+  .pips.small i { width: 9px; height: 9px; }
+  .pips span { font-size: 12px; font-weight: 700; }
+  .area { position: absolute; left: 6px; right: 6px; border-radius: 8px; cursor: pointer; }
+  .area:hover { background: rgba(255, 255, 255, .07); }
+  .locked .area { cursor: default; }
+  .locked .area:hover { background: none; }
+  .lbl { position: absolute; left: 6px; top: 2px; font-size: 12px; font-weight: 700; color: var(--dim); line-height: 14px; }
+  .icon { position: absolute; left: 50%; top: 4px; width: 89px; height: 44px; margin-left: -44.5px; pointer-events: none; }
+  .c1 { top: 38px; height: 74px; }
+  .c2 { top: 136px; height: 74px; }
+  .crow { position: absolute; left: 4px; right: 4px; top: 50px; height: 21px; }
+  .cname { position: absolute; left: 46px; right: 0; top: 0; height: 21px; line-height: 21px; font-size: 13px; font-weight: 700;
+    white-space: nowrap; pointer-events: none; }
+  .cname.neg { color: #ffb3a3; }
+  .chipbtn { position: absolute; border: 0; padding: 0; cursor: pointer; background: var(--raised); color: var(--dim);
+    font-size: 11px; font-weight: 700; border-radius: 7px; }
+  .chipbtn:disabled { cursor: default; }
+  .chipbtn.not { left: 0; top: 0; width: 40px; height: 21px; }
+  .chipbtn.not.on { background: var(--not); color: var(--text); }
+  .chipbtn .tip { display: none; position: absolute; bottom: calc(100% + 6px); left: -4px; width: 200px; padding: 7px 10px; border-radius: 8px;
+    background: rgba(20, 25, 34, .97); box-shadow: 0 0 0 1px var(--line); color: var(--text); font-size: 12px; font-weight: 400;
+    line-height: 1.35; text-align: left; z-index: 9; }
+  .chipbtn:hover .tip { display: block; }
+  .locked .chipbtn:hover .tip { display: none; }
+  .addand { position: absolute; left: 56px; right: 56px; top: 116px; height: 20px; border: 0; border-radius: 8px; padding: 0;
+    background: var(--raised); color: var(--dim); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .addand:hover:not(:disabled) { background: var(--raised-hover); color: var(--text); }
+  .addand:disabled { cursor: default; }
+  .anddiv { position: absolute; left: 10px; right: 10px; top: 115px; height: 20px; }
+  .anddiv .ln { position: absolute; top: 9.5px; height: 1px; background: var(--line); }
+  .anddiv .ln.l { left: 0; right: calc(50% + 36px); }
+  .anddiv .ln.r { left: calc(50% + 38px); right: 0; }
+  .anddiv b { position: absolute; left: calc(50% - 33px); width: 42px; top: 0; height: 20px; line-height: 20px; text-align: center;
+    font-size: 14px; color: var(--gold); }
+  .anddiv .x { position: absolute; left: calc(50% + 11px); top: 0; width: 22px; height: 20px; border: 0; border-radius: 6px; padding: 0;
+    background: var(--raised); color: var(--dim); font-size: 15px; cursor: pointer; line-height: 20px; }
+  .anddiv .x:disabled { cursor: default; }
+  .tdiv { position: absolute; left: 16px; right: 16px; bottom: 110px; height: 1px; background: var(--line); }
+  .then { bottom: 28px; height: 80px; }
+  .aname { position: absolute; left: 0; right: 0; top: 47px; height: 17px; line-height: 17px; text-align: center; font-size: 15px; font-weight: 700; }
+  .cost { position: absolute; left: 0; right: 0; top: 64px; height: 14px; line-height: 14px; text-align: center; font-size: 12px; color: var(--dim); }
+  .cost b { color: var(--gold); }
+  .footer { position: absolute; left: 8px; right: 8px; bottom: 6px; height: 20px; }
+  .footer .fb { position: absolute; top: 0; height: 20px; border: 0; border-radius: 8px; background: var(--raised); color: var(--text);
+    font-size: 14px; font-weight: 700; cursor: pointer; padding: 0; }
+  .footer .fb:hover:not(:disabled) { background: var(--raised-hover); }
+  .footer .fb:disabled { opacity: .35; cursor: default; }
+  .footer .l { left: 0; width: 28px; }
+  .footer .r { right: 0; width: 28px; }
+  .footer .rm { left: 50%; margin-left: -32px; width: 64px; font-size: 12px; font-weight: 400; color: var(--dim); }
+  .slot { position: relative; width: 184px; flex: none; border-radius: 14px; border: 2px solid var(--line); cursor: pointer; }
+  .slot:hover { background: rgba(255, 255, 255, .04); }
+  .slot.off { cursor: default; opacity: .5; }
+  .slot .plus { position: absolute; left: 0; right: 0; top: calc(50% - 46px); text-align: center; font-size: 40px; color: var(--dim); }
+  .slot .eq { position: absolute; left: 0; right: 0; top: calc(50% + 12px); text-align: center; font-size: 15px; color: var(--dim); }
+
+  #controls { position: absolute; right: 12px; width: 352px; height: 112px; border-radius: 16px; background: var(--surface);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+  #runBtn { left: 12px; right: 12px; top: 12px; height: 52px; font-size: 24px; border-radius: 12px; box-shadow: 0 3px 6px rgba(0, 0, 0, .4); }
+  #ctlRow { position: absolute; left: 12px; right: 12px; bottom: 10px; height: 34px; display: flex; gap: 6px; }
+  #ctlRow .btn { height: 34px; border-radius: 9px; font-size: 15px; }
+  #resetBtn { flex: 1.4; font-size: 16px !important; }
+  #ctlRow .gap { width: 8px; flex: none; }
+  .spd { flex: 1; }
+  .spd.on { background: rgba(79, 214, 232, .85); }
+  .spd.on:hover:not(:disabled) { background: rgba(79, 214, 232, .95); }
+  #log { position: absolute; right: 12px; width: 352px; bottom: 12px; border-radius: 16px; background: var(--surface);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .35); }
+  #log .t { position: absolute; left: 14px; top: 8px; font-size: 13px; font-weight: 700; color: var(--dim); }
+  #logBody { position: absolute; left: 8px; right: 8px; top: 30px; bottom: 8px; overflow-y: auto; padding: 2px 6px 4px;
+    font-size: 14px; line-height: 1.25; }
+  #logBody div { margin-bottom: 3px; }
+  #logBody::-webkit-scrollbar { width: 6px; }
+  #logBody::-webkit-scrollbar-thumb { background: var(--raised); border-radius: 3px; }
+
+  /* ================= tutorial screen (TutorialScreen) ================= */
+  #tTop { position: absolute; left: 140px; top: 8px; width: 1000px; height: 50px; border-radius: 12px; background: var(--surface);
+    border-bottom: 1px solid var(--line); }
+  #tBack { left: 12px; top: 9px; width: 84px; height: 32px; font-size: 13px; color: var(--dim); }
+  #tChip { position: absolute; left: 106px; top: 10px; width: 46px; height: 30px; border-radius: 8px; background: var(--gold); color: var(--bg);
+    font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  #tHint { position: absolute; left: 166px; top: 8px; height: 34px; border-radius: 10px; background: var(--surface2);
+    box-shadow: 0 0 0 1px var(--gold) inset; font-size: 13px; display: flex; align-items: center; justify-content: center; padding: 0 12px;
+    text-align: center; }
+  #tHintBtn { top: 10px; width: 82px; height: 30px; font-size: 13px; border-radius: 8px; display: none; }
+  #tDots { position: absolute; right: 14px; top: 20px; display: flex; gap: 7px; }
+  #tDots i { width: 11px; height: 11px; border-radius: 50%; background: var(--raised); }
+  #tDots i.on { background: var(--gold); }
+  #tDots i.done { background: var(--accent); }
+  #tStageBox { position: absolute; left: 140px; top: 66px; width: 1000px; height: 378px; border-radius: 4px; overflow: hidden; background: var(--map); }
+  #tCanvas { position: absolute; left: 0; top: 0; display: block; }
+  #bubble { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); pointer-events: none; }
+  #reader { position: absolute; width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-bottom: 10px solid #fff; display: none; }
+  #bubbleTail { position: absolute; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent;
+    border-top: 7px solid var(--surface2); }
+  #tEnergy { position: absolute; left: 14px; top: 12px; height: 28px; border-radius: 10px; background: var(--surface2); display: none;
+    align-items: center; padding: 0 10px; gap: 8px; transition: transform .2s; transform-origin: left center; }
+  #tEnergy b { color: var(--qi); font-size: 12px; }
+  #tEnergy .ps { display: flex; gap: 3px; }
+  #tEnergy .ps i { width: 14px; height: 14px; border-radius: 50%; background: var(--raised); }
+  #tEnergy .ps i.on { background: var(--qi); }
+  #tEnergy.big { transform: scale(1.18); }
+  #tEnergy.red { background: #5a2a30; }
+  #tSpent { position: absolute; left: 20px; top: 46px; color: var(--qi); font-size: 18px; font-weight: 700; }
+  #tBanner { top: 12px; max-width: 690px; white-space: normal; font-size: 15px; }
+  #tNudge { top: 54px; right: 108px; z-index: 7; }
+  #tNudge .arrow { margin-right: 30px; }
+  #tNudge .bubble { font-size: 13px; padding: 5px 10px; }
+  #tPanel { position: absolute; left: 140px; top: 452px; width: 1000px; height: 260px; border-radius: 12px; background: var(--surface); }
+  #tPanel .ttl { position: absolute; left: 14px; top: 10px; font-size: 13px; font-weight: 700; color: var(--gold); }
+  #tRow { position: absolute; left: 14px; top: 34px; right: 100px; height: 210px; }
+  #tNext { position: absolute; right: 18px; top: 96px; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--accent);
+    cursor: pointer; display: none; }
+  #tNext::after { content: ""; position: absolute; left: 22px; top: 18px; border-top: 11px solid transparent; border-bottom: 11px solid transparent;
+    border-left: 17px solid var(--bg); }
+  #tNext:hover { background: #4ec776; }
+
+  /* tutorial card: IF and AND side by side, THEN under them (236 x 202; the head copy is scaled to 0.62) */
+  .tc { position: absolute; width: 236px; height: 202px; border-radius: 12px; background: var(--surface2); box-shadow: 0 5px 10px rgba(0, 0, 0, .5);
+    transition: opacity .2s, box-shadow .2s; }
+  .tc.head { transform: scale(.62); transform-origin: top left; }
+  .tc.reading { box-shadow: 0 0 0 2px #fff, 0 0 16px rgba(255, 255, 255, .35); }
+  .tc.unread { opacity: .3; }
+  .tc.never { opacity: .22; outline: 2px dashed var(--faint); outline-offset: -2px; }
+  .tc.win { box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(245, 197, 66, .5); }
+  .tc.shake { animation: shake .4s linear; }
+  @keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -7px 0; } 40% { translate: 7px 0; } 60% { translate: -5px 0; } 80% { translate: 5px 0; } }
+  .tband { position: absolute; left: 7px; top: 7px; width: 222px; height: 22px; border-radius: 7px; }
+  .tnum { position: absolute; left: 4px; top: 2.5px; width: 17px; height: 17px; border-radius: 50%; background: rgba(0, 0, 0, .35);
+    font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .tpips { position: absolute; right: 6px; top: 6.5px; display: flex; gap: 3px; }
+  .tpips i { width: 9px; height: 9px; border-radius: 50%; background: var(--qi); }
+  .tpips i.g { background: var(--gold); }
+  .tsec { position: absolute; border-radius: 8px; }
+  .tsec.click { cursor: pointer; }
+  .tsec.click:hover { background: rgba(255, 255, 255, .07); }
+  .tsec.if { left: 7px; top: 33px; width: 96px; height: 82px; }
+  .tsec.if2 { left: 133px; top: 33px; width: 96px; height: 82px; }
+  .tsec.then { left: 7px; top: 121px; width: 222px; height: 74px; }
+  .tsec .tl { position: absolute; left: 6px; top: 3px; font-size: 11px; font-weight: 700; color: var(--dim); }
+  .tsec svg { position: absolute; left: 50%; top: 18px; width: 80px; height: 40px; margin-left: -40px; }
+  .tsec .tn { position: absolute; left: 0; right: 0; top: 61px; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .tsec .tn.neg { color: #ffb3a3; }
+  .tsec.if .tn, .tsec.if2 .tn { top: 59px; font-size: 10px; line-height: 11px; white-space: normal; padding: 0 2px; }
+  .tsec.then svg { top: 15px; }
+  .tsec.then .tn { top: 56px; font-size: 13px; }
+  .tsec .empty { position: absolute; left: 8px; right: 8px; top: 18px; height: 40px; border: 2px dashed var(--faint); border-radius: 8px; }
+  .tsec.lit { background: rgba(245, 197, 66, .2); box-shadow: 0 0 0 2px var(--gold) inset; }
+  .tsec.miss, .tsec.starve { background: rgba(224, 79, 79, .18); box-shadow: 0 0 0 2px var(--red) inset; }
+  .tsec .mk { position: absolute; right: -7px; top: -7px; width: 22px; height: 22px; border-radius: 50%; display: none; color: #fff;
+    font-size: 14px; font-weight: 700; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0, 0, 0, .5); }
+  .tsec .mk.ok { display: flex; background: var(--accent); }
+  .tsec .mk.no { display: flex; background: var(--red); }
+  .tand { position: absolute; left: 103px; top: 33px; width: 30px; height: 82px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: var(--gold); }
+  .tadd { position: absolute; left: 133px; top: 33px; width: 96px; height: 82px; border: 2px dashed var(--faint); border-radius: 8px;
+    background: none; color: var(--dim); font-size: 14px; font-weight: 700; cursor: pointer; padding: 0; }
+  .tadd:hover:not(:disabled) { background: rgba(255, 255, 255, .06); color: var(--text); }
+  .tadd:disabled { cursor: default; opacity: .6; }
+  .tx { position: absolute; right: 2px; top: 2px; width: 18px; height: 16px; border: 0; border-radius: 5px; background: var(--raised);
+    color: var(--dim); font-size: 12px; cursor: pointer; padding: 0; line-height: 16px; }
+  .tsep { position: absolute; left: 17px; right: 17px; top: 117px; height: 1px; background: var(--line); }
+
+  /* ================= overlays ================= */
+  .overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; z-index: 20; }
+  .overlay.show { display: flex; }
+  .dim { background: rgba(8, 10, 15, .62); }
+  .box { position: relative; background: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, .55); }
+  .accent { position: absolute; left: 24px; right: 24px; top: 4px; height: 6px; border-radius: 4px; }
+  #pickBox { border-radius: 18px; padding: 16px 20px 16px; }
+  #pickTitle { font-size: 24px; font-weight: 700; color: var(--gold); height: 30px; line-height: 30px; padding-left: 4px; }
+  #pickSub { font-size: 15px; color: var(--dim); height: 22px; line-height: 22px; margin-bottom: 12px; padding-left: 4px; }
+  #pickGrid { display: grid; gap: 12px; justify-content: center; }
+  .tile { position: relative; width: 150px; height: 112px; border: 0; border-radius: 12px; background: var(--surface2); color: var(--text);
+    cursor: pointer; padding: 0; }
+  .tile:hover { background: var(--raised); }
+  .tile.sel { background: var(--raised-hover); box-shadow: 0 0 0 2px var(--gold); }
+  .tile .tband2 { position: absolute; left: 8px; right: 8px; top: 6px; height: 6px; border-radius: 3px; }
+  .tile svg { position: absolute; left: 30.5px; top: 20px; }
+  .tile .tname { position: absolute; left: 6px; right: 6px; bottom: 10px; font-size: 14px; font-weight: 700; text-align: center; }
+  #pickCancel { position: relative; display: block; margin: 16px auto 0; width: 140px; height: 38px; }
+
+  #resultBox { width: 540px; height: 340px; }
+  #resTitle { position: absolute; left: 24px; right: 24px; top: 24px; height: 48px; line-height: 48px; text-align: center; font-size: 38px; font-weight: 700; }
+  #resCause { position: absolute; left: 24px; right: 24px; top: 74px; height: 26px; line-height: 26px; text-align: center; font-size: 18px; color: var(--dim); }
+  #resStats { position: absolute; left: 40px; right: 40px; top: 112px; height: 64px; display: flex; gap: 12px; }
+  .stat { flex: 1; border-radius: 12px; background: var(--surface2); position: relative; }
+  .stat .k { position: absolute; left: 0; right: 0; top: 8px; text-align: center; font-size: 12px; font-weight: 700; color: var(--dim); }
+  .stat .v { position: absolute; left: 0; right: 0; top: 24px; height: 34px; line-height: 34px; text-align: center; font-size: 28px; font-weight: 700; }
+  #resHint { position: absolute; left: 32px; right: 32px; top: 186px; height: 60px; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 18px; font-style: italic; color: var(--gold); }
+  #resBtns { position: absolute; left: 24px; right: 24px; bottom: 20px; height: 50px; display: flex; gap: 12px; }
+  #resBtns .btn { flex: 1; height: 50px; font-size: 17px; border-radius: 12px; }
+
+  #newBox { width: 780px; height: 420px; }
+  #newTitle { position: absolute; left: 0; right: 0; top: 24px; text-align: center; font-size: 24px; font-weight: 700; color: var(--gold); }
+  .npanel { position: absolute; top: 70px; width: 354px; height: 262px; border-radius: 14px; background: var(--surface2); }
+  .npanel .nt { position: absolute; left: 0; right: 0; top: 10px; text-align: center; font-size: 16px; font-weight: 700; color: var(--gold); }
+  .npanel canvas { position: absolute; left: 12px; top: 38px; }
+  .npanel .nr { position: absolute; left: 10px; right: 10px; top: 140px; text-align: center; font-size: 14px; font-weight: 700; }
+  .npanel .nx { position: absolute; left: 16px; right: 16px; top: 166px; text-align: center; font-size: 15px; line-height: 1.35; }
+  #newOk { left: 300px; bottom: 22px; width: 180px; height: 44px; font-size: 18px; border-radius: 12px; }
+  #chNewBtn { right: 146px; top: 12px; width: 170px; height: 40px; display: none; font-size: 15px; }
+
+  #tIntroBox { width: 760px; height: 420px; }
+  #tIntroTitle { position: absolute; left: 0; right: 0; top: 24px; text-align: center; font-size: 24px; font-weight: 700; color: var(--gold); }
+  #tIntroCards { position: absolute; left: 0; right: 0; top: 76px; height: 200px; }
+  #tIntroText { position: absolute; left: 40px; right: 40px; top: 290px; text-align: center; font-size: 17px; line-height: 1.4; }
+  #tIntroText b.a { color: var(--gold); }
+  #tIntroOk { left: 290px; bottom: 22px; width: 180px; height: 44px; font-size: 18px; border-radius: 12px; }
+  .bigArrow { position: absolute; top: 88px; left: 370px; width: 0; height: 0; border-top: 12px solid transparent; border-bottom: 12px solid transparent;
+    border-left: 20px solid var(--dim); }
+
+  #select { background: var(--bg); flex-direction: column; justify-content: flex-start; }
+  #selTitle { margin-top: 70px; display: flex; align-items: center; gap: 22px; font-size: 64px; font-weight: 700; color: var(--gold);
+    text-shadow: 0 4px 0 rgba(0, 0, 0, .45); }
+  #selTitle .logo { position: relative; width: 70px; height: 54px; }
+  #selSub { margin-top: 10px; font-size: 17px; color: var(--dim); }
+  #selChapter { margin-top: 64px; width: 1072px; display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; }
+  #selChapter span { color: var(--dim); font-weight: 400; font-size: 15px; }
+  #selRow { margin-top: 14px; width: 1072px; display: flex; gap: 12px; }
+  .ltile { position: relative; width: 144px; height: 112px; border: 0; border-radius: 12px; background: var(--surface); color: var(--text);
+    cursor: pointer; text-align: left; padding: 0; box-shadow: 0 4px 10px rgba(0, 0, 0, .35); }
+  .ltile:hover { background: var(--surface2); }
+  .ltile .lc { position: absolute; left: 10px; top: 10px; height: 24px; padding: 0 9px; border-radius: 8px; background: var(--gold); color: var(--bg);
+    font-size: 14px; font-weight: 700; line-height: 24px; }
+  .ltile .lc.guide { background: var(--qi); }
+  .ltile .ok { position: absolute; right: 10px; top: 14px; color: var(--accent); font-size: 11px; font-weight: 700; }
+  .ltile .ln { position: absolute; left: 10px; right: 8px; top: 40px; font-size: 14px; line-height: 16px; font-weight: 700; }
+  .ltile .lm { position: absolute; left: 10px; top: 76px; font-size: 12px; color: var(--dim); }
+  .ltile .strip { position: absolute; left: 10px; right: 10px; bottom: 9px; height: 6px; display: flex; gap: 1px; }
+  .ltile .strip i { flex: 1; border-radius: 1px; }
+  #selFoot { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-size: 14px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="app">
+
+    <!-- chapter level (GameScreen) -->
+    <div id="chapter" class="screen">
+      <div id="chHeader">
+        <button id="chBack" class="btn">&lt;&nbsp; Levels</button>
+        <div id="chChip"></div>
+        <div id="chTitle"></div>
+        <div id="chHint"></div>
+        <button id="chHintBtn" class="btn gold">Hint</button>
+        <button id="chNewBtn" class="btn"></button>
+      </div>
+      <div id="chNudge" class="nudge"><div class="arrow"></div><div class="bubble">Stuck? Try a hint</div></div>
+      <canvas id="chMap"></canvas>
+      <div id="legend"></div>
+      <div id="chBanner" class="banner"></div>
+      <div id="chFloat"></div>
+      <div id="tray">
+        <div id="trayHead"><b>LOADOUT</b><span id="trayInfo"></span><span class="def">No card fires -&gt; Walk (free)</span></div>
+        <div id="rowWrap"><div id="row"></div></div>
+      </div>
+      <div id="controls">
+        <button id="runBtn" class="btn green">RUN</button>
+        <div id="ctlRow">
+          <button id="resetBtn" class="btn flow">Reset</button><div class="gap"></div>
+          <button class="btn flow spd on" data-s="1">1x</button>
+          <button class="btn flow spd" data-s="2">2x</button>
+          <button class="btn flow spd" data-s="4">4x</button>
+        </div>
+      </div>
+      <div id="log"><div class="t">RUN LOG</div><div id="logBody"></div></div>
+    </div>
+
+    <!-- AND guide (TutorialScreen) -->
+    <div id="tut" class="screen">
+      <div id="tTop">
+        <button id="tBack" class="btn">&lt; Levels</button>
+        <div id="tChip">2-0</div>
+        <div id="tHint"></div>
+        <button id="tHintBtn" class="btn gold">Hint 1/3</button>
+        <div id="tDots"></div>
+      </div>
+      <div id="tStageBox">
+        <canvas id="tCanvas"></canvas>
+        <div id="bubble"><div id="bubbleCards"></div><div id="bubbleTail"></div><div id="reader"></div></div>
+        <div id="tEnergy"><b>ENERGY</b><div class="ps"></div></div>
+        <div id="tSpent"></div>
+        <div id="tBanner" class="banner"></div>
+      </div>
+      <div id="tNudge" class="nudge"><div class="arrow"></div><div class="bubble">Stuck? Try a hint</div></div>
+      <div id="tPanel"><div class="ttl">LOADOUT</div><div id="tRow"></div><button id="tNext" title="Next"></button></div>
+    </div>
+
+    <div id="picker" class="overlay dim">
+      <div id="pickBox" class="box">
+        <div id="pickTitle"></div><div id="pickSub"></div>
+        <div id="pickGrid"></div>
+        <button id="pickCancel" class="btn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="result" class="overlay dim">
+      <div id="resultBox" class="box">
+        <div class="accent" id="resAccent"></div>
+        <div id="resTitle"></div><div id="resCause"></div>
+        <div id="resStats">
+          <div class="stat"><div class="k">ENERGY LEFT</div><div class="v" style="color: var(--qi)"></div></div>
+          <div class="stat"><div class="k">STEPS</div><div class="v"></div></div>
+          <div class="stat"><div class="k">CARDS</div><div class="v" style="color: var(--gold)"></div></div>
+        </div>
+        <div id="resHint"></div>
+        <div id="resBtns">
+          <button id="resLevels" class="btn flow">Level list</button>
+          <button id="resEdit" class="btn flow">Edit cards</button>
+          <button id="resNext" class="btn flow green">Next level &nbsp;&gt;</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="newCard" class="overlay dim">
+      <div id="newBox" class="box">
+        <div class="accent" style="background: var(--gold)"></div>
+        <div id="newTitle"></div>
+        <div id="newPanels"></div>
+        <button id="newOk" class="btn green">Got it</button>
+      </div>
+    </div>
+
+    <div id="tIntro" class="overlay dim">
+      <div id="tIntroBox" class="box">
+        <div id="tIntroTitle">NEW: AND</div>
+        <div id="tIntroCards"></div>
+        <div id="tIntroText"></div>
+        <button id="tIntroOk" class="btn green">Got it</button>
+      </div>
+    </div>
+
+    <div id="select" class="overlay">
+      <div id="selTitle"><div class="logo" id="selLogo"></div>RULE RUNNER</div>
+      <div id="selSub">IF-THEN cards run your runner. Every step, the first true card acts.</div>
+      <div id="selChapter">CHAPTER 2 - AND <span id="selCount"></span></div>
+      <div id="selRow"></div>
+      <div id="selFoot">CSCI 526 &nbsp;-&nbsp; Chapter 2 (AND) prototype - HTML, not in the Unity build yet &nbsp;-&nbsp; grey-box</div>
+    </div>
+  </div>
+</div>
+
+<!-- Rules: a port of Core/Simulator.cs (step order unchanged), cut down to the tiles and cards chapter 2 uses.
+     Kept in its own block so tests can load it. -->
+<script id="rr-sim">
+var RR = (function () {
+  var COST = { walk: 0, jump: 1, bigjump: 3, turn: 1 };
+  var CONDS = ['ground', 'pit', 'spike', 'wall', 'ground2'];
+  var MAX_STEPS = 90, AND_EXTRA_QI = 1;
+  var COND_NAME = { ground: 'Ground ahead', pit: 'Pit ahead', spike: 'Spike ahead', wall: 'Wall ahead', ground2: 'Ground 2 ahead' };
+  var ACT_NAME = { walk: 'Walk', jump: 'Jump', bigjump: 'Big Jump', turn: 'Turn' };
+
+  function isStandable(c) { return c === 'g' || c === 'f'; }
+  function isWall(c) { return c === 'w' || c === 'H'; }
+  // Everything outside the map is a high wall.
+  function cellAt(cells, i) { return i < 0 || i >= cells.length ? 'H' : cells[i]; }
+
+  function test(cells, cond, x, dir) {
+    var ahead = cellAt(cells, x + dir);
+    switch (cond) {
+      case 'ground': return isStandable(ahead);
+      case 'pit': return ahead === 'p';
+      case 'spike': return ahead === 's';
+      case 'wall': return isWall(ahead);
+      case 'ground2': return isStandable(cellAt(cells, x + 2 * dir));
+    }
+    throw new Error('Unknown condition: ' + cond);
+  }
+
+  /** True when the card's (possibly negated) condition holds; an AND card needs both. */
+  function holds(cells, r, x, dir) {
+    var ok = test(cells, r.cond, x, dir) !== !!r.not;
+    if (ok && r.and) ok = test(cells, r.cond2, x, dir) !== !!r.not2;
+    return ok;
+  }
+
+  /** Qi paid each time the card fires: the action's cost, plus one for an AND card. */
+  function cost(r) { return COST[r.act] + (r.and ? AND_EXTRA_QI : 0); }
+
+  function resolve(cells, x) {
+    switch (cellAt(cells, x)) {
+      case 'p': return 'pit';
+      case 's': return 'spike';
+      case 'f': return 'win';
+      default: return 'running';
+    }
+  }
+
+  /** Runs a whole level. level: {map, start, dir, qi}; rules: [{cond, not, act, and, cond2, not2}]. */
+  function run(level, rules, maxSteps) {
+    maxSteps = maxSteps || MAX_STEPS;
+    var cells = level.map.split(''), x = level.start || 0, dir = level.dir || 1, qi = level.qi;
+    var n = rules.length, hits = [], frames = [];
+    for (var i = 0; i < n; i++) hits.push(0);
+    var ranOutOfQi = false, outcome = 'timeout', steps = 0;
+    for (var t = 0; t < maxSteps; t++) {
+      var f = { t: t, xBefore: x, dirBefore: dir, qiBefore: qi, fired: -1, starved: -1 };
+      // 1. Pick the action: the first card that holds (Walk when none does).
+      var action = 'walk';
+      for (var k = 0; k < n; k++) {
+        var r = rules[k];
+        if (!holds(cells, r, x, dir)) continue;
+        var c = cost(r);
+        if (qi >= c) { action = r.act; qi -= c; hits[k]++; f.fired = k; }
+        else { ranOutOfQi = true; f.starved = k; }
+        break;
+      }
+      // 2. Perform it.
+      var out = 'running', blocked = false;
+      if (action === 'walk') {
+        if (isWall(cellAt(cells, x + dir))) blocked = true; else { x += dir; out = resolve(cells, x); }
+      } else if (action === 'jump' || action === 'bigjump') {
+        var span = action === 'jump' ? 2 : 3, high = false;
+        for (var j = 1; j < span; j++) if (cellAt(cells, x + j * dir) === 'H') high = true;
+        // Qi was already paid, even if the jump is blocked.
+        if (high || isWall(cellAt(cells, x + span * dir))) blocked = true; else { x += span * dir; out = resolve(cells, x); }
+      } else if (action === 'turn') dir = -dir;
+      f.action = action; f.x = x; f.dir = dir; f.qi = qi; f.blocked = blocked; f.outcome = out;
+      frames.push(f);
+      steps = t + 1;
+      if (out !== 'running') { outcome = out; break; }
+    }
+    return { outcome: outcome, qiLeft: qi, steps: steps, hits: hits, ranOutOfQi: ranOutOfQi, frames: frames, won: outcome === 'win' };
+  }
+
+  /** "IF [NOT] cond [AND [NOT] cond] THEN action" */
+  function parse(text) {
+    var w = String(text).trim().split(/\s+/), i = 0;
+    var up = function (s) { return (s || '').toUpperCase(); };
+    var bad = function () { return new Error('Rule must look like "IF [NOT] cond [AND [NOT] cond] THEN action": ' + text); };
+    if (w.length < 4 || up(w[i++]) !== 'IF') throw bad();
+    var r = { cond: '', not: false, act: '', and: false, cond2: '', not2: false };
+    if (up(w[i]) === 'NOT') { r.not = true; i++; }
+    r.cond = (w[i++] || '').toLowerCase();
+    if (up(w[i]) === 'AND') {
+      r.and = true; i++;
+      if (up(w[i]) === 'NOT') { r.not2 = true; i++; }
+      r.cond2 = (w[i++] || '').toLowerCase();
+    }
+    if (up(w[i++]) !== 'THEN') throw bad();
+    r.act = (w[i++] || '').toLowerCase();
+    if (i !== w.length || CONDS.indexOf(r.cond) < 0 || (r.and && CONDS.indexOf(r.cond2) < 0) || !(r.act in COST)) throw bad();
+    return r;
+  }
+
+  function side(not, name) { return (not ? 'NOT ' : '') + name; }
+  function toId(r) { return 'IF ' + side(r.not, r.cond) + (r.and ? ' AND ' + side(r.not2, r.cond2) : '') + ' THEN ' + r.act; }
+  function display(r) {
+    return 'IF ' + side(r.not, COND_NAME[r.cond]) + (r.and ? ' AND ' + side(r.not2, COND_NAME[r.cond2]) : '') + ' THEN ' + ACT_NAME[r.act];
+  }
+
+  return { run: run, parse: parse, toId: toId, display: display, cost: cost, test: test, holds: holds,
+    COST: COST, CONDS: CONDS, COND_NAME: COND_NAME, ACT_NAME: ACT_NAME, MAX_STEPS: MAX_STEPS };
+})();
+</script>
+
+<!--
+  Chapter 2. 2-0 plays in the tutorial screen; 2-1 and 2-2 offer every condition and action the chapter uses.
+  Each chapter level was brute-forced with that full card set: no card list without AND can clear it.
+-->
+<script id="rr-levels">
+var ALL_CONDS = ['ground', 'pit', 'spike', 'wall', 'ground2'];
+var ALL_ACTS = ['walk', 'jump', 'bigjump', 'turn'];
+var LEVELS = [
+  {
+    id: '2-0', title: 'AND', tutorial: true, map: 'gggpgggppgggpgggf', start: 0, dir: 1, qi: 6, slots: 2,
+    conditions: ['ground', 'pit', 'spike', 'ground2'], actions: ['jump', 'bigjump'], allowNot: true, allowAnd: true,
+    startCards: ['IF pit THEN bigjump', 'IF pit THEN jump'],
+    solution: ['IF pit AND NOT ground2 THEN bigjump', 'IF pit THEN jump'], solutionQiLeft: 0,
+    stages: [
+      { watch: true, map: 'gggpgggppgggpgggf', energy: 6, intro: true,
+        cards: ['IF pit AND NOT ground2 THEN bigjump', 'IF pit THEN jump'],
+        hint: 'Card 1 checks two things. It acts only when BOTH are true.' },
+      { map: 'gggpgggppgggpgggf', energy: 6, breakFrom: true,
+        cards: ['IF pit THEN bigjump', 'IF pit THEN jump'],
+        ifs: ['ground', 'pit', 'spike'], if2s: ['ground2', 'notground2'], thens: ['jump', 'bigjump'], pulseOpt: 'notground2', blink: ['and', 'if2'],
+        hint: 'A Big Jump costs 3. Is every pit that wide?',
+        hints: ['Watch the Energy: it is gone before the last pit.', 'Tap + AND on card 1, then pick NOT Ground 2 ahead.',
+          'IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF Pit ahead THEN Jump.'] }
+    ]
+  },
+  {
+    id: '2-1', title: 'Both Must Hold', map: 'gpgggppgggwgggpgsgf', start: 0, dir: 1, qi: 9, slots: 2,
+    hint: 'Not every pit is the same width.',
+    solution: ['IF pit AND NOT ground2 THEN bigjump', 'IF NOT ground THEN jump'], solutionQiLeft: 1,
+    previousSolution: ['IF pit AND NOT ground2 THEN bigjump', 'IF pit THEN jump'], previousExpected: 'timeout',
+    hints: ['Only one gap is two pits wide. Everything else needs just a Jump.',
+      'IF Pit ahead AND NOT Ground 2 ahead is true only right before the wide gap.',
+      'IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump.'],
+    death: { pit: ['Two pits in a row need a Big Jump. One pit needs only a Jump.', 'Check where each jump lands: a Big Jump goes one tile further.',
+        'Ground 2 ahead tells a wide gap from a narrow one.'],
+      spike: ['A Big Jump lands one tile further than a Jump. Check what is there.', 'Every spike needs a Jump.'],
+      timeout: ['Something is in the way, and no card jumps it.'] },
+    qiLine: 'Out of Energy. A Big Jump costs 3: save it for the wide gap.',
+    previousLine: 'Your guide cards only know pits. Something else is in the way here.'
+  },
+  {
+    id: '2-2', title: 'Edge or Low Wall', map: 'fgsgggwgppgggggg', start: 12, dir: 1, qi: 8, slots: 3,
+    hint: 'The flag is behind you.',
+    newCard: { title: 'NEW IN THIS LEVEL', button: 'High wall & Turn', panels: [
+      { title: 'HIGH WALL', map: 'gggg', start: 0, dir: 1, rules: ['IF wall THEN jump'], steps: 6, color: '#4c8dff',
+        text: 'The dark wall at each end of the map. Nothing can jump it. Wall ahead is true here, just like at a low wall.' },
+      { title: 'NEW CARD: TURN', map: 'gggggg', start: 1, dir: 1, rules: ['IF wall THEN turn'], steps: 12, color: '#2fbfa5',
+        text: 'Turn makes the runner face the other way. It costs 1 Energy.' }] },
+    solution: ['IF wall AND NOT ground2 THEN turn', 'IF pit THEN bigjump', 'IF NOT ground THEN jump'], solutionQiLeft: 1,
+    previousSolution: ['IF pit AND NOT ground2 THEN bigjump', 'IF NOT ground THEN jump'], previousExpected: 'timeout',
+    hints: ['Wall ahead is true at the edge AND at the low wall.',
+      'Ground 2 ahead tells them apart: there is nothing behind the edge.',
+      'IF Wall ahead AND NOT Ground 2 ahead THEN Turn, IF Pit ahead THEN Big Jump, IF NOT Ground ahead THEN Jump.'],
+    death: { timeout: ['Wall ahead is true at the edge AND at the low wall.', 'Something is in the way, and no card gets past it.'],
+      pit: ['The gap was wider than the jump.'], spike: ['Something sharp was waiting where you landed.'] },
+    qiLine: 'Out of Energy. Check which card fires at the edge, and which at the low wall.',
+    previousLine: 'Your 2-1 cards never turn around.'
+  },
+  {
+    id: '2-3', title: 'Two Checks', map: 'fggwgsgppgpggsgggggsp', start: 12, dir: 1, qi: 12, slots: 3,
+    hint: 'Two places need a closer look.',
+    solution: ['IF spike AND NOT ground2 THEN turn', 'IF pit AND NOT ground2 THEN bigjump', 'IF NOT ground THEN jump'], solutionQiLeft: 1,
+    previousSolution: ['IF wall AND NOT ground2 THEN turn', 'IF pit THEN bigjump', 'IF NOT ground THEN jump'], previousExpected: 'pit',
+    hints: ['One spike is a dead end, and one gap is two pits wide.',
+      'Both can be found with NOT Ground 2 ahead: one with Spike ahead, one with Pit ahead.',
+      'IF Spike ahead AND NOT Ground 2 ahead THEN Turn, IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, IF NOT Ground ahead THEN Jump.'],
+    death: { pit: ['Check where each jump lands: a Big Jump goes one tile further.', 'Two pits in a row need a Big Jump. One pit needs only a Jump.',
+        'That spike had a pit behind it.'],
+      spike: ['Every other spike needs a Jump.'], timeout: ['Something is in the way, and no card gets past it.'] },
+    qiLine: 'Out of Energy. Check which card fires at each spike and at each pit.',
+    previousLine: 'Your 2-2 cards only turn at walls. Here the dead end is a spike.'
+  }
+];
+LEVELS.forEach(function (l) {
+  if (l.tutorial) return;
+  l.conditions = ALL_CONDS.slice(); l.actions = ALL_ACTS.slice(); l.allowNot = true; l.allowAnd = true;
+});
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app');
+
+  // ---------- colors (View/Palette.cs and UI/Theme) ----------
+  var PAL = { ground: '#8a93a3', groundDark: '#5c6473', pit: '#0d1016', spike: '#e04f4f', lowWall: '#c28f5a', highWall: '#3d4555',
+    finish: '#5cc96b', runner: '#f5d03b', eye: '#1d232e', dead: '#e04f4f', bg: '#1d232e' };
+  var GOLD = '#f5c542', NOTC = '#ff6b4a', LINE = '#3a4459', QI = '#4fd6e8';
+  var ACT_COLOR = { walk: '#7d8798', jump: '#4c8dff', bigjump: '#9b6bff', turn: '#2fbfa5' };
+
+  // ---------- helpers ----------
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function smooth(k) { return k * k * (3 - 2 * k); }
+  function clone(r) { return JSON.parse(JSON.stringify(r)); }
+  function byId(id) { return LEVELS.filter(function (l) { return l.id === id; })[0]; }
+  /** Time-based tween; resolves false if alive() turns false. */
+  function tween(ms, fn, alive) {
+    return new Promise(function (res) {
+      var t0 = performance.now();
+      function tick() {
+        if (alive && !alive()) return res(false);
+        var k = Math.min(1, (performance.now() - t0) / Math.max(1, ms));
+        fn(k);
+        if (k >= 1) res(true); else requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+  var store = {
+    get: function (k) { try { return localStorage.getItem('rr_ch2_' + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem('rr_ch2_' + k, v); } catch (e) { /* private window: no saving */ } }
+  };
+  function sameRules(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (RR.toId(a[i]) !== RR.toId(b[i])) return false;
+    return true;
+  }
+
+  // ---------- card diagrams (Cards/Icons.cs): the runner plus the next three cells, 89 x 44 ----------
+  function cx(i) { return i * 23 + 10; }
+  function svgCell(i, kind, dim) {
+    var a = kind === '?' ? 0.18 : dim ? 0.35 : 1, x = cx(i);
+    var s = '<rect x="' + (x - 10) + '" y="28" width="20" height="8" rx="2.5" fill="' + (kind === 'p' ? PAL.pit : PAL.ground) + '" fill-opacity="' + a + '"/>';
+    if (kind === 's') for (var k = 0; k < 2; k++) { var c = x - 4.5 + 9 * k; s += '<polygon points="' + (c - 4.5) + ',28 ' + (c + 4.5) + ',28 ' + c + ',18" fill="' + PAL.spike + '" fill-opacity="' + a + '"/>'; }
+    if (kind === 'w') s += '<rect x="' + (x - 8) + '" y="16" width="16" height="12" rx="2" fill="' + PAL.lowWall + '" fill-opacity="' + a + '"/>';
+    if (kind === 'p') s += '<rect x="' + (x - 10) + '" y="28" width="20" height="2" fill="' + LINE + '" fill-opacity="' + a + '"/>';
+    return s;
+  }
+  function svgRunner() {
+    return '<rect x="3.5" y="14.5" width="13" height="13" rx="2.5" fill="' + PAL.runner + '"/><rect x="11.5" y="17" width="3" height="4" rx="1" fill="' + PAL.eye + '"/>';
+  }
+  function svgWrap(s, cls) { return '<svg' + (cls ? ' class="' + cls + '"' : '') + ' viewBox="0 0 89 44" width="89" height="44">' + s + '</svg>'; }
+  function condSvg(cond, not, cls) {
+    var c1 = '?', c2 = '?', tested = 1;
+    if (cond === 'ground') c1 = 'g'; else if (cond === 'pit') c1 = 'p'; else if (cond === 'spike') c1 = 's';
+    else if (cond === 'wall') c1 = 'w'; else if (cond === 'ground2') { c2 = 'g'; tested = 2; }
+    var s = svgCell(0, 'g', false) + svgCell(1, c1, tested !== 1) + svgCell(2, c2, tested !== 2) + svgCell(3, '?', true) + svgRunner();
+    var col = not ? NOTC : GOLD, x = cx(tested);
+    s += '<rect x="' + (x - 10) + '" y="39" width="20" height="4" rx="2" fill="' + col + '"/>';
+    s += '<polygon points="' + (x - 4) + ',2.5 ' + (x + 4) + ',2.5 ' + x + ',9.5" fill="' + col + '"/>';
+    if (not) s += '<rect x="' + (x - 1.75) + '" y="9" width="3.5" height="26" rx="1.75" fill="' + NOTC + '" transform="rotate(40 ' + x + ' 22)"/>';
+    return svgWrap(s, cls);
+  }
+  function dot(x, y) { return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.25" fill="#fff" fill-opacity=".9"/>'; }
+  function actSvg(a, cls) {
+    var s = svgCell(0, 'g', false) + svgCell(1, 'g', true) + svgCell(2, 'g', true) + svgCell(3, 'g', true) + svgRunner();
+    var y0 = 19, k, t;
+    if (a === 'walk') {
+      for (k = 0; k < 3; k++) s += dot(19 + 6 * k, y0);
+      s += '<polygon points="33,14.5 33,23.5 41,19" fill="#fff" fill-opacity=".9"/>';
+    } else if (a === 'jump' || a === 'bigjump') {
+      var x1 = a === 'jump' ? cx(2) : cx(3), h = a === 'jump' ? 21 : 27, n = a === 'jump' ? 6 : 8;
+      for (k = 0; k < n; k++) { t = k / (n - 1); s += dot(16 + (x1 - 16) * t, y0 - h * 4 * t * (1 - t)); }
+      s += '<rect x="' + (x1 - 10) + '" y="39" width="20" height="4" rx="2" fill="' + GOLD + '"/>';
+    } else if (a === 'turn') {
+      for (k = 0; k < 6; k++) { var ang = (100 - 200 * k / 5) * Math.PI / 180; s += dot(22 + Math.cos(ang) * 14, 15 - Math.sin(ang) * 11); }
+      s += '<polygon points="20,21.5 20,30.5 12,26" fill="#fff" fill-opacity=".9"/>';
+    }
+    return svgWrap(s, cls);
+  }
+  function pipsHtml(r, small) {
+    var c = RR.COST[r.act], extra = r.and ? 1 : 0, s = '';
+    if (c + extra === 0) return '<span>FREE</span>';
+    for (var i = 0; i < c; i++) s += '<i></i>';
+    for (var j = 0; j < extra; j++) s += '<i class="g"></i>';
+    return s;
+  }
+
+  // ---------- map drawing (View/MapView.cs, RunnerView.cs, CameraFitter.cs) ----------
+  function makeView(canvas, gfb) { return { canvas: canvas, ctx: canvas.getContext('2d'), w: 0, h: 0, u: 60, cx: 0, gfb: gfb || 1.3, dpr: 1 }; }
+  function sizeView(v, w, h, scale) {
+    v.w = w; v.h = h; v.dpr = (window.devicePixelRatio || 1) * Math.max(1, scale || 1);
+    v.canvas.width = Math.round(w * v.dpr); v.canvas.height = Math.round(h * v.dpr);
+    v.canvas.style.width = w + 'px'; v.canvas.style.height = h + 'px';
+  }
+  function fitView(v, length) {
+    var aspect = v.w / v.h, worldW = length + 2.6, worldH = 2.4 + 1.6;
+    var size = Math.max(worldW / aspect * 0.5, worldH * 0.5);
+    v.u = v.h / (2 * size); v.cx = (length - 1) / 2;
+  }
+  function SX(v, x) { return v.w / 2 + (x - v.cx) * v.u; }
+  function SY(v, y) { return v.h - (y + v.gfb) * v.u; }
+  // Shapes are placed by their bottom center, like Shapes.Create.
+  function rectBC(v, x, y, w, h, color) { v.ctx.fillStyle = color; v.ctx.fillRect(SX(v, x - w / 2), SY(v, y + h), w * v.u, h * v.u); }
+  function triBC(v, x, y, w, h, color) {
+    var c = v.ctx; c.fillStyle = color; c.beginPath();
+    c.moveTo(SX(v, x - w / 2), SY(v, y)); c.lineTo(SX(v, x + w / 2), SY(v, y)); c.lineTo(SX(v, x), SY(v, y + h)); c.closePath(); c.fill();
+  }
+  function newRunner(x, dir) { return { x: x, y: 0, dir: dir, sx: 1, sy: 1, sc: 1, rot: 0, ox: 0, color: PAL.runner, alpha: 1 }; }
+  function drawScene(v, s) {
+    var c = v.ctx, L = s.base.length, i, k;
+    c.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+    c.fillStyle = PAL.bg; c.fillRect(0, 0, v.w, v.h);
+    rectBC(v, -1, -1, 0.98, 3.4, PAL.highWall); rectBC(v, L, -1, 0.98, 3.4, PAL.highWall);
+    for (i = 0; i < L; i++) {
+      var ch = s.base[i];
+      rectBC(v, i, -1, 0.98, 1, ch === 'p' ? PAL.pit : i % 2 === 0 ? PAL.ground : PAL.groundDark);
+      if (ch === 's') for (k = 0; k < 3; k++) triBC(v, i - 0.3 + 0.3 * k, 0, 0.3, 0.55, PAL.spike);
+      else if (ch === 'w') rectBC(v, i, 0, 0.9, 0.55, PAL.lowWall);
+      else if (ch === 'H') rectBC(v, i, -1, 0.98, 3.4, PAL.highWall);
+      else if (ch === 'f') { rectBC(v, i + 0.25, 0, 0.06, 1.3, '#ffffff'); rectBC(v, i + 0.02, 0.85, 0.42, 0.42, PAL.finish); }
+    }
+    // Frames around the tiles a card is looking at (MapView.HighlightCell).
+    if (s.frames) s.frames.forEach(function (fr) {
+      var w = 0.07, top = 1.25, bottom = -0.35;
+      rectBC(v, fr.x - 0.47, bottom, w, top - bottom, fr.color); rectBC(v, fr.x + 0.47, bottom, w, top - bottom, fr.color);
+      rectBC(v, fr.x, top - w, 0.94 + w, w, fr.color); rectBC(v, fr.x, bottom, 0.94 + w, w, fr.color);
+    });
+    if (s.preview) s.preview.forEach(function (p) {
+      var px = p.x + 0.5 * p.dir;
+      c.globalAlpha = 0.35; rectBC(v, px, 0.05, 0.05, 1.05, p.color); c.globalAlpha = 1;
+      c.fillStyle = p.color; c.beginPath(); c.arc(SX(v, px), SY(v, 1.24), 0.14 * v.u, 0, Math.PI * 2); c.fill();
+    });
+    var R = s.runner;
+    if (R) {
+      var u = v.u;
+      c.save();
+      c.translate(SX(v, R.x + R.ox), SY(v, R.y));
+      c.rotate(-R.rot * Math.PI / 180);
+      c.scale(R.sx * R.sc, R.sy * R.sc);
+      c.globalAlpha = R.alpha;
+      c.fillStyle = R.color; c.fillRect(-0.35 * u, -0.7 * u, 0.7 * u, 0.7 * u);
+      c.fillStyle = PAL.eye; c.fillRect((0.18 * R.dir - 0.07) * u, -0.56 * u, 0.14 * u, 0.18 * u);
+      c.restore();
+    }
+    if (s.death >= 0) {
+      [40, -40].forEach(function (a) {
+        c.save(); c.translate(SX(v, s.death), SY(v, 1.2)); c.rotate(a * Math.PI / 180);
+        c.fillStyle = PAL.dead; c.fillRect(-0.07 * v.u, -0.4 * v.u, 0.14 * v.u, 0.8 * v.u); c.restore();
+      });
+    }
+  }
+  /** One simulation step for a runner (RunnerView.PlayStep). */
+  function animStep(R, f, ms, alive) {
+    var from = f.xBefore, to = f.x;
+    if (f.action === 'walk' || f.action === 'jump' || f.action === 'bigjump') {
+      if (f.blocked) {
+        var hop = f.action === 'walk' ? 0 : 0.5;
+        return tween(ms, function (k) { var s = Math.sin(k * Math.PI); R.x = from + 0.28 * f.dirBefore * s; R.y = hop * s; }, alive)
+          .then(function () { R.x = from; R.y = 0; R.dir = f.dir; });
+      }
+      var h = f.action === 'walk' ? 0 : f.action === 'jump' ? 1.2 : 1.7;
+      return tween(ms, function (k) { var e = f.action === 'walk' ? k : smooth(k); R.x = from + (to - from) * e; R.y = h * 4 * k * (1 - k); }, alive)
+        .then(function () { R.x = to; R.y = 0; R.dir = f.dir; });
+    }
+    return tween(ms, function (k) { R.sx = Math.abs(Math.cos(k * Math.PI)); if (k >= 0.5) R.dir = f.dir; }, alive)   // turn
+      .then(function () { R.sx = 1; R.dir = f.dir; });
+  }
+  /** Fall, hurt, a victory hop, or greying out (RunnerView.PlayOutcome). */
+  function animOutcome(R, outcome, ms, alive) {
+    var y0 = R.y, a0 = R.alpha;
+    if (outcome === 'pit') return tween(ms, function (k) { R.y = y0 - 3 * k * k; R.sc = 1 - 0.5 * k; R.alpha = a0 * (1 - k * 0.6); }, alive);
+    if (outcome === 'spike') {
+      R.color = PAL.dead;
+      return tween(ms, function (k) { R.ox = Math.sin(k * 40) * 0.08 * (1 - k); R.rot = -80 * R.dir * k; }, alive);
+    }
+    if (outcome === 'win')
+      return tween(ms * 0.5, function (k) { R.y = 0.6 * 4 * k * (1 - k); }, alive)
+        .then(function () { return tween(ms * 0.5, function (k) { R.y = 0.6 * 4 * k * (1 - k); }, alive); })
+        .then(function () { R.y = 0; });
+    R.color = '#a9a690';
+    return sleep(ms * 0.5);
+  }
+  function stripColor(ch) {
+    return { g: PAL.ground, p: '#0a0d12', s: PAL.spike, w: PAL.lowWall, H: '#56627a', f: PAL.finish }[ch] || PAL.ground;
+  }
+
+  // ---------- screens and scaling ----------
+  var GAME = { scale: 1, screen: 'select' };
+  function showScreen(name) {
+    GAME.screen = name;
+    $('chapter').style.display = name === 'chapter' ? 'block' : 'none';
+    $('tut').style.display = name === 'tut' ? 'block' : 'none';
+    $('select').classList.toggle('show', name === 'select');
+  }
+  function fitApp() {
+    var s = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    if (!(s > 0)) s = 1;   // the window can report 0 x 0 while it is still opening
+    GAME.scale = s;
+    app.style.transform = 'scale(' + s + ')';
+    Ch.resize(); Tut.resize();
+  }
+
+  // ---------- option picker (Cards/OptionPicker.cs), shared by both screens ----------
+  function openPicker(title, sub, tiles) {
+    $('pickTitle').textContent = title; $('pickSub').textContent = sub;
+    var grid = $('pickGrid'), cols = Math.max(1, Math.min(tiles.length, 3));
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 150px)';
+    grid.innerHTML = '';
+    $('pickBox').style.width = Math.max(360, cols * 150 + (cols - 1) * 12 + 40) + 'px';
+    tiles.forEach(function (t) {
+      var b = el('button', 'tile' + (t.sel ? ' sel' : '') + (t.pulse ? ' pulse' : ''),
+        (t.band ? '<div class="tband2" style="background:' + t.band + '"></div>' : '') + t.svg + '<div class="tname">' + t.name + '</div>');
+      b.addEventListener('click', function () { closePicker(); t.pick(); });
+      grid.appendChild(b);
+    });
+    $('picker').classList.add('show');
+  }
+  function closePicker() { $('picker').classList.remove('show'); }
+  $('pickCancel').addEventListener('click', closePicker);
+  $('picker').addEventListener('click', function (e) { if (e.target === $('picker')) closePicker(); });
+
+  // ---------- level list ----------
+  function showSelect() {
+    Ch.stop(); Tut.stop(); closePicker();
+    ['result', 'tIntro', 'newCard'].forEach(function (id) { $(id).classList.remove('show'); });
+    var row = $('selRow'), done = 0;
+    row.innerHTML = '';
+    LEVELS.forEach(function (L) {
+      var ok = store.get('cleared_' + L.id) === '1';
+      if (ok) done++;
+      var t = el('button', 'ltile', '<div class="lc' + (L.tutorial ? ' guide' : '') + '">' + L.id + '</div>' + (ok ? '<div class="ok">CLEARED</div>' : '') +
+        '<div class="ln">' + (L.tutorial ? 'AND (guide)' : L.title) + '</div><div class="lm">' + L.qi + ' Energy &nbsp;-&nbsp; ' + L.slots + ' cards</div>' +
+        '<div class="strip">' + L.map.split('').map(function (ch) { return '<i style="background:' + stripColor(ch) + '"></i>'; }).join('') + '</div>');
+      t.addEventListener('click', function () { openLevel(L.id); });
+      row.appendChild(t);
+    });
+    $('selCount').textContent = done + ' / ' + LEVELS.length + ' cleared';
+    showScreen('select');
+  }
+  function openLevel(id) {
+    var L = byId(id);
+    if (!L) return;
+    if (L.tutorial) Tut.open(L); else Ch.open(L);
+  }
+  function nextLevel(L) { var i = LEVELS.indexOf(L); return i >= 0 && i + 1 < LEVELS.length ? LEVELS[i + 1] : null; }
+
+  // =====================================================================================
+  // Chapter levels (GameScreen + LoadoutPanel + RuleCardView tall cards)
+  // =====================================================================================
+  var Ch = (function () {
+    var BOTTOM = 396, CARD_H = 268, AND_H = 322, CARD_W = 184;   // AND levels: tall cards, taller bottom area
+    var MAP_H = 720 - 64 - BOTTOM - 34;
+    var view = makeView($('chMap'));
+    var G = { level: null, rules: [], saved: {}, running: false, speed: 1, token: 0, fails: {}, hintsShown: {}, hits: [], deathX: -1,
+      nudgeShown: false };
+    var S = { base: '', runner: null, death: -1, preview: null, frames: null };
+    var energyEl = null, floatTimer = 0;
+
+    function resize() {
+      sizeView(view, 1280, MAP_H, GAME.scale);
+      if (G.level) fitView(view, G.level.map.length);
+    }
+    (function layout() {
+      $('legend').style.bottom = (BOTTOM + 2) + 'px';
+      $('tray').style.height = (BOTTOM - 20) + 'px';
+      $('controls').style.bottom = (BOTTOM - 8 - 112) + 'px';
+      $('log').style.height = (BOTTOM - 8 - 112 - 10 - 12) + 'px';
+      var items = [['Ground', PAL.ground], ['Pit', PAL.pit], ['Spike', PAL.spike], ['Low wall (jump over)', PAL.lowWall],
+        ['High wall / edge', PAL.highWall], ['Finish', PAL.finish]];
+      $('legend').innerHTML = items.map(function (it) { return '<i style="background:' + it[1] + '"></i><span>' + it[0] + '</span>'; }).join('');
+    })();
+
+    // ---------- log, banner, float ----------
+    function log(text, color) {
+      var body = $('logBody'), d = el('div');
+      d.textContent = text; if (color) d.style.color = color;
+      body.appendChild(d);
+      while (body.children.length > 250) body.removeChild(body.firstChild);
+      body.scrollTop = body.scrollHeight;
+    }
+    function showBanner(text) { var b = $('chBanner'); b.textContent = text; b.style.display = 'flex'; }
+    function hideBanner() { $('chBanner').style.display = 'none'; }
+    function showFloat(text, ms) {
+      var R = S.runner, f = $('chFloat');
+      f.textContent = text;
+      f.style.left = SX(view, R.x) + 'px';
+      f.style.top = (64 + SY(view, 1.05) - 22) + 'px';
+      f.style.display = 'flex';
+      clearTimeout(floatTimer);
+      floatTimer = setTimeout(function () { f.style.display = 'none'; }, ms);
+    }
+    function hideFloat() { clearTimeout(floatTimer); $('chFloat').style.display = 'none'; }
+
+    // ---------- loadout ----------
+    function setQi(qi, max) {
+      if (!energyEl) return;
+      energyEl.querySelector('.val').textContent = qi + ' / ' + max;
+      var total = Math.min(Math.max(max, qi), 24), html = '';
+      for (var i = 0; i < total; i++) html += '<i' + (i < qi ? ' class="on"' : '') + '></i>';
+      energyEl.querySelector('.pipgrid').innerHTML = html;
+    }
+    function flashEnergy(cls, ms) {
+      if (!energyEl) return;
+      energyEl.classList.add(cls);
+      setTimeout(function () { if (energyEl) energyEl.classList.remove(cls); }, ms);
+    }
+
+    function renderCards() {
+      var L = G.level, row = $('row'), editable = !G.running;
+      row.innerHTML = '';
+      var rp = el('div', 'runner-panel');
+      rp.style.height = CARD_H + 'px';
+      rp.innerHTML = '<div class="lab">RUNNER</div><div class="glow"></div><div class="body"></div><div class="eye"></div><div class="div"></div>' +
+        '<div class="energy"><div class="lab2">ENERGY</div><div class="val"></div><div class="pipgrid"></div></div>';
+      row.appendChild(rp);
+      energyEl = rp.querySelector('.energy');
+      G.rules.forEach(function (r, i) { row.appendChild(buildCard(r, i, editable)); });
+      for (var e = G.rules.length; e < L.slots; e++) {
+        var slot = el('div', 'slot' + (editable ? '' : ' off'), '<div class="plus">+</div><div class="eq">Equip card</div>');
+        slot.style.height = CARD_H + 'px';
+        if (editable) slot.addEventListener('click', addCard);
+        row.appendChild(slot);
+      }
+      // Four tall cards and the runner panel are wider than the tray: shrink the row to fit.
+      var avail = 892 - 28, natural = 138 + (G.rules.length + Math.max(0, L.slots - G.rules.length)) * (CARD_W + 12);
+      row.style.transform = natural > avail ? 'scale(' + (avail / natural).toFixed(3) + ')' : '';
+      $('trayInfo').textContent = G.rules.length + ' / ' + L.slots + ' cards   -   checked left to right, the first true card acts';
+      setQi(L.qi, L.qi);
+      refreshCardStates();
+    }
+
+    function condRow(cond, not, editable, which) {
+      return '<div class="crow"><button class="chipbtn not' + (not ? ' on' : '') + '" data-not="' + which + '"' + (editable ? '' : ' disabled') + '>' +
+        (not ? 'NOT' : '+NOT') + '<span class="tip">NOT flips the condition: the card fires when it is FALSE.</span></button>' +
+        '<div class="cname' + (not ? ' neg' : '') + '">' + RR.COND_NAME[cond] + '</div></div>';
+    }
+    function buildCard(r, i, editable) {
+      var c = el('div', 'card' + (r.and ? ' and' : '') + (editable ? '' : ' locked'));
+      c.style.height = (r.and ? AND_H : CARD_H) + 'px';
+      var cost = RR.COST[r.act];
+      var costText = (cost === 0 ? 'free' : cost + ' Energy') + (r.and ? '&nbsp; <b>+ 1 for AND</b>' : '');
+      c.innerHTML =
+        '<div class="cb">' +
+          '<div class="band" style="background:' + ACT_COLOR[r.act] + '"><div class="badge">' + (i + 1) + '</div><div class="hits"></div>' +
+            '<div class="pips' + (cost + (r.and ? 1 : 0) > 3 ? ' small' : '') + '">' + pipsHtml(r) + '</div></div>' +
+          '<div class="area c1"><div class="lbl">IF</div><div class="icon">' + condSvg(r.cond, r.not) + '</div>' + condRow(r.cond, r.not, editable, '1') + '</div>' +
+          (r.and
+            ? '<div class="anddiv"><i class="ln l"></i><b>AND</b><button class="x"' + (editable ? '' : ' disabled') + ' title="Back to one condition">&times;</button><i class="ln r"></i></div>' +
+              '<div class="area c2"><div class="icon">' + condSvg(r.cond2, r.not2) + '</div>' + condRow(r.cond2, r.not2, editable, '2') + '</div>'
+            : '<button class="addand"' + (editable ? '' : ' disabled') + '>+ AND</button>') +
+          '<div class="tdiv"></div>' +
+          '<div class="area then"><div class="lbl">THEN</div><div class="icon">' + actSvg(r.act) + '</div>' +
+            '<div class="aname">' + RR.ACT_NAME[r.act] + '</div><div class="cost">' + costText + '</div></div>' +
+          '<div class="footer"><button class="fb l">&lt;</button><button class="fb rm">remove</button><button class="fb r">&gt;</button></div>' +
+        '</div>';
+      var q = function (s) { return c.querySelector(s); };
+      q('.fb.l').disabled = !editable || i === 0;
+      q('.fb.r').disabled = !editable || i === G.rules.length - 1;
+      q('.fb.rm').disabled = !editable;
+      if (!editable) return c;
+      q('.c1').addEventListener('click', function (e) { if (!e.target.closest('.chipbtn')) pickCondition(i); });
+      if (q('.c2')) q('.c2').addEventListener('click', function (e) { if (!e.target.closest('.chipbtn')) pickCondition2(i); });
+      q('.then').addEventListener('click', function () { pickAction(i); });
+      Array.prototype.forEach.call(c.querySelectorAll('.chipbtn.not'), function (b) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          edit(i, function (x) { if (b.dataset.not === '1') x.not = !x.not; else x.not2 = !x.not2; });
+        });
+      });
+      if (q('.addand')) q('.addand').addEventListener('click', function () { toggleAnd(i); });
+      if (q('.anddiv .x')) q('.anddiv .x').addEventListener('click', function () { toggleAnd(i); });
+      q('.fb.l').addEventListener('click', function () { move(i, -1); });
+      q('.fb.r').addEventListener('click', function () { move(i, 1); });
+      q('.fb.rm').addEventListener('click', function () { G.rules.splice(i, 1); changed(); });
+      c.addEventListener('mouseenter', function () { preview(i); });
+      c.addEventListener('mouseleave', function () { preview(-1); });
+      return c;
+    }
+    function cardEls() { return Array.prototype.slice.call($('row').querySelectorAll('.card')); }
+    /** Lifts the card that acted (gold) or lacked Energy (red); shows the hit counters. */
+    function refreshCardStates(fired, starved) {
+      cardEls().forEach(function (c, i) {
+        c.classList.toggle('firing', i === fired);
+        c.classList.toggle('starved', i === starved);
+        var h = G.hits[i] || 0;
+        c.querySelector('.hits').textContent = h > 0 ? 'x' + h : '';
+      });
+    }
+
+    // ---------- editing (LoadoutPanel) ----------
+    function changed() { G.saved[G.level.id] = G.rules; renderCards(); preview(-1); }
+    function edit(i, fn) { if (G.running) return; fn(G.rules[i]); changed(); }
+    function move(i, d) { var j = i + d; if (G.running || j < 0 || j >= G.rules.length) return; var t = G.rules[i]; G.rules[i] = G.rules[j]; G.rules[j] = t; changed(); }
+    function addCard() {
+      var L = G.level;
+      if (G.running || G.rules.length >= L.slots) return;
+      G.rules.push({ cond: L.conditions[0], not: false, act: L.actions[0], and: false, cond2: '', not2: false });
+      changed();
+    }
+    /** Turns a card into an AND card (second condition: the first other one the level offers) or back. */
+    function toggleAnd(i) {
+      edit(i, function (r) {
+        if (r.and) { r.and = false; return; }
+        r.and = true; r.not2 = false; r.cond2 = r.cond;
+        for (var k = 0; k < G.level.conditions.length; k++) if (G.level.conditions[k] !== r.cond) { r.cond2 = G.level.conditions[k]; break; }
+      });
+    }
+    function pickCondition(i) {
+      var r = G.rules[i];
+      openPicker('IF ...', 'What should card ' + (i + 1) + ' look for?', G.level.conditions.map(function (c) {
+        return { svg: condSvg(c, r.not), name: (r.not ? 'NOT ' : '') + RR.COND_NAME[c], sel: c === r.cond,
+          pick: function () { edit(i, function (x) { if (x.and && x.cond2 === c) x.cond2 = x.cond; x.cond = c; }); } };
+      }));
+    }
+    function pickCondition2(i) {
+      var r = G.rules[i];
+      openPicker('AND ...', 'What else must be true for card ' + (i + 1) + ' to fire?', G.level.conditions.filter(function (c) { return c !== r.cond; }).map(function (c) {
+        return { svg: condSvg(c, r.not2), name: (r.not2 ? 'NOT ' : '') + RR.COND_NAME[c], sel: c === r.cond2, pick: function () { edit(i, function (x) { x.cond2 = c; }); } };
+      }));
+    }
+    function pickAction(i) {
+      var r = G.rules[i], extra = r.and ? 1 : 0;
+      openPicker('THEN ...', 'What should card ' + (i + 1) + ' do?' + (r.and ? '  (AND: 1 extra Energy)' : ''), G.level.actions.map(function (a) {
+        var cost = RR.COST[a] + extra;
+        return { band: ACT_COLOR[a], svg: actSvg(a), name: RR.ACT_NAME[a] + (cost === 0 ? '&nbsp;&nbsp; free' : '&nbsp;&nbsp; -' + cost + ' Energy'), sel: a === r.act,
+          pick: function () { edit(i, function (x) { x.act = a; }); } };
+      }));
+    }
+    /** Hovering a card marks where it would fire, by simulating the current cards. */
+    function preview(i) {
+      if (G.running || i < 0 || i >= G.rules.length) { S.preview = null; S.death = G.deathX; return; }
+      var res = RR.run(G.level, G.rules), spots = [];
+      res.frames.forEach(function (f) { if (f.fired === i) spots.push({ x: f.xBefore, dir: f.dirBefore, color: ACT_COLOR[G.rules[i].act] }); });
+      S.preview = spots; S.death = -1;
+    }
+
+    // ---------- run (GameController.StartRun / Play) ----------
+    function setRunning(on) { G.running = on; $('runBtn').disabled = on; }
+    function resetRun() {
+      G.token++;
+      setRunning(false);
+      $('result').classList.remove('show');
+      var L = G.level;
+      S.base = L.map; S.preview = null; S.death = G.deathX; S.frames = null;
+      S.runner = newRunner(L.start, L.dir);
+      G.hits = [];
+      hideFloat();
+      renderCards();
+    }
+    function describe(f, rules) {
+      var s = 'Step ' + (f.t + 1) + ' - ';
+      if (f.fired >= 0) s += 'Card ' + (f.fired + 1) + ' (' + RR.display(rules[f.fired]) + ') fired, Energy left ' + f.qi;
+      else if (f.starved >= 0) s += 'Card ' + (f.starved + 1) + ' was true but needs ' + RR.cost(rules[f.starved]) + ' Energy (have ' + f.qiBefore + ') - walked instead';
+      else s += 'no card fired, Walk';
+      if (f.blocked) s += ' - blocked by a wall';
+      return s;
+    }
+    /** GuideText.DeathLine */
+    function deathLine(L, rules, res, failCount) {
+      if (res.won) return '';
+      if (L.previousLine && sameRules(rules, L.previousSolution.map(RR.parse))) return L.previousLine;
+      if (res.ranOutOfQi && L.qiLine) return L.qiLine;
+      var lines = L.death[res.outcome];
+      if (lines && lines.length) return lines[failCount % lines.length];
+      if (res.ranOutOfQi) return 'You ran out of Energy before you ran out of course.';
+      var fb = { pit: 'The ground ended before your plan did.', spike: 'Something sharp was waiting where you landed.',
+        timeout: "It's still out there, doing exactly what you told it." };
+      return fb[res.outcome] || '';
+    }
+    function idle(f) { return f.x === f.xBefore && f.dir === f.dirBefore && f.qi === f.qiBefore && f.fired < 0; }
+    var DESC = { win: 'Level clear!', pit: 'Fell into a pit', spike: 'Hit a spike', timeout: 'Out of time' };
+
+    async function startRun() {
+      if (G.running || !G.level) return;
+      G.deathX = -1;
+      resetRun();
+      var token = G.token, alive = function () { return token === G.token; };
+      setRunning(true);
+      hideBanner();
+      renderCards();
+      var L = G.level, rules = G.rules.map(clone), res = RR.run(L, rules);
+      G.hits = rules.map(function () { return 0; });
+      log('--- Run: ' + rules.length + (rules.length === 1 ? ' card' : ' cards') + ', Energy ' + L.qi + ' ---', 'var(--dim)');
+      // A run that ends stuck in place plays a few of those steps, then jumps to the end (same result: out of time).
+      var frames = res.frames, cut = frames.length;
+      if (res.outcome === 'timeout') {
+        var s = frames.length;
+        while (s > 0 && idle(frames[s - 1])) s--;
+        if (frames.length - s > 6) cut = s + 3;
+      }
+      for (var k = 0; k < cut; k++) {
+        var f = frames[k], step = 400 / G.speed;
+        refreshCardStates(f.fired, f.starved);
+        if (f.fired >= 0) {
+          G.hits[f.fired]++;
+          refreshCardStates(f.fired, -1);
+          var r = rules[f.fired], c = RR.cost(r);
+          showFloat('Card ' + (f.fired + 1) + ': ' + RR.ACT_NAME[r.act] + (c > 0 ? ' -' + c : ''), step * 1.2);
+          if (c > 0) flashEnergy('flash', 300);
+        } else if (f.starved >= 0) { showFloat('Card ' + (f.starved + 1) + ': not enough Energy!', step * 1.2); flashEnergy('flash-red', 400); }
+        setQi(f.qi, L.qi);
+        log(describe(f, rules), f.starved >= 0 ? '#ff9999' : null);
+        await animStep(S.runner, f, step, alive);
+        if (!alive()) return;
+      }
+      if (cut < frames.length) log('... it stays stuck like this until step ' + RR.MAX_STEPS + ' ...', 'var(--dim)');
+      refreshCardStates(-1, -1);
+      log('Result: ' + DESC[res.outcome] + '  (Energy left ' + res.qiLeft + ')', res.won ? '#80e68c' : '#ff8c8c');
+      await animOutcome(S.runner, res.outcome, 700, alive);
+      if (!alive()) return;
+      var line = '';
+      if (res.won) store.set('cleared_' + L.id, '1');
+      else {
+        var fc = G.fails[L.id] || 0;
+        line = deathLine(L, rules, res, fc);
+        G.fails[L.id] = fc + 1;
+        if (res.outcome !== 'timeout' && frames.length) { G.deathX = frames[frames.length - 1].x; S.death = G.deathX; }
+        log(line, GOLD);
+        showBanner(line);
+        updateHintButton();
+        if (fc + 1 >= 3 && !G.nudgeShown) { G.nudgeShown = true; $('chNudge').style.display = (G.hintsShown[L.id] || 0) < L.hints.length ? 'flex' : 'none'; }
+      }
+      setRunning(false);
+      showResult(res, rules.length, line);
+    }
+
+    // ---------- result popup (UI/ResultPopup.cs) ----------
+    function showResult(res, cards, line) {
+      var L = G.level, won = res.won;
+      $('resTitle').textContent = won ? 'LEVEL CLEAR' : 'RUN FAILED';
+      $('resTitle').style.color = won ? '#7de08c' : '#ff8a8a';
+      $('resAccent').style.background = won ? 'var(--accent)' : 'var(--danger)';
+      $('resCause').textContent = won ? 'The runner reached the flag.' : DESC[res.outcome] + ' at step ' + res.steps + '.';
+      var v = $('resStats').querySelectorAll('.v');
+      v[0].textContent = res.qiLeft; v[1].textContent = res.steps; v[2].textContent = cards;
+      $('resHint').textContent = won
+        ? (res.qiLeft >= L.solutionQiLeft ? 'Perfect run - no Energy wasted.' : 'This level can be cleared with ' + L.solutionQiLeft + ' Energy left.')
+        : (line || 'Is a card making the runner bump into a wall forever?');
+      $('resNext').style.display = won && nextLevel(L) ? 'block' : 'none';
+      $('resEdit').textContent = won ? 'Try again' : 'Edit cards';
+      $('result').dataset.screen = 'chapter';
+      $('result').classList.add('show');
+    }
+
+    // ---------- hints ----------
+    function updateHintButton() {
+      var L = G.level, f = G.fails[L.id] || 0, shown = G.hintsShown[L.id] || 0, b = $('chHintBtn');
+      b.style.display = f >= 2 && shown < L.hints.length ? 'block' : 'none';
+      b.textContent = 'Hint ' + (shown + 1) + '/' + L.hints.length;
+    }
+    $('chHintBtn').addEventListener('click', function () {
+      var L = G.level, shown = G.hintsShown[L.id] || 0;
+      $('chNudge').style.display = 'none';
+      if (shown >= L.hints.length) return;
+      showBanner(L.hints[shown]);
+      log('Hint ' + (shown + 1) + ': ' + L.hints[shown], GOLD);
+      G.hintsShown[L.id] = shown + 1;
+      updateHintButton();
+    });
+
+    // ---------- open / close ----------
+    function open(L) {
+      showScreen('chapter');
+      closePicker();
+      G.level = L; G.deathX = -1;
+      if (!G.saved[L.id]) G.saved[L.id] = [];
+      G.rules = G.saved[L.id];
+      resize();
+      $('chChip').textContent = L.id; $('chTitle').textContent = L.title; $('chHint').textContent = L.hint;
+      hideBanner(); $('chNudge').style.display = 'none';
+      $('logBody').innerHTML = ''; log('Equip cards, then press RUN.', 'var(--dim)');
+      resetRun();
+      updateHintButton();
+      hideNewCard();
+      $('chNewBtn').style.display = L.newCard ? 'block' : 'none';
+      if (L.newCard) $('chNewBtn').textContent = L.newCard.button;
+      if (L.newCard && !seenNew[L.id] && store.get('cleared_' + L.id) !== '1') showNewCard(L);
+    }
+    function stop() { G.token++; G.running = false; newToken++; }
+
+    // ---------- "new in this level" popup (only 2-2: the high wall and Turn) ----------
+    // Shown each time the level opens until it is cleared; the header button reopens it any time.
+    var newToken = 0, seenNew = {};   // seenNew: this visit only, so a dismissed popup does not come back while you retry
+    function showNewCard(L) {
+      var n = L.newCard, box = $('newPanels');
+      $('newTitle').textContent = n.title;
+      box.innerHTML = '';
+      $('newCard').classList.add('show');
+      var tk = ++newToken, alive = function () { return tk === newToken && $('newCard').classList.contains('show'); };
+      n.panels.forEach(function (d, i) {
+        var p = el('div', 'npanel', '<div class="nt"></div><canvas></canvas><div class="nr"></div><div class="nx"></div>');
+        p.style.left = (24 + i * 378) + 'px';
+        var rules = d.rules.map(RR.parse);
+        p.querySelector('.nt').textContent = d.title;
+        p.querySelector('.nr').textContent = rules.map(RR.display).join('   ');
+        p.querySelector('.nr').style.color = d.color;
+        p.querySelector('.nx').textContent = d.text;
+        box.appendChild(p);
+        var v = makeView(p.querySelector('canvas'), 0.9);
+        sizeView(v, 330, 96, GAME.scale);
+        fitView(v, d.map.length);
+        var lv = { map: d.map, start: d.start, dir: d.dir, qi: 99 }, ds = { base: lv.map, runner: null, death: -1 };
+        (function frame() { if (!alive()) return; if (ds.runner) drawScene(v, ds); requestAnimationFrame(frame); })();
+        (async function loop() {
+          while (alive()) {
+            ds.runner = newRunner(lv.start, lv.dir);
+            var res = RR.run(lv, rules, d.steps);
+            await sleep(500); if (!alive()) return;
+            for (var k = 0; k < res.frames.length; k++) { await animStep(ds.runner, res.frames[k], 380, alive); if (!alive()) return; }
+            await sleep(600);
+          }
+        })();
+      });
+    }
+    function hideNewCard() { newToken++; $('newCard').classList.remove('show'); }
+    $('newOk').addEventListener('click', function () { hideNewCard(); if (G.level) seenNew[G.level.id] = true; });
+    $('chNewBtn').addEventListener('click', function () { if (G.level && G.level.newCard && !G.running) showNewCard(G.level); });
+    function draw() { if (G.level && S.runner) drawScene(view, S); }
+
+    $('chBack').addEventListener('click', showSelect);
+    $('runBtn').addEventListener('click', startRun);
+    $('resetBtn').addEventListener('click', function () { if (G.level) resetRun(); });
+    Array.prototype.forEach.call(document.querySelectorAll('.spd'), function (b) {
+      b.addEventListener('click', function () {
+        G.speed = +b.dataset.s;
+        Array.prototype.forEach.call(document.querySelectorAll('.spd'), function (o) { o.classList.toggle('on', o === b); });
+      });
+    });
+    return { open: open, stop: stop, draw: draw, resize: resize, resetRun: resetRun, startRun: startRun, G: G, S: S };
+  })();
+
+  // =====================================================================================
+  // The AND guide in the tutorial style (App/TutorialScreen.cs): cards over the runner,
+  // a ghost runner that keeps trying, card reading, blinking parts, hints and a Next button.
+  // =====================================================================================
+  var Tut = (function () {
+    var W = 1000, H = 378, HEAD = 0.62, CW = 236, CH = 202;
+    var view = makeView($('tCanvas'), 1.1);
+    var T = { L: null, si: 0, st: null, cards: [], token: 0, won: false, ghost: false, slow: false, deaths: 0, hintsShown: 0,
+      pulse: {}, done: {}, energy: null, heads: [], cardIdx: [] };
+    var scene = { base: '', runner: null, death: -1, frames: [] };
+
+    function resize() { sizeView(view, W, H, GAME.scale); if (T.st) fitView(view, T.st.map.length); }
+
+    function cardFrom(text) { var r = RR.parse(text); return { cond: r.cond, not: r.not, act: r.act, and: r.and, cond2: r.and ? r.cond2 : null, not2: r.not2 }; }
+    function complete(c) { return !!(c.cond && c.act && (!c.and || c.cond2)); }
+    function toRule(c) { return { cond: c.cond, not: !!c.not, act: c.act, and: !!c.and, cond2: c.cond2 || '', not2: !!c.not2 }; }
+    function condName(cond, not) { return (not ? 'NOT ' : '') + RR.COND_NAME[cond]; }
+
+    // ---------- cards ----------
+    function cardHtml(c, n, editable) {
+      var band = c.act ? ACT_COLOR[c.act] : LINE;
+      var pips = c.act && T.st.energy != null ? pipsHtml(c) : '';
+      var sec = function (kind, cond, not, label) {
+        var inner = cond
+          ? condSvg(cond, not) + '<div class="tn' + (not ? ' neg' : '') + '">' + condName(cond, not) + '</div>'
+          : '<div class="empty"></div><div class="tn"></div>';
+        return '<div class="tsec ' + kind + (editable ? ' click' : '') + '" data-k="' + kind + '"><div class="tl">' + label + '</div>' + inner +
+          (kind === 'if2' && editable ? '<button class="tx" title="Back to one condition">&times;</button>' : '') + '<div class="mk"></div></div>';
+      };
+      var andPart = c.and
+        ? '<div class="tand">AND</div>' + sec('if2', c.cond2, c.not2, 'AND')
+        : (T.st.if2s || T.st.watch ? '<button class="tadd"' + (editable ? '' : ' disabled') + '>+ AND</button>' : '');
+      var then = c.act
+        ? actSvg(c.act) + '<div class="tn">' + RR.ACT_NAME[c.act] + '</div>'
+        : '<div class="empty" style="left:60px;right:60px"></div><div class="tn"></div>';
+      return '<div class="tband" style="background:' + band + '"><span class="tnum">' + n + '</span><span class="tpips">' + pips + '</span></div>' +
+        sec('if', c.cond, c.not, 'IF') + andPart + '<div class="tsep"></div>' +
+        '<div class="tsec then' + (editable ? ' click' : '') + '" data-k="then"><div class="tl">THEN</div>' + then + '<div class="mk"></div></div>';
+    }
+    /** The cards over the runner (small) and, unless this is the watch stage, the loadout cards (big, editable). */
+    function renderCards(headCards) {
+      headCards = headCards || T.cards;
+      var bc = $('bubbleCards'), sw = CW * HEAD, sh = CH * HEAD, gap = 6;
+      bc.innerHTML = '';
+      T.heads = headCards.map(function (c, i) {
+        var d = el('div', 'tc head', cardHtml(c, i + 1, false));
+        d.style.left = (i * (sw + gap)) + 'px'; d.style.top = '0px';
+        bc.appendChild(d);
+        return d;
+      });
+      var bw = Math.max(10, headCards.length * (sw + gap) - gap);
+      var b = $('bubble');
+      b.style.width = bw + 'px'; b.style.height = (sh + 22) + 'px';
+      $('bubbleTail').style.left = (bw / 2 - 7) + 'px'; $('bubbleTail').style.top = sh + 'px';
+      $('reader').style.top = (sh + 10) + 'px';
+      var row = $('tRow');
+      row.innerHTML = '';
+      if (T.st.watch) return;
+      T.cards.forEach(function (c, i) {
+        var d = el('div', 'tc', cardHtml(c, i + 1, !T.won));
+        d.style.left = (i * (CW + 14)) + 'px'; d.style.top = '0px';
+        row.appendChild(d);
+        if (T.won) return;
+        Array.prototype.forEach.call(d.querySelectorAll('.tsec.click'), function (s) {
+          s.addEventListener('click', function (e) { if (!e.target.closest('.tx')) openPick(i, s.dataset.k); });
+        });
+        var add = d.querySelector('.tadd');
+        if (add) add.addEventListener('click', function () { toggleAnd(i); });
+        var x = d.querySelector('.tx');
+        if (x) x.addEventListener('click', function (e) { e.stopPropagation(); toggleAnd(i); });
+      });
+      applyPulse();
+    }
+    function bigCard(i) { return $('tRow').children[i]; }
+    function setState(card, state) {
+      card.classList.remove('reading', 'unread', 'never', 'win');
+      if (state) card.classList.add(state);
+    }
+    function sec(card, kind) { return card.querySelector('.tsec.' + kind); }
+    function secState(card, kind, state) {
+      var s = sec(card, kind);
+      if (!s) return;
+      s.classList.remove('lit', 'miss', 'starve');
+      if (state) s.classList.add(state);
+    }
+    function mark(card, kind, ok) {
+      var s = sec(card, kind);
+      if (!s) return;
+      var m = s.querySelector('.mk');
+      m.className = 'mk' + (ok == null ? '' : ok ? ' ok' : ' no');
+      m.textContent = ok == null ? '' : ok ? '✓' : '✕';
+    }
+    function clearLit() {
+      T.heads.forEach(function (h) { setState(h, ''); ['if', 'if2', 'then'].forEach(function (k) { secState(h, k, ''); mark(h, k, null); }); });
+      $('reader').style.display = 'none';
+      scene.frames = [];
+    }
+    function showReader(i) {
+      var sw = CW * HEAD;
+      var r = $('reader');
+      r.style.left = (i * (sw + 6) + sw / 2 - 9) + 'px';
+      r.style.display = 'block';
+    }
+
+    // ---------- Energy ----------
+    function renderEnergy() {
+      var box = $('tEnergy'), max = T.st.energy;
+      box.style.display = max == null ? 'none' : 'flex';
+      if (max == null) return;
+      var html = '';
+      for (var i = 0; i < max; i++) html += '<i' + (i < T.energy ? ' class="on"' : '') + '></i>';
+      box.querySelector('.ps').innerHTML = html;
+    }
+
+    // ---------- the run (runOnce / readInOrder / loop) ----------
+    function resetRunner() {
+      scene.runner = newRunner(T.L.start || 0, 1);
+      scene.runner.alpha = T.ghost ? 0.55 : 1;
+      scene.death = -1; scene.frames = [];
+      clearLit();
+    }
+    /**
+     * Several cards: the pointer moves from the left card to the right one; each card gets a tick or a cross per
+     * condition (an AND card shows both). The first card whose conditions all hold acts; the cards after it are never read.
+     */
+    async function readInOrder(f, rules, cells, alive) {
+      var k = f.fired >= 0 ? f.fired : f.starved, many = rules.length > 1;
+      if (many) T.heads.forEach(function (h) { setState(h, 'unread'); });
+      for (var r = 0; r <= k; r++) {
+        var h = T.heads[T.cardIdx[r]], rule = rules[r];
+        if (many) { showReader(T.cardIdx[r]); setState(h, 'reading'); await sleep(T.slow ? 420 : 320); if (!alive()) return; setState(h, ''); }
+        var ok1 = RR.test(cells, rule.cond, f.xBefore, f.dirBefore) !== rule.not;
+        var ok2 = rule.and ? RR.test(cells, rule.cond2, f.xBefore, f.dirBefore) !== rule.not2 : true;
+        var look = function (cond) { return f.xBefore + f.dirBefore * (cond === 'ground2' ? 2 : 1); };
+        scene.frames = [{ x: look(rule.cond), color: ok1 ? GOLD : PAL.dead }];
+        if (rule.and) scene.frames.push({ x: look(rule.cond2), color: ok2 ? QI : PAL.dead });
+        mark(h, 'if', ok1);
+        if (rule.and) mark(h, 'if2', ok2);
+        if (r === k) {
+          secState(h, 'if', 'lit'); if (rule.and) secState(h, 'if2', 'lit');
+          await sleep(T.slow ? 800 : 300); if (!alive()) return;
+          var starved = f.starved >= 0;
+          secState(h, 'then', starved ? 'starve' : 'lit');
+          var shadowed = false;
+          for (var j = k + 1; j < rules.length; j++) if (RR.holds(cells, rules[j], f.xBefore, f.dirBefore)) { shadowed = true; setState(T.heads[T.cardIdx[j]], 'never'); }
+          await sleep(starved ? 1000 : shadowed ? 1400 : T.slow ? 500 : 220);
+          return;
+        }
+        secState(h, ok1 ? 'if2' : 'if', 'miss');
+        // Hold the cross a moment so the miss is seen before the pointer moves on.
+        await sleep(T.slow ? 1100 : 900); if (!alive()) return;
+        setState(h, 'unread');
+      }
+    }
+    async function runOnce(tk) {
+      var alive = function () { return tk === T.token; };
+      var st = T.st;
+      resetRunner();
+      T.energy = st.energy; renderEnergy();
+      await sleep(500); if (!alive()) return null;
+      var rules = [];
+      T.cardIdx = [];
+      T.cards.forEach(function (c, i) { if (complete(c)) { T.cardIdx.push(i); rules.push(toRule(c)); } });
+      var lv = { map: st.map, start: T.L.start || 0, dir: 1, qi: st.energy == null ? 99 : st.energy };
+      var res = RR.run(lv, rules), cells = st.map.split('');
+      for (var k = 0; k < res.frames.length; k++) {
+        var f = res.frames[k];
+        if (f.fired >= 0 || f.starved >= 0) { await readInOrder(f, rules, cells, alive); if (!alive()) return null; }
+        else { await sleep(T.slow ? 120 : 40); if (!alive()) return null; }
+        if (f.fired >= 0 && st.energy != null) {
+          var c = RR.cost(rules[f.fired]);
+          if (c > 0) {
+            T.energy -= c; renderEnergy();
+            // The Energy bar lights up and shows what was spent; the runner waits a moment.
+            $('tSpent').textContent = '-' + c; $('tEnergy').classList.add('big');
+            await sleep(700);
+            $('tSpent').textContent = ''; $('tEnergy').classList.remove('big');
+            if (!alive()) return null;
+          }
+        } else if (f.starved >= 0) { $('tEnergy').classList.add('red'); setTimeout(function () { $('tEnergy').classList.remove('red'); }, 900); }
+        var ms = f.action === 'walk' ? 280 : T.slow ? 800 : f.action === 'jump' ? 520 : 620;
+        await animStep(scene.runner, f, ms, alive); if (!alive()) return null;
+        clearLit();
+      }
+      if (res.outcome === 'win') await animOutcome(scene.runner, 'win', 600, alive);
+      else {
+        if (res.outcome !== 'timeout' && res.frames.length) scene.death = res.frames[res.frames.length - 1].x;
+        await animOutcome(scene.runner, res.outcome, 500, alive);
+      }
+      return alive() ? res.outcome : null;
+    }
+    async function loop(tk) {
+      while (tk === T.token) {
+        var out = await runOnce(tk);
+        if (out == null || tk !== T.token) return;
+        if (out === 'win') { celebrate(); return; }
+        T.deaths++;
+        blinkParts();
+        if (T.deaths >= 2) offerHint();
+        await sleep(700);
+      }
+    }
+
+    // ---------- guidance: blinking parts, hints ----------
+    function blinkParts() {
+      var list = T.st.blink || [];
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i];
+        if (T.done[p]) continue;
+        T.pulse[p] = true;
+        break;   // one at a time: the next part starts once this one is used
+      }
+      applyPulse();
+    }
+    function applyPulse() {
+      var card = bigCard(0);
+      if (!card) return;
+      var add = card.querySelector('.tadd'), if2 = sec(card, 'if2');
+      if (add) add.classList.toggle('pulse', !!T.pulse.and && !T.done.and);
+      if (if2) if2.classList.toggle('pulse', !!T.pulse.if2 && !T.done.if2);
+    }
+    function used(part) { T.done[part] = true; delete T.pulse[part]; if (part === 'and' && T.st.blink && T.st.blink.indexOf('if2') >= 0) T.pulse.if2 = true; }
+    function offerHint() {
+      var h = T.st.hints;
+      if (!h || T.hintsShown >= h.length) return;
+      $('tHintBtn').style.display = 'block';
+      $('tHintBtn').textContent = 'Hint ' + (T.hintsShown + 1) + '/' + h.length;
+      if (T.hintsShown === 0) $('tNudge').style.display = 'flex';
+      layoutTop();
+    }
+    $('tHintBtn').addEventListener('click', function () {
+      var h = T.st.hints;
+      $('tNudge').style.display = 'none';
+      var b = $('tBanner');
+      b.textContent = h[T.hintsShown++]; b.style.display = 'flex';
+      if (T.hintsShown >= h.length) $('tHintBtn').style.display = 'none'; else $('tHintBtn').textContent = 'Hint ' + (T.hintsShown + 1) + '/' + h.length;
+      layoutTop();
+    });
+    function layoutTop() {
+      var right = 1000 - 14 - (STAGE_COUNT() * 18 - 7) - 14;   // left edge of the stage dots, minus a gap
+      if ($('tHintBtn').style.display === 'block') {
+        var bl = right - 82;
+        $('tHintBtn').style.left = bl + 'px';
+        $('tNudge').style.right = (1280 - (140 + bl + 82)) + 'px';   // the arrow sits under the Hint button
+        right = bl - 10;
+      }
+      $('tHint').style.width = (right - 166) + 'px';
+    }
+    function STAGE_COUNT() { return T.L ? T.L.stages.length : 2; }
+    function renderDots(doneCurrent) {
+      var html = '';
+      for (var i = 0; i < STAGE_COUNT(); i++) html += '<i class="' + (i < T.si || (i === T.si && doneCurrent) ? 'done' : i === T.si ? 'on' : '') + '"></i>';
+      $('tDots').innerHTML = html;
+    }
+
+    // ---------- editing (picker, AND) ----------
+    function openPick(i, kind) {
+      if (T.won) return;
+      var st = T.st, c = T.cards[i];
+      if (kind === 'then') {
+        openPicker('THEN ...', 'What should card ' + (i + 1) + ' do?', st.thens.map(function (a) {
+          var cost = RR.COST[a] + (c.and ? 1 : 0);
+          return { band: ACT_COLOR[a], svg: actSvg(a), name: RR.ACT_NAME[a] + '&nbsp;&nbsp; -' + cost + ' Energy', sel: c.act === a, pick: function () { choose(i, 'then', a); } };
+        }));
+      } else if (kind === 'if') {
+        openPicker('IF ...', 'What should card ' + (i + 1) + ' look for?', st.ifs.map(function (k) {
+          return { svg: condSvg(k, false), name: RR.COND_NAME[k], sel: c.cond === k && !c.not, pick: function () { choose(i, 'if', k); } };
+        }));
+      } else {
+        openPicker('AND ...', 'What else must be true for card ' + (i + 1) + ' to act?', st.if2s.map(function (k) {
+          var neg = k.indexOf('not') === 0, cond = neg ? k.slice(3) : k, cur = c.cond2 === cond && !!c.not2 === neg;
+          return { svg: condSvg(cond, neg), name: condName(cond, neg), sel: cur, pulse: st.pulseOpt === k && !cur, pick: function () { choose(i, 'if2', k); } };
+        }));
+      }
+    }
+    function choose(i, kind, key) {
+      if (T.won) return;
+      used(kind === 'if2' ? 'if2' : kind);
+      var c = T.cards[i];
+      if (kind === 'then') c.act = key;
+      else if (kind === 'if') { c.cond = key; c.not = false; }
+      else { var neg = key.indexOf('not') === 0; c.cond2 = neg ? key.slice(3) : key; c.not2 = neg; }
+      restart();
+    }
+    function toggleAnd(i) {
+      if (T.won) return;
+      var c = T.cards[i];
+      if (c.and) { c.and = false; c.cond2 = null; c.not2 = false; }
+      else { c.and = true; c.cond2 = null; c.not2 = false; used('and'); }
+      restart();
+    }
+    function restart() {
+      T.token++;
+      resetRunner();
+      renderCards();
+      loop(T.token);
+    }
+
+    // ---------- win / next ----------
+    function celebrate() {
+      T.won = true; T.ghost = false;
+      scene.runner.alpha = 1;
+      $('tHintBtn').style.display = 'none'; $('tNudge').style.display = 'none'; $('tBanner').style.display = 'none';
+      layoutTop();
+      T.heads.forEach(function (h) { setState(h, 'win'); });
+      renderDots(true);
+      renderCards();
+      T.heads.forEach(function (h) { setState(h, 'win'); });
+      if (!T.st.watch) store.set('cleared_' + T.L.id, '1');
+      $('tNext').style.display = 'block';
+    }
+    $('tNext').addEventListener('click', function () {
+      $('tNext').style.display = 'none';
+      if (T.si + 1 < T.L.stages.length) playStage(T.si + 1);
+      else { var n = nextLevel(T.L); if (n) openLevel(n.id); else showSelect(); }
+    });
+
+    // ---------- the NEW: AND intro (TutorialScreen.ShowIntro) ----------
+    function showIntro() {
+      return new Promise(function (resolve) {
+        var box = $('tIntroCards');
+        box.innerHTML = '';
+        var st = T.st;
+        var one = { cond: 'pit', not: false, act: 'bigjump', and: false, cond2: null, not2: false };
+        var two = { cond: 'pit', not: false, act: 'bigjump', and: true, cond2: 'ground2', not2: true };
+        [[one, 80], [two, 450]].forEach(function (p, i) {
+          var d = el('div', 'tc', cardHtml(p[0], 1, false));
+          d.style.left = p[1] + 'px'; d.style.top = '0px';
+          d.style.transform = 'scale(.92)'; d.style.transformOrigin = 'top left';
+          if (i === 1) d.classList.add('win');
+          box.appendChild(d);
+        });
+        box.appendChild(el('div', 'bigArrow'));
+        $('tIntroText').innerHTML = '<b class="a">AND</b> adds a second condition. The card acts only when <b>BOTH</b> are true.<br>' +
+          'It costs <b style="color: var(--gold)">1 extra Energy</b> (the gold dot).';
+        $('tIntro').classList.add('show');
+        var ok = $('tIntroOk');
+        ok.onclick = function () { $('tIntro').classList.remove('show'); resolve(); };
+      });
+    }
+
+    // ---------- stages (playStage) ----------
+    async function playStage(i) {
+      T.token++;
+      var tk = T.token, alive = function () { return tk === T.token; };
+      var prev = T.st;
+      T.si = i; T.st = T.L.stages[i];
+      var st = T.st;
+      T.won = false; T.deaths = 0; T.hintsShown = 0; T.pulse = {}; T.done = {};
+      T.ghost = !st.watch; T.slow = !!st.watch;
+      scene.base = st.map; scene.death = -1;
+      fitView(view, st.map.length);
+      $('tChip').textContent = T.L.id;
+      $('tHint').textContent = st.hint || '';
+      $('tHintBtn').style.display = 'none'; $('tBanner').style.display = 'none'; $('tNudge').style.display = 'none'; $('tNext').style.display = 'none';
+      layoutTop();
+      renderDots(false);
+      T.energy = st.energy; renderEnergy();
+      resetRunner();
+      if (st.breakFrom && prev) {
+        // The cards from the watch stage show up, shake and are taken apart: the AND is gone.
+        T.cards = prev.cards.map(cardFrom);
+        renderCards();
+        await sleep(900); if (!alive()) return;
+        T.heads.forEach(function (h) { h.classList.add('shake'); });
+        await sleep(450); if (!alive()) return;
+      }
+      T.cards = st.cards.map(cardFrom);
+      renderCards();
+      if (st.intro) { await showIntro(); if (!alive()) return; }
+      await sleep(400); if (!alive()) return;
+      if (st.watch) {
+        var out = await runOnce(tk);
+        if (out === 'win') celebrate();
+      } else loop(tk);
+    }
+
+    function open(L) {
+      showScreen('tut');
+      closePicker();
+      T.L = L;
+      resize();
+      playStage(0);
+    }
+    function stop() { T.token++; $('tIntro').classList.remove('show'); }
+    /** Draws the stage and keeps the cards over the runner's head. */
+    function draw() {
+      if (!T.st || !scene.runner) return;
+      drawScene(view, scene);
+      var R = scene.runner, b = $('bubble'), half = (parseFloat(b.style.width) || 300) / 2 + 6;
+      b.style.left = Math.max(half, Math.min(W - half, SX(view, R.x))) + 'px';
+      b.style.top = (SY(view, 0.7) - 16) + 'px';
+    }
+    $('tBack').addEventListener('click', showSelect);
+    return { open: open, stop: stop, draw: draw, resize: resize, T: T, scene: scene, playStage: playStage };
+  })();
+
+  // ---------- result popup buttons (chapter levels) ----------
+  $('resEdit').addEventListener('click', function () { Ch.resetRun(); });
+  $('resNext').addEventListener('click', function () { var n = nextLevel(Ch.G.level); if (n) openLevel(n.id); });
+  $('resLevels').addEventListener('click', showSelect);
+
+  // ---------- boot ----------
+  $('selLogo').innerHTML = '<svg viewBox="0 0 70 54" width="70" height="54"><rect x="6" y="46" width="58" height="6" rx="3" fill="' + PAL.ground + '"/>' +
+    '<polygon points="34,46 46,46 40,30" fill="' + PAL.spike + '"/><rect x="18" y="8" width="20" height="20" rx="4" fill="' + PAL.runner + '"/>' +
+    '<rect x="30" y="12" width="4" height="6" rx="1" fill="' + PAL.eye + '"/><circle cx="12" cy="34" r="2" fill="#fff" fill-opacity=".6"/><circle cx="8" cy="42" r="2" fill="#fff" fill-opacity=".4"/></svg>';
+  window.addEventListener('resize', fitApp);
+  function frame() {
+    if (GAME.screen === 'chapter') Ch.draw(); else if (GAME.screen === 'tut') Tut.draw();
+    requestAnimationFrame(frame);
+  }
+  fitApp();
+  showSelect();
+  requestAnimationFrame(frame);
+
+  // For quick checks from the console.
+  window.RRProto = { Ch: Ch, Tut: Tut, openLevel: openLevel, showSelect: showSelect, GAME: GAME };
+})();
+</script>
+</body>
+</html>

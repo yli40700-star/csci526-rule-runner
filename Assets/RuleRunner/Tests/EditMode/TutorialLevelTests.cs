@@ -12,7 +12,8 @@ namespace RuleRunner.Tests
     /// </summary>
     public class TutorialLevelTests
     {
-        static IEnumerable<string> TutorialIds() => LevelDatabase.All.Where(l => l.Tutorial).Select(l => l.Id);
+        // The tutorial proper is chapter 0; chapter 2's AND guide (2-0) also plays in the tutorial screen (see the 2-0 test below).
+        static IEnumerable<string> TutorialIds() => LevelDatabase.All.Where(l => l.Tutorial && l.Chapter == 0).Select(l => l.Id);
 
         static readonly string[] KnownBlinkParts = { "slot", "if", "not", "then", "move" };
 
@@ -113,7 +114,7 @@ namespace RuleRunner.Tests
         [Test]
         public void EnergyIsHiddenUntilT5AndOneCardCannotDoItAll()
         {
-            foreach (var l in LevelDatabase.All.Where(l => l.Tutorial))
+            foreach (var l in LevelDatabase.All.Where(l => l.Tutorial && l.Chapter == 0))
                 Assert.AreEqual(l.Id != "T5", l.HideQi, l.Id);
             var t5 = LevelDatabase.Get("T5");
             var r = Simulator.Run(t5, t5.StartCards);
@@ -123,6 +124,20 @@ namespace RuleRunner.Tests
             Assert.Greater(report.WinningCombinations, 0);
             Assert.AreEqual(2, report.MinRules, "no single card clears T5");
             Assert.IsEmpty(t5.Blink, "T5 leaves the player to work it out");
+        }
+
+        [Test]
+        public void AndGuideOpensChapter2()
+        {
+            var g = LevelDatabase.Get("2-0");
+            Assert.IsTrue(g.Tutorial && g.AllowAnd, "2-0 is the AND guide, played in the tutorial screen");
+            Assert.AreEqual("2-0", LevelDatabase.Next(LevelDatabase.Get("1-7")).Id, "chapter 2 starts with its guide");
+            Assert.AreEqual("2-0", LevelDatabase.All.First(l => l.AllowAnd).Id, "AND is taught in the guide first");
+            var start = Simulator.Run(g, g.StartCards);
+            Assert.IsFalse(start.Won);
+            Assert.IsTrue(start.RanOutOfQi, "the start cards Big Jump every pit and run out of Energy");
+            Assert.AreEqual(0, LevelAnalyzer.Analyze(g, includeAnd: false).WinningCombinations, "no way through without AND");
+            Assert.AreEqual(4, LevelAnalyzer.Analyze(g).WinningCombinations);
         }
 
         static Rule WithAction(Rule r, ActionType a)

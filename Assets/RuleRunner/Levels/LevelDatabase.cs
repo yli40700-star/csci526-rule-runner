@@ -25,6 +25,8 @@ namespace RuleRunner.Levels
             public string title;
             public string hint;
             public bool draft;
+            public bool noIntro;            // no intro card and no "?" button
+            public bool introUntilCleared;  // the intro card opens each time until the level is cleared
             public string map;
             public int start;
             public int dir = 1;
@@ -128,6 +130,8 @@ namespace RuleRunner.Levels
             Title = j.title,
             Hint = j.hint,
             Playable = !j.draft,
+            NoIntro = j.noIntro,
+            IntroUntilCleared = j.introUntilCleared,
             Map = j.map,
             Start = j.start,
             Dir = j.dir == 0 ? 1 : j.dir,

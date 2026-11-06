@@ -38,8 +38,10 @@ namespace RuleRunner.Tests
         [TestCase("1-5", "spike")]
         [TestCase("1-6", "pit")]
         [TestCase("1-7", "trap")]
-        [TestCase("2-1", "pit")]
-        [TestCase("2-2", "pit")]
+        [TestCase("2-0", "pit")]
+        [TestCase("2-1", "timeout")]
+        [TestCase("2-2", "timeout")]
+        [TestCase("2-3", "pit")]
         public void PreviousExpectedMatchesDesignDoc(string id, string expected)
         {
             Assert.AreEqual(Vocabulary.ParseOutcome(expected), LevelDatabase.Get(id).PreviousExpected);
@@ -52,8 +54,10 @@ namespace RuleRunner.Tests
         [TestCase("1-5", 0)]
         [TestCase("1-6", 0)]
         [TestCase("1-7", 0)]
-        [TestCase("2-1", 0)]
-        [TestCase("2-2", 0)]
+        [TestCase("2-0", 0)]
+        [TestCase("2-1", 1)]   // chapter 2 leaves 1 Energy to spare
+        [TestCase("2-2", 1)]
+        [TestCase("2-3", 1)]
         public void SolutionQiMatchesDesignDoc(string id, int qiLeft)
         {
             Assert.AreEqual(qiLeft, LevelDatabase.Get(id).SolutionQiLeft);

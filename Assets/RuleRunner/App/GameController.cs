@@ -133,7 +133,13 @@ namespace RuleRunner.App
             // The tutorial levels (T1-T5) play in their own screen, a port of docs/proto/tutorial.html.
             tutorialScreen = TutorialScreen.Create(canvasRect);
             tutorialScreen.Back += ShowLevelSelect;
-            tutorialScreen.Finished += ShowLevelSelect;
+            // After T5 the player picks from the level list; after the AND guide (2-0) the chapter goes straight on.
+            tutorialScreen.Finished += id =>
+            {
+                var def = LevelDatabase.Get(id);
+                var next = def != null && def.Chapter > 0 ? LevelDatabase.Next(def) : null;
+                if (next != null) LoadLevel(next); else ShowLevelSelect();
+            };
             tutorialScreen.Cleared += id => PlayerPrefs.SetInt(ClearedKey + id, 1);
             tutorialScreen.StageStarted += id => analytics.LevelStarted(id);
             tutorialScreen.RunEnded += (id, ids, won, hints) =>
@@ -232,9 +238,10 @@ namespace RuleRunner.App
             // The first tutorial level opens with its cards playing the level once by themselves.
             bool demo = level.DemoFirst && rules.Count > 0 && rules.SequenceEqual(level.StartCards);
             tutorial.LevelLoaded(level, demo);
-            // A tutorial level shows an intro card only when it brings something new (Big Jump, card order, Energy).
-            bool hasIntro = !level.Tutorial || level.Guide.NewItems.Count > 0;
-            if (hasIntro && PlayerPrefs.GetInt(IntroKey(level), 0) == 0) ShowIntro();
+            // A tutorial level shows an intro card only when it brings something new (Big Jump, card order, Energy);
+            // chapter 2's levels have none, except 2-2 (high wall and Turn), which shows it until the level is cleared.
+            bool showIntro = level.IntroUntilCleared ? !IsCleared(level.Id) : PlayerPrefs.GetInt(IntroKey(level), 0) == 0;
+            if (level.HasIntro && showIntro) ShowIntro();
             if (demo) StartCoroutine(StartDemo());
         }
 

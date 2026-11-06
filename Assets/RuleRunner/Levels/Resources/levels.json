@@ -656,11 +656,11 @@
       "previousLine": "Your 1-6 cards have never met a trap."
     },
     {
-      "id": "2-1",
+      "id": "2-0",
       "chapter": 2,
-      "title": "Both Must Hold",
-      "hint": "One pit can be jumped; two pits in a row cannot. With this little Energy, Big Jump only where it is needed.",
-      "map": "gggggpggsggppggf",
+      "title": "AND",
+      "tutorial": true,
+      "map": "gggpgggppgggpgggf",
       "start": 0,
       "dir": 1,
       "qi": 6,
@@ -676,93 +676,216 @@
         "bigjump"
       ],
       "allowAnd": true,
+      "startCards": [
+        "IF pit THEN bigjump",
+        "IF pit THEN jump"
+      ],
       "solution": [
         "IF pit AND NOT ground2 THEN bigjump",
-        "IF NOT ground THEN jump"
+        "IF pit THEN jump"
       ],
       "solutionQiLeft": 0,
       "previousSolution": [
-        "IF NOT ground2 THEN bigjump",
-        "IF NOT ground THEN jump"
+        "IF pit THEN bigjump",
+        "IF pit THEN jump"
       ],
       "previousExpected": "pit",
-      "concept": "and",
       "hints": [
-        "Only the double pit needs a Big Jump. Everything else is a 1-Energy Jump.",
-        "Tap +AND on a card: IF Pit ahead AND NOT Ground 2 ahead is true only right before the double pit.",
-        "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump."
-      ],
-      "deathPit": [
-        "That pit had another pit behind it.",
-        "Ground 2 ahead fired a step too early."
-      ],
-      "deathSpike": [
-        "None of your cards looked at the spike."
-      ],
-      "qiLine": "A Big Jump at every pit costs too much. AND picks out the double pit.",
-      "previousLine": "Your 1-5 cards: on long ground, Ground 2 ahead fires a step too early.",
-      "newItems": [
-        {
-          "title": "NEW: AND",
-          "line": "+AND adds a second condition. The card fires only when BOTH are true, and costs 1 extra Energy.",
-          "map": "gpggppgg",
-          "start": 0,
-          "dir": 1,
-          "qi": 6,
-          "rules": [
-            "IF pit AND NOT ground2 THEN bigjump",
-            "IF NOT ground THEN jump"
-          ],
-          "steps": 5
-        }
+        "Watch the Energy: it is gone before the last pit.",
+        "Tap + AND on card 1, then pick NOT Ground 2 ahead.",
+        "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF Pit ahead THEN Jump."
       ]
     },
     {
-      "id": "2-2",
+      "id": "2-1",
       "chapter": 2,
-      "title": "Look Before You Leap",
-      "hint": "A Jump lands two tiles ahead. Jump only when that tile is ground; otherwise Big Jump.",
-      "map": "ggggwggggppggspggf",
+      "title": "Both Must Hold",
+      "hint": "Not every pit is the same width.",
+      "noIntro": true,
+      "map": "gpgggppgggwgggpgsgf",
       "start": 0,
       "dir": 1,
-      "qi": 8,
+      "qi": 9,
       "slots": 2,
       "conditions": [
         "ground",
         "pit",
         "spike",
+        "wall",
         "ground2"
       ],
       "actions": [
+        "walk",
         "jump",
-        "bigjump"
+        "bigjump",
+        "turn"
       ],
       "allowAnd": true,
       "solution": [
-        "IF NOT ground AND ground2 THEN jump",
-        "IF NOT ground THEN bigjump"
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
       ],
-      "solutionQiLeft": 0,
+      "solutionQiLeft": 1,
+      "previousSolution": [
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "timeout",
+      "hints": [
+        "Only one gap is two pits wide. Everything else needs just a Jump.",
+        "IF Pit ahead AND NOT Ground 2 ahead is true only right before the wide gap.",
+        "IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, then IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Two pits in a row need a Big Jump. One pit needs only a Jump.",
+        "Check where each jump lands: a Big Jump goes one tile further.",
+        "Ground 2 ahead tells a wide gap from a narrow one."
+      ],
+      "deathSpike": [
+        "A Big Jump lands one tile further than a Jump. Check what is there.",
+        "Every spike needs a Jump."
+      ],
+      "deathTimeout": [
+        "Something is in the way, and no card jumps it."
+      ],
+      "qiLine": "Out of Energy. A Big Jump costs 3: save it for the wide gap.",
+      "previousLine": "Your guide cards only know pits. Something else is in the way here."
+    },
+    {
+      "id": "2-2",
+      "chapter": 2,
+      "title": "Edge or Low Wall",
+      "hint": "The flag is behind you.",
+      "introUntilCleared": true,
+      "map": "fgsgggwgppgggggg",
+      "start": 12,
+      "dir": 1,
+      "qi": 8,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "walk",
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF wall AND NOT ground2 THEN turn",
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 1,
       "previousSolution": [
         "IF pit AND NOT ground2 THEN bigjump",
         "IF NOT ground THEN jump"
       ],
-      "previousExpected": "pit",
-      "concept": "and",
+      "previousExpected": "timeout",
       "hints": [
-        "Before every jump, ask: is the landing tile ground?",
-        "IF NOT Ground ahead AND Ground 2 ahead: something is in the way, and a Jump would land safely.",
-        "IF NOT Ground ahead AND Ground 2 ahead THEN Jump, then IF NOT Ground ahead THEN Big Jump."
+        "Wall ahead is true at the edge AND at the low wall.",
+        "Ground 2 ahead tells them apart: there is nothing behind the edge.",
+        "IF Wall ahead AND NOT Ground 2 ahead THEN Turn, IF Pit ahead THEN Big Jump, IF NOT Ground ahead THEN Jump."
       ],
       "deathPit": [
-        "A Jump over the spike landed in the pit behind it.",
-        "Two pits in a row need a Big Jump."
+        "The gap was wider than the jump."
       ],
       "deathSpike": [
-        "Nothing fired before the spike."
+        "Something sharp was waiting where you landed."
       ],
-      "qiLine": "A Big Jump over the low wall wastes Energy. A Jump is enough there.",
-      "previousLine": "Your 2-1 cards only check pits. Here a spike hides a pit behind it."
+      "deathTimeout": [
+        "Wall ahead is true at the edge AND at the low wall.",
+        "Something is in the way, and no card gets past it."
+      ],
+      "qiLine": "Out of Energy. Check which card fires at the edge, and which at the low wall.",
+      "previousLine": "Your 2-1 cards never turn around.",
+      "newItems": [
+        {
+          "title": "HIGH WALL",
+          "line": "The dark wall at each end of the map. Nothing can jump it. Wall ahead is true here too.",
+          "map": "gggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 9,
+          "rules": [
+            "IF wall THEN jump"
+          ],
+          "steps": 6
+        },
+        {
+          "title": "NEW CARD: TURN",
+          "line": "Turn makes the runner face the other way. It costs 1 Energy.",
+          "map": "gggggg",
+          "start": 1,
+          "dir": 1,
+          "qi": 9,
+          "rules": [
+            "IF wall THEN turn"
+          ],
+          "steps": 12
+        }
+      ]
+    },
+    {
+      "id": "2-3",
+      "chapter": 2,
+      "title": "Two Checks",
+      "hint": "Two places need a closer look.",
+      "noIntro": true,
+      "map": "fggwgsgppgpggsgggggsp",
+      "start": 12,
+      "dir": 1,
+      "qi": 12,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "walk",
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF spike AND NOT ground2 THEN turn",
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 1,
+      "previousSolution": [
+        "IF wall AND NOT ground2 THEN turn",
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "pit",
+      "hints": [
+        "One spike is a dead end, and one gap is two pits wide.",
+        "Both can be found with NOT Ground 2 ahead: one with Spike ahead, one with Pit ahead.",
+        "IF Spike ahead AND NOT Ground 2 ahead THEN Turn, IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Check where each jump lands: a Big Jump goes one tile further.",
+        "Two pits in a row need a Big Jump. One pit needs only a Jump.",
+        "That spike had a pit behind it."
+      ],
+      "deathSpike": [
+        "Every other spike needs a Jump."
+      ],
+      "deathTimeout": [
+        "Something is in the way, and no card gets past it."
+      ],
+      "qiLine": "Out of Energy. Check which card fires at each spike and at each pit.",
+      "previousLine": "Your 2-2 cards only turn at walls. Here the dead end is a spike."
     }
   ]
 }

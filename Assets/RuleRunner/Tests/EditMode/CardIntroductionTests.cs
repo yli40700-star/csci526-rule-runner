@@ -48,10 +48,15 @@ namespace RuleRunner.Tests
         }
 
         [Test]
-        public void AndFirstAppearsInTheAndLevel()
+        public void AndIsTaughtByTheGuideAndChapter2HasNoOtherIntros()
         {
+            Assert.AreEqual("2-0", LevelDatabase.All.First(l => l.AllowAnd).Id, "the AND guide comes first");
             Assert.AreEqual("2-1", FirstLevelWith(l => l.AllowAnd));
-            Assert.AreEqual("and", LevelDatabase.Get("2-1").Guide.Concept);
+            Assert.IsFalse(LevelDatabase.Get("2-1").HasIntro);
+            Assert.IsFalse(LevelDatabase.Get("2-3").HasIntro);
+            var turn = LevelDatabase.Get("2-2");
+            Assert.IsTrue(turn.HasIntro && turn.IntroUntilCleared, "2-2 introduces the high wall and Turn until it is cleared");
+            Assert.AreEqual(2, turn.Guide.NewItems.Count);
         }
 
         [Test]

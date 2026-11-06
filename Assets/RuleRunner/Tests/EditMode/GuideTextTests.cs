@@ -17,7 +17,8 @@ namespace RuleRunner.Tests
         {
             var level = LevelDatabase.Get(id);
             Assert.IsNotEmpty(level.Hint, "intro line");
-            Assert.IsNotEmpty(level.Guide.Concept, "intro diagram");
+            // The concept diagram is drawn only on an intro card without new items.
+            if (level.HasIntro && level.Guide.NewItems.Count == 0) Assert.IsNotEmpty(level.Guide.Concept, "intro diagram");
             Assert.AreEqual(3, level.Guide.Hints.Count, "three hints, vaguest first");
             Assert.IsTrue(level.Guide.Hints.All(h => !string.IsNullOrWhiteSpace(h)));
         }
