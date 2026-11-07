@@ -73,7 +73,10 @@ namespace RuleRunner.UI
             title.text = won ? "LEVEL CLEAR" : "RUN FAILED";
             title.color = won ? Theme.Hex(0x7de08c) : Theme.Hex(0xff8a8a);
             accent.color = won ? Theme.Accent : Theme.Danger;
-            cause.text = won ? "The runner reached the flag." : Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
+            cause.text = won ? (level.Mirror ? "Both runners reached their flags." : "The runner reached the flag.")
+                : (level.Mirror && result.Frames.Count > 0 && result.Outcome != Outcome.Timeout
+                    ? (result.Frames[result.Frames.Count - 1].Runner == 0 ? "Yellow: " : "Pink: ") : "")
+                  + Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
             qiValue.text = result.QiLeft.ToString();
             qiValue.transform.parent.gameObject.SetActive(!level.HideQi);  // qi is not shown before its tutorial level
             stepValue.text = result.Steps.ToString();

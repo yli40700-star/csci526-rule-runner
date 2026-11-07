@@ -28,6 +28,7 @@ namespace RuleRunner.Levels
             public string map;
             public int start;
             public int dir = 1;
+            public bool mirror;         // chapter 4: a second runner starts at the other end (see Core.Simulator.RunMirror)
             public int qi;
             public int slots;
             public string[] conditions;
@@ -67,6 +68,7 @@ namespace RuleRunner.Levels
             public string map;
             public int start;
             public int dir;
+            public bool mirror;
             public int qi;
             public string[] rules;
             public int steps;
@@ -131,6 +133,9 @@ namespace RuleRunner.Levels
             Map = j.map,
             Start = j.start,
             Dir = j.dir == 0 ? 1 : j.dir,
+            // Mirror levels: the second runner starts one tile in from the right end, facing left.
+            Start2 = j.mirror ? j.map.Length - 2 : -1,
+            Dir2 = -1,
             Qi = j.qi,
             Slots = j.slots,
             Conditions = (j.conditions ?? new string[0]).Select(Vocabulary.ParseCondition).ToList(),
@@ -169,6 +174,8 @@ namespace RuleRunner.Levels
                     Map = string.IsNullOrEmpty(n.map) ? "ggg" : n.map,
                     Start = n.start,
                     Dir = n.dir == 0 ? 1 : n.dir,
+                    Start2 = n.mirror && !string.IsNullOrEmpty(n.map) ? n.map.Length - 2 : -1,
+                    Dir2 = -1,
                     Qi = n.qi,
                     Rules = Rule.ParseList(n.rules),
                     Steps = n.steps <= 0 ? 4 : n.steps,

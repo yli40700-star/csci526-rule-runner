@@ -21,6 +21,17 @@ namespace RuleRunner.Tests
             Assert.AreEqual(level.SolutionQiLeft, result.QiLeft, "Qi left after clearing " + id);
         }
 
+        // Chapter 4 levels are mirror levels; each one's reference solution is the only winning idea.
+        [TestCase("4-1")]
+        [TestCase("4-2")]
+        [TestCase("4-3")]
+        public void MirrorLevelsAreMirrored(string id)
+        {
+            var level = LevelDatabase.Get(id);
+            Assert.IsTrue(level.Mirror, id + " should have two runners");
+            Assert.AreEqual(level.Map.Length - 2, level.Start2);
+        }
+
         [TestCaseSource(nameof(PlayableLevelIds))]
         public void PreviousSolutionBehavesAsDesigned(string id)
         {
@@ -40,6 +51,9 @@ namespace RuleRunner.Tests
         [TestCase("1-7", "trap")]
         [TestCase("2-1", "pit")]
         [TestCase("2-2", "pit")]
+        [TestCase("4-1", "timeout")]
+        [TestCase("4-2", "pit")]
+        [TestCase("4-3", "spike")]
         public void PreviousExpectedMatchesDesignDoc(string id, string expected)
         {
             Assert.AreEqual(Vocabulary.ParseOutcome(expected), LevelDatabase.Get(id).PreviousExpected);
@@ -54,6 +68,9 @@ namespace RuleRunner.Tests
         [TestCase("1-7", 0)]
         [TestCase("2-1", 0)]
         [TestCase("2-2", 0)]
+        [TestCase("4-1", 0)]
+        [TestCase("4-2", 0)]
+        [TestCase("4-3", 0)]
         public void SolutionQiMatchesDesignDoc(string id, int qiLeft)
         {
             Assert.AreEqual(qiLeft, LevelDatabase.Get(id).SolutionQiLeft);

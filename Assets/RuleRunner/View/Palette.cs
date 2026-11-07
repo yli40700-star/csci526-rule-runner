@@ -17,6 +17,8 @@ namespace RuleRunner.View
         public static readonly Color Orb = new Color32(0x4f, 0xd6, 0xe8, 0xff);
         public static readonly Color Finish = new Color32(0x5c, 0xc9, 0x6b, 0xff);
         public static readonly Color Runner = new Color32(0xf5, 0xd0, 0x3b, 0xff);
+        /// <summary>The second runner in mirror levels (chapter 4).</summary>
+        public static readonly Color Runner2 = new Color32(0xff, 0x7e, 0xb6, 0xff);
         public static readonly Color RunnerEye = new Color32(0x1d, 0x23, 0x2e, 0xff);
         public static readonly Color Dead = new Color32(0xe0, 0x4f, 0x4f, 0xff);
     }

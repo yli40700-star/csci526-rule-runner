@@ -11,15 +11,38 @@ namespace RuleRunner.View
         SpriteRenderer body, eye;
         Transform visual;
         int dir = 1;
+        Color color = Palette.Runner;
+
+        /// <summary>Body color: yellow by default, pink for the second runner in mirror levels.</summary>
+        public void SetColor(Color c)
+        {
+            color = c;
+            if (body) body.color = c;
+        }
 
         /// <summary>World position of the runner's head, for floating labels.</summary>
         public Vector3 HeadPosition => transform.position + new Vector3(0f, Size + 0.35f, 0f);
+
+        /// <summary>Mirror levels: one hop when this runner reaches its flag (the other one is still running).</summary>
+        public IEnumerator PlayHome(float duration)
+        {
+            float t = 0f;
+            Vector3 start = transform.position;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / duration;
+                float k = Mathf.Clamp01(t);
+                transform.position = start + Vector3.up * (0.5f * 4f * k * (1f - k));
+                yield return null;
+            }
+            transform.position = start;
+        }
 
         void Awake()
         {
             visual = new GameObject("Visual").transform;
             visual.SetParent(transform, false);
-            body = Shapes.Create(visual, "Body", Shapes.Square, Palette.Runner, Vector2.zero, new Vector2(Size, Size), 5);
+            body = Shapes.Create(visual, "Body", Shapes.Square, color, Vector2.zero, new Vector2(Size, Size), 5);
             eye = Shapes.Create(visual, "Eye", Shapes.Square, Palette.RunnerEye, new Vector2(0.18f, 0.38f), new Vector2(0.14f, 0.18f), 6);
         }
 
@@ -30,7 +53,7 @@ namespace RuleRunner.View
             visual.localPosition = Vector3.zero;
             visual.localScale = Vector3.one;
             visual.localRotation = Quaternion.identity;
-            body.color = Palette.Runner;
+            body.color = color;
             SetDir(facing);
         }
 
@@ -148,7 +171,7 @@ namespace RuleRunner.View
                     transform.position = start;
                     break;
                 case Outcome.Timeout:
-                    body.color = Color.Lerp(Palette.Runner, Color.gray, 0.7f);
+                    body.color = Color.Lerp(color, Color.gray, 0.7f);
                     yield return new WaitForSeconds(duration * 0.5f);
                     break;
             }

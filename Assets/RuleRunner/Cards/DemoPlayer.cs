@@ -20,6 +20,8 @@ namespace RuleRunner.Cards
         RunResult result;
         RectTransform board;
         RectTransform runner, eye;
+        /// <summary>Mirror demos only: the second (pink) runner.</summary>
+        RectTransform runner2, eye2;
         Text qiText, actionText;
         bool showEnergy = true;
         readonly List<Image> trapSpikes = new List<Image>();
@@ -33,7 +35,9 @@ namespace RuleRunner.Cards
             var player = area.gameObject.AddComponent<DemoPlayer>();
             player.spec = spec;
             player.showEnergy = showEnergy;
-            player.result = Simulator.Run(spec.Map, spec.Start, spec.Dir, spec.Qi, spec.Rules, true, spec.Steps);
+            player.result = spec.Start2 >= 0
+                ? Simulator.RunMirror(spec.Map, spec.Start, spec.Dir, spec.Start2, spec.Dir2, spec.Qi, spec.Rules, true, spec.Steps)
+                : Simulator.Run(spec.Map, spec.Start, spec.Dir, spec.Qi, spec.Rules, true, spec.Steps);
             player.Build(area);
             player.qiText.gameObject.SetActive(showEnergy);
             player.built = true;
@@ -60,6 +64,12 @@ namespace RuleRunner.Cards
             runner = UIKit.Shape(board, "Runner", UISprites.Rounded, Palette.Runner, Vector2.zero, new Vector2(cell * 0.62f, cell * 0.62f)).rectTransform;
             UIKit.Round(runner.GetComponent<Image>(), 4f);
             eye = UIKit.Shape(runner, "Eye", UISprites.Rounded, Palette.RunnerEye, Vector2.zero, new Vector2(cell * 0.12f, cell * 0.18f)).rectTransform;
+            if (spec.Start2 >= 0)
+            {
+                runner2 = UIKit.Shape(board, "Runner 2", UISprites.Rounded, Palette.Runner2, Vector2.zero, new Vector2(cell * 0.62f, cell * 0.62f)).rectTransform;
+                UIKit.Round(runner2.GetComponent<Image>(), 4f);
+                eye2 = UIKit.Shape(runner2, "Eye", UISprites.Rounded, Palette.RunnerEye, Vector2.zero, new Vector2(cell * 0.12f, cell * 0.18f)).rectTransform;
+            }
 
             qiText = UIKit.Label(UIKit.Rect(board, "Qi", new Vector2(1, 1), new Vector2(1, 1), new Vector2(-70, -18), new Vector2(-4, 0)),
                 "Text", "", 12, TextAnchor.MiddleRight, Theme.Qi, FontStyle.Bold);
@@ -93,7 +103,8 @@ namespace RuleRunner.Cards
                     orbs[i] = UIKit.Shape(board, "Orb", UISprites.Circle, Palette.Orb, new Vector2(X(i), top + cell * 0.3f), new Vector2(cell * 0.4f, cell * 0.4f));
                     break;
                 case Vocabulary.Finish:
-                    UIKit.Shape(board, "Flag", UISprites.Rounded, Palette.Finish, new Vector2(X(i), top + cell * 0.55f), new Vector2(cell * 0.4f, cell * 0.4f));
+                    var cloth = spec.Start2 < 0 ? Palette.Finish : i < spec.Map.Length / 2 ? Palette.Runner2 : Palette.Runner;
+                    UIKit.Shape(board, "Flag", UISprites.Rounded, cloth, new Vector2(X(i), top + cell * 0.55f), new Vector2(cell * 0.4f, cell * 0.4f));
                     break;
             }
         }
@@ -103,10 +114,11 @@ namespace RuleRunner.Cards
             if (built) StartCoroutine(Loop());
         }
 
-        void Place(float x, float lift, int dir)
+        void Place(float x, float lift, int dir, int who = 0)
         {
-            runner.anchoredPosition = new Vector2(x, baseY + cell * 0.31f + lift);
-            eye.anchoredPosition = new Vector2(cell * 0.14f * dir, cell * 0.06f);
+            var body = who == 1 ? runner2 : runner;
+            body.anchoredPosition = new Vector2(x, baseY + cell * 0.31f + lift);
+            (who == 1 ? eye2 : eye).anchoredPosition = new Vector2(cell * 0.14f * dir, cell * 0.06f);
         }
 
         void SetTraps(int t)
@@ -122,6 +134,11 @@ namespace RuleRunner.Cards
                 foreach (var o in orbs.Values) o.enabled = true;
                 runner.GetComponent<Image>().color = Palette.Runner;
                 Place(X(spec.Start), 0f, spec.Dir);
+                if (runner2 != null)
+                {
+                    runner2.GetComponent<Image>().color = Palette.Runner2;
+                    Place(X(spec.Start2), 0f, spec.Dir2, 1);
+                }
                 SetTraps(0);
                 qiText.text = "Energy " + spec.Qi;
                 actionText.text = "";
@@ -142,15 +159,15 @@ namespace RuleRunner.Cards
                     actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), baseY + cell * 1.5f);
 
                     float height = f.Action == ActionType.Jump ? cell * 1.0f : f.Action == ActionType.BigJump ? cell * 1.4f : 0f;
-                    for (float t = 0; t < 1f; t += Time.unscaledDeltaTime / StepSeconds)
+                    for (float t = 0; t < 1f; t += Time.unscaledDeltaTime / (StepSeconds * (runner2 != null ? 0.7f : 1f)))
                     {
                         float k = Mathf.Clamp01(t);
                         float x = f.Blocked ? X(f.XBefore) : Mathf.Lerp(X(f.XBefore), X(f.X), k);
                         int dir = f.Action == ActionType.Turn ? (k < 0.5f ? f.DirBefore : f.Dir) : f.Dir;
-                        Place(x, height * 4f * k * (1f - k), dir);
+                        Place(x, height * 4f * k * (1f - k), dir, f.Runner);
                         yield return null;
                     }
-                    Place(X(f.X), 0f, f.Dir);
+                    Place(X(f.X), 0f, f.Dir, f.Runner);
                     qiText.text = "Energy " + f.Qi;
                     if (f.CollectedOrb && orbs.TryGetValue(f.X, out var orb))
                     {
@@ -158,7 +175,7 @@ namespace RuleRunner.Cards
                         actionText.text = "+2 Energy";
                     }
                     if (f.Outcome != Outcome.Running && f.Outcome != Outcome.Win)
-                        runner.GetComponent<Image>().color = Palette.Dead;
+                        (f.Runner == 1 ? runner2 : runner).GetComponent<Image>().color = Palette.Dead;
                 }
                 yield return Wait(1.1f);
             }

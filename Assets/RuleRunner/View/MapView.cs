@@ -20,6 +20,8 @@ namespace RuleRunner.View
         Transform highlight;
 
         public int Length { get; private set; }
+        /// <summary>Mirror level: the right flag is the first runner's (yellow), the left one the second's (pink).</summary>
+        bool mirror;
 
         public void Build(LevelDef level)
         {
@@ -36,6 +38,7 @@ namespace RuleRunner.View
             DrawHighWall(-1);
             DrawHighWall(Length);
 
+            mirror = level.Mirror;
             for (int i = 0; i < Length; i++) DrawCell(i, level.Map[i]);
             SetTime(0);
         }
@@ -77,7 +80,8 @@ namespace RuleRunner.View
                     break;
                 case Vocabulary.Finish:
                     Shapes.Create(root, "FlagPole " + i, sq, Color.white, new Vector2(i + 0.25f, 0f), new Vector2(0.06f, 1.3f), 1);
-                    Shapes.Create(root, "Flag " + i, sq, Palette.Finish, new Vector2(i + 0.02f, 0.85f), new Vector2(0.42f, 0.42f), 1);
+                    var cloth = !mirror ? Palette.Finish : i < Length / 2 ? Palette.Runner2 : Palette.Runner;
+                    Shapes.Create(root, "Flag " + i, sq, cloth, new Vector2(i + 0.02f, 0.85f), new Vector2(0.42f, 0.42f), 1);
                     break;
             }
         }

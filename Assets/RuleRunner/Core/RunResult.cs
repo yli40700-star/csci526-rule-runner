@@ -34,6 +34,12 @@ namespace RuleRunner.Core
         /// <summary>True when the runner picked up a qi orb this step.</summary>
         public bool CollectedOrb;
 
+        /// <summary>Mirror levels: which runner this frame belongs to (0 or 1). Always 0 otherwise.</summary>
+        public int Runner;
+
+        /// <summary>Mirror levels: this runner reached its own flag this step (the run goes on until both have).</summary>
+        public bool ReachedGoal;
+
         /// <summary>Running unless this step ended the run.</summary>
         public Outcome Outcome = Outcome.Running;
     }

@@ -15,6 +15,13 @@ namespace RuleRunner.Core
         public string Map;
         public int Start;
         public int Dir = 1;
+        /// <summary>
+        /// Mirror levels (chapter 4): start cell of the second runner, or -1 for a one-runner level.
+        /// Both runners use the same cards and one Energy pool; see Simulator.RunMirror.
+        /// </summary>
+        public int Start2 = -1;
+        public int Dir2 = -1;
+        public bool Mirror => Start2 >= 0;
         public int Qi;
         public int Slots;
         public List<Condition> Conditions = new List<Condition>();
@@ -95,6 +102,9 @@ namespace RuleRunner.Core
         public string Map = "ggg";
         public int Start;
         public int Dir = 1;
+        /// <summary>Second runner's start cell for a mirror demo, or -1.</summary>
+        public int Start2 = -1;
+        public int Dir2 = -1;
         public int Qi = 5;
         public List<Rule> Rules = new List<Rule>();
         public int Steps = 4;

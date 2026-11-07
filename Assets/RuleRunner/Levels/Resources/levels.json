@@ -763,6 +763,216 @@
       ],
       "qiLine": "A Big Jump over the low wall wastes Energy. A Jump is enough there.",
       "previousLine": "Your 2-1 cards only check pits. Here a spike hides a pit behind it."
+    },
+    {
+      "id": "4-1",
+      "chapter": 4,
+      "title": "Face to Face",
+      "mirror": true,
+      "hint": "Two runners, one set of cards, one Energy pool. Yellow runs right, Pink runs left - and each one is a wall to the other.",
+      "map": "fgsggggggsgf",
+      "start": 1,
+      "dir": 1,
+      "qi": 5,
+      "slots": 1,
+      "conditions": [
+        "ground",
+        "spike",
+        "wall"
+      ],
+      "actions": [
+        "jump"
+      ],
+      "startCards": [
+        "IF spike THEN jump"
+      ],
+      "solution": [
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF spike THEN jump"
+      ],
+      "previousExpected": "timeout",
+      "concept": "mirror",
+      "hints": [
+        "Your teammate is not ground. Walking into them gets you stuck.",
+        "One card can cover the spikes and your teammate: both are NOT Ground ahead.",
+        "IF NOT Ground ahead THEN Jump."
+      ],
+      "deathSpike": [
+        "A Wall card does nothing about spikes."
+      ],
+      "deathTimeout": [
+        "You two are nose to nose. Neither of you will step aside.",
+        "To each runner, the other one is a wall."
+      ],
+      "qiLine": "Every jump comes out of the shared pool - both runners pay from it.",
+      "previousLine": "Spikes are handled. But nobody told you what to do about each other.",
+      "newItems": [
+        {
+          "title": "NEW: Two runners",
+          "line": "Same cards, one Energy pool. To each runner the other is a wall: walking into it gets you stuck.",
+          "map": "fggggggf",
+          "start": 1,
+          "dir": 1,
+          "mirror": true,
+          "qi": 5,
+          "rules": [],
+          "steps": 4
+        },
+        {
+          "title": "Pass each other",
+          "line": "A Jump goes over your teammate - never onto them. Both must reach their own flag.",
+          "map": "fggggggf",
+          "start": 1,
+          "dir": 1,
+          "mirror": true,
+          "qi": 5,
+          "rules": [
+            "IF wall THEN jump"
+          ],
+          "steps": 8
+        }
+      ]
+    },
+    {
+      "id": "4-2",
+      "chapter": 4,
+      "title": "Narrow Road",
+      "mirror": true,
+      "hint": "Some walls have ground behind them, some have a pit. Your teammate is a wall too. With one Energy pool, Big Jump only where you must.",
+      "map": "fggsgsggggopwgwgf",
+      "start": 1,
+      "dir": 1,
+      "qi": 12,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF wall AND NOT ground2 THEN bigjump",
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "pit",
+      "concept": "mirror",
+      "hints": [
+        "Look behind each wall before you jump it.",
+        "Wall ahead AND NOT Ground 2 ahead: a wall with danger behind it. Only that one needs a Big Jump.",
+        "IF Wall ahead AND NOT Ground 2 ahead THEN Big Jump, IF Pit ahead THEN Big Jump, IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "The landing behind that wall was a pit.",
+        "A Jump over one tile is not enough for that pit."
+      ],
+      "deathSpike": [
+        "Something sharp was waiting where you landed."
+      ],
+      "deathTimeout": [
+        "Someone keeps jumping at a wall they cannot clear."
+      ],
+      "qiLine": "Big Jumps everywhere drain the shared pool. Your teammate needed that Energy.",
+      "previousLine": "Pink jumped the second wall - straight into the pit behind it.",
+      "newItems": [
+        {
+          "title": "Two kinds of wall",
+          "line": "Ground behind the wall: a Jump is enough. A pit behind it: Big Jump over both.",
+          "map": "gwggwpgg",
+          "start": 0,
+          "dir": 1,
+          "qi": 6,
+          "rules": [
+            "IF wall AND NOT ground2 THEN bigjump",
+            "IF wall THEN jump"
+          ],
+          "steps": 5
+        }
+      ]
+    },
+    {
+      "id": "4-3",
+      "chapter": 4,
+      "title": "Double Trouble",
+      "mirror": true,
+      "hint": "A Jump cannot land on a wall - or on your teammate. Count what is behind the wall before you leave the ground.",
+      "map": "fgwwgggogggsgpggf",
+      "start": 1,
+      "dir": 1,
+      "qi": 10,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF wall AND ground2 THEN jump",
+        "IF wall THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall AND NOT ground2 THEN bigjump",
+        "IF pit THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "mirror",
+      "hints": [
+        "Two walls in a row: a Jump lands on the second one and goes nowhere.",
+        "Turn 4-2 around: Jump a wall only when Ground 2 ahead is safe. Any other wall gets a Big Jump.",
+        "IF Wall ahead AND Ground 2 ahead THEN Jump, IF Wall ahead THEN Big Jump, IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "The Energy ran out before the last pit. Who spent a Big Jump they did not need?",
+        "A Big Jump over your teammate costs 3. A Jump costs 1."
+      ],
+      "deathSpike": [
+        "The Big Jump cleared the pit and landed on the spike behind it."
+      ],
+      "deathTimeout": [
+        "A Jump into the double wall lands on the second wall - and goes nowhere.",
+        "Someone is bouncing off a wall."
+      ],
+      "qiLine": "The pool is tight: only the double walls need a Big Jump.",
+      "previousLine": "Your 4-2 cards Big Jump every pit. Here a spike sits right behind one.",
+      "newItems": [
+        {
+          "title": "NEW: Double wall",
+          "line": "A Jump cannot land on the second wall. Jump when there is ground behind a wall; otherwise Big Jump.",
+          "map": "fggwwggggf",
+          "start": 1,
+          "dir": 1,
+          "mirror": true,
+          "qi": 9,
+          "rules": [
+            "IF wall AND ground2 THEN jump",
+            "IF wall THEN bigjump"
+          ],
+          "steps": 7
+        }
+      ]
     }
   ]
 }

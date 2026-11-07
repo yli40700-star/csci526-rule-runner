@@ -34,6 +34,8 @@ namespace RuleRunner.App
         CameraFitter cameraFitter;
         MapView map;
         RunnerView runner;
+        /// <summary>The second (pink) runner, shown only in mirror levels.</summary>
+        RunnerView runner2;
         GameScreen gameScreen;
         LoadoutPanel loadout;
         LevelSelectScreen levelSelect;
@@ -96,6 +98,9 @@ namespace RuleRunner.App
 
             map = new GameObject("MapView").AddComponent<MapView>();
             runner = new GameObject("Runner").AddComponent<RunnerView>();
+            runner2 = new GameObject("Runner 2").AddComponent<RunnerView>();
+            runner2.SetColor(Palette.Runner2);
+            runner2.gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -183,6 +188,7 @@ namespace RuleRunner.App
             gameScreen.Hide();
             map.gameObject.SetActive(false);
             runner.gameObject.SetActive(false);
+            runner2.gameObject.SetActive(false);
             levelSelect.Show();
         }
 
@@ -199,6 +205,7 @@ namespace RuleRunner.App
                 gameScreen.Hide();
                 map.gameObject.SetActive(false);
                 runner.gameObject.SetActive(false);
+                runner2.gameObject.SetActive(false);
                 tutorialScreen.Open(def.Id);
                 return;
             }
@@ -209,6 +216,7 @@ namespace RuleRunner.App
             resultPopup.Hide();
             map.gameObject.SetActive(true);
             runner.gameObject.SetActive(true);
+            runner2.gameObject.SetActive(level.Mirror);
             map.Build(level);
             cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd, level.Tutorial);
             // The tutorial's cards ride above the runner, so the ground sits lower to leave them room.
@@ -403,6 +411,7 @@ namespace RuleRunner.App
             map.ResetState();
             if (deathX >= 0) map.MarkDeath(deathX); // keep showing where the last run died while editing
             runner.Place(level.Start, level.Dir);
+            if (level.Mirror) runner2.Place(level.Start2, level.Dir2);
             gameScreen.SetRunning(false);
             loadout.SetEditable(true);
             loadout.SetQi(level.Qi, level.Qi);
@@ -425,7 +434,9 @@ namespace RuleRunner.App
             bool firstFiring = true;
             foreach (var f in result.Frames)
             {
-                float step = BaseStepSeconds / speed;
+                // Mirror levels play two moves per step (yellow, then pink), so each one is a bit quicker.
+                float step = BaseStepSeconds / speed * (level.Mirror ? 0.7f : 1f);
+                var who = level.Mirror && f.Runner == 1 ? runner2 : runner;
                 map.SetTime(f.T);
                 loadout.HighlightRule(f.FiredRule >= 0 ? f.FiredRule : f.HoldingRule, f.StarvedRule);
 
@@ -446,7 +457,7 @@ namespace RuleRunner.App
                         ? (level.HideQi || cost == 0 ? "" : "-" + cost + " Energy")
                         : "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     if (label.Length > 0)
-                        gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
+                        gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(who.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
                     if (level.Tutorial && !level.HideQi && cost > 0)
                     {
                         // Spending Energy is shown: the Energy pool lights up and the runner waits a moment.
@@ -457,19 +468,24 @@ namespace RuleRunner.App
                 }
                 else if (f.HoldingRule >= 0 && !level.Tutorial)
                 {
-                    gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect),
+                    gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(who.HeadPosition, gameScreen.CanvasRect),
                         "Card " + (f.HoldingRule + 1) + ": waiting...", step * 1.2f);
                 }
                 else if (f.StarvedRule >= 0)
                 {
-                    gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect),
+                    gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(who.HeadPosition, gameScreen.CanvasRect),
                         level.Tutorial ? "not enough Energy!" : "Card " + (f.StarvedRule + 1) + ": not enough Energy!", step * 1.2f);
                 }
                 loadout.SetQi(f.Qi, level.Qi);
-                gameScreen.Log(DescribeStep(f, rules), f.StarvedRule >= 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
+                gameScreen.Log(DescribeStep(f, rules, level.Mirror), f.StarvedRule >= 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
 
-                yield return runner.PlayStep(f, step);
+                yield return who.PlayStep(f, step);
                 if (f.CollectedOrb) map.CollectOrb(f.X);
+                if (f.ReachedGoal && f.Outcome == Outcome.Running)
+                {
+                    gameScreen.Log((f.Runner == 0 ? "Yellow" : "Pink") + " is home - one to go.", new Color(0.5f, 0.9f, 0.55f));
+                    yield return who.PlayHome(step);
+                }
                 if (level.Tutorial)
                 {
                     headCards.Clear();
@@ -480,7 +496,14 @@ namespace RuleRunner.App
             loadout.HighlightRule(-1, -1);
             if (!demoRun) gameScreen.Log("Result: " + Vocabulary.Describe(result.Outcome) + "  (Energy left " + result.QiLeft + ")",
                 result.Won ? new Color(0.5f, 0.9f, 0.55f) : new Color(1f, 0.55f, 0.55f));
-            yield return runner.PlayOutcome(result.Outcome, 0.7f);
+            if (level.Mirror && result.Frames.Count > 0)
+            {
+                // A fall or a hit belongs to the runner who made the last move; a timeout greys out both.
+                var lastRunner = result.Frames[result.Frames.Count - 1].Runner == 1 ? runner2 : runner;
+                if (result.Outcome == Outcome.Timeout) runner2.StartCoroutine(runner2.PlayOutcome(result.Outcome, 0.7f));
+                yield return (result.Outcome == Outcome.Timeout ? runner : lastRunner).PlayOutcome(result.Outcome, 0.7f);
+            }
+            else yield return runner.PlayOutcome(result.Outcome, 0.7f);
 
             string line = "";
             if (demoRun)
@@ -592,9 +615,9 @@ namespace RuleRunner.App
             yield return new WaitForSeconds((shadowed ? 1.4f : slow ? 0.45f : 0.16f) * pace);
         }
 
-        static string DescribeStep(StepFrame f, List<Rule> rules)
+        static string DescribeStep(StepFrame f, List<Rule> rules, bool mirror)
         {
-            string s = "Step " + (f.T + 1) + " - ";
+            string s = "Step " + (f.T + 1) + (mirror ? (f.Runner == 0 ? " Yellow" : " Pink") : "") + " - ";
             if (f.FiredRule >= 0)
                 s += "Card " + (f.FiredRule + 1) + " (" + rules[f.FiredRule].ToDisplayString() + ") fired, Energy left " + f.Qi;
             else if (f.HoldingRule >= 0)
@@ -604,7 +627,7 @@ namespace RuleRunner.App
                      " Energy (have " + f.QiBefore + ") - walked instead";
             else
                 s += "no card fired, Walk";
-            if (f.Blocked) s += " - blocked by a wall";
+            if (f.Blocked) s += mirror ? " - blocked (a wall or your teammate)" : " - blocked by a wall";
             if (f.CollectedOrb) s += " - picked up an Energy orb (+" + Vocabulary.OrbQi + ")";
             return s;
         }
