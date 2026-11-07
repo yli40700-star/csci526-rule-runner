@@ -16,6 +16,9 @@ namespace RuleRunner.View
         public static readonly Color TrapDown = new Color32(0x7a, 0x5a, 0x33, 0xff);
         public static readonly Color Orb = new Color32(0x4f, 0xd6, 0xe8, 0xff);
         public static readonly Color Finish = new Color32(0x5c, 0xc9, 0x6b, 0xff);
+        /// <summary>Cracked ground (chapter 3) and the cracks drawn on it.</summary>
+        public static readonly Color Crumble = new Color32(0xa3, 0x92, 0x7a, 0xff);
+        public static readonly Color CrumbleCrack = new Color32(0x3a, 0x31, 0x28, 0xff);
         public static readonly Color Runner = new Color32(0xf5, 0xd0, 0x3b, 0xff);
         public static readonly Color RunnerEye = new Color32(0x1d, 0x23, 0x2e, 0xff);
         public static readonly Color Dead = new Color32(0xe0, 0x4f, 0x4f, 0xff);

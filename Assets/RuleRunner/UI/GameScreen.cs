@@ -101,7 +101,7 @@ namespace RuleRunner.UI
             UIKit.HRow(legend, 6, null, false, TextAnchor.MiddleCenter);
             var items = new (string, Color)[]
             {
-                ("Ground", Palette.Ground), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
+                ("Ground", Palette.Ground), ("Cracked ground", Palette.Crumble), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
                 ("Low wall (jump over)", Palette.LowWall), ("High wall / edge", Palette.HighWall),
                 ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
             };

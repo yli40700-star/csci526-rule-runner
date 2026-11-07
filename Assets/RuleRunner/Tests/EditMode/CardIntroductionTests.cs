@@ -85,7 +85,7 @@ namespace RuleRunner.Tests
             foreach (var level in LevelDatabase.All)
                 foreach (var d in level.Guide.NewItems)
                 {
-                    var r = Simulator.Run(d.Map, d.Start, d.Dir, d.Qi, d.Rules, true, d.Steps);
+                    var r = Simulator.Run(d.Map, d.Start, d.Dir, d.Qi, d.Rules, true, d.Steps, d.Lower);
                     bool ok = r.Outcome == Outcome.Win || r.Outcome == Outcome.Timeout;
                     Assert.AreEqual(!d.ExpectFailure, ok, level.Id + " demo '" + d.Title + "' ends with " + r.Outcome);
                     Assert.IsTrue(d.Rules.All(rule => Offered(level, rule.Condition) && (!rule.And || Offered(level, rule.Condition2))),

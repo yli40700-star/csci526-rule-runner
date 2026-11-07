@@ -164,6 +164,7 @@ namespace RuleRunner.UI
                     case Vocabulary.Trap: color = Palette.TrapUp; h = 7f; break;
                     case Vocabulary.Orb: color = Palette.Orb; h = 7f; break;
                     case Vocabulary.Finish: color = Palette.Finish; h = 12f; break;
+                    case Vocabulary.Crumble: color = Palette.Crumble; break;
                     default: color = Palette.Ground; break;
                 }
                 var cell = UIKit.Panel(rt, "C", color, new Vector2(0, 0), new Vector2(0, 0));

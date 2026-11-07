@@ -28,6 +28,7 @@ namespace RuleRunner.Levels
             public bool noIntro;            // no intro card and no "?" button
             public bool introUntilCleared;  // the intro card opens each time until the level is cleared
             public string map;
+            public string lower;        // two-floor levels: the floor under map (see LevelDef.Lower)
             public int start;
             public int dir = 1;
             public int qi;
@@ -67,6 +68,7 @@ namespace RuleRunner.Levels
             public string title;
             public string line;
             public string map;
+            public string lower;
             public int start;
             public int dir;
             public int qi;
@@ -133,6 +135,7 @@ namespace RuleRunner.Levels
             NoIntro = j.noIntro,
             IntroUntilCleared = j.introUntilCleared,
             Map = j.map,
+            Lower = string.IsNullOrEmpty(j.lower) ? null : j.lower,
             Start = j.start,
             Dir = j.dir == 0 ? 1 : j.dir,
             Qi = j.qi,
@@ -171,6 +174,7 @@ namespace RuleRunner.Levels
                     Title = n.title ?? "",
                     Line = n.line ?? "",
                     Map = string.IsNullOrEmpty(n.map) ? "ggg" : n.map,
+                    Lower = string.IsNullOrEmpty(n.lower) ? null : n.lower,
                     Start = n.start,
                     Dir = n.dir == 0 ? 1 : n.dir,
                     Qi = n.qi,

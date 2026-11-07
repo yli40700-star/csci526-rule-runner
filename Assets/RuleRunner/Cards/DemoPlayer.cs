@@ -10,7 +10,8 @@ namespace RuleRunner.Cards
 {
     /// <summary>
     /// Tiny looping animation for the intro card: runs a DemoSpec through the real Simulator and plays
-    /// the frames with UI shapes (walk, jump arcs, turn, wait, traps, orbs), then restarts.
+    /// the frames with UI shapes (walk, jump arcs, turn, wait, traps, orbs, cracked ground, drops to a
+    /// lower floor), then restarts.
     /// </summary>
     public class DemoPlayer : MonoBehaviour
     {
@@ -24,8 +25,9 @@ namespace RuleRunner.Cards
         bool showEnergy = true;
         readonly List<Image> trapSpikes = new List<Image>();
         readonly Dictionary<int, Image> orbs = new Dictionary<int, Image>();
-        float cell, baseY, x0;
-        bool built;
+        readonly Dictionary<int, Image> cracks = new Dictionary<int, Image>();
+        float cell, baseY, upperY, x0;
+        bool twoFloors, built;
 
         /// <param name="showEnergy">False in the tutorial levels before Energy is taught: no Energy counter, no costs.</param>
         public static DemoPlayer Create(RectTransform area, DemoSpec spec, bool showEnergy = true)
@@ -33,7 +35,7 @@ namespace RuleRunner.Cards
             var player = area.gameObject.AddComponent<DemoPlayer>();
             player.spec = spec;
             player.showEnergy = showEnergy;
-            player.result = Simulator.Run(spec.Map, spec.Start, spec.Dir, spec.Qi, spec.Rules, true, spec.Steps);
+            player.result = Simulator.Run(spec.Map, spec.Start, spec.Dir, spec.Qi, spec.Rules, true, spec.Steps, spec.Lower);
             player.Build(area);
             player.qiText.gameObject.SetActive(showEnergy);
             player.built = true;
@@ -43,19 +45,30 @@ namespace RuleRunner.Cards
 
         float X(int i) => x0 + i * cell;
 
+        /// <summary>Ground line of a floor: floor 0 is the spec's Map (raised on a two-floor demo), floor 1 the Lower.</summary>
+        float FloorY(int floor) => twoFloors && floor == 0 ? upperY : baseY;
+
+        static int Key(int floor, int i) => floor * 1000 + i;
+
         void Build(RectTransform area)
         {
             board = UIKit.Fill(area, "Board");
             var size = area.rect.size;
             if (size.x <= 0) size = new Vector2(300, 74);
             int n = spec.Map.Length;
-            cell = Mathf.Min(30f, (size.x - 20f) / (n + 2));
+            twoFloors = !string.IsNullOrEmpty(spec.Lower);
+            // Two floors need the height: smaller cells, the lower floor near the bottom, the upper one above it.
+            cell = Mathf.Min(twoFloors ? 22f : 30f, (size.x - 20f) / (n + 2));
             x0 = -(n - 1) * cell / 2f;
-            baseY = -size.y / 2f + 20f;
+            baseY = -size.y / 2f + (twoFloors ? 12f : 20f);
+            upperY = baseY + cell * 1.9f;
 
-            Block(-1, Palette.HighWall, cell * 1.6f);
-            Block(n, Palette.HighWall, cell * 1.6f);
-            for (int i = 0; i < n; i++) DrawCell(i, spec.Map[i]);
+            float wallHeight = (FloorY(0) - baseY) + cell * 1.6f;
+            Block(-1, Palette.HighWall, wallHeight);
+            Block(n, Palette.HighWall, wallHeight);
+            for (int i = 0; i < n; i++) DrawCell(i, spec.Map[i], 0);
+            if (twoFloors)
+                for (int i = 0; i < n; i++) DrawCell(i, spec.Lower[i], 1);
 
             runner = UIKit.Shape(board, "Runner", UISprites.Rounded, Palette.Runner, Vector2.zero, new Vector2(cell * 0.62f, cell * 0.62f)).rectTransform;
             UIKit.Round(runner.GetComponent<Image>(), 4f);
@@ -67,14 +80,25 @@ namespace RuleRunner.Cards
                 "Text", "", 12, TextAnchor.MiddleCenter, Theme.Gold, FontStyle.Bold);
         }
 
-        void Block(int i, Color color, float height) =>
-            UIKit.Shape(board, "Wall", UISprites.Rounded, color, new Vector2(X(i), baseY + height / 2f - cell * 0.25f), new Vector2(cell * 0.92f, height));
+        void Block(int i, Color color, float height, float bottom) =>
+            UIKit.Shape(board, "Wall", UISprites.Rounded, color, new Vector2(X(i), bottom + height / 2f - cell * 0.25f), new Vector2(cell * 0.92f, height));
 
-        void DrawCell(int i, char c)
+        void Block(int i, Color color, float height) => Block(i, color, height, baseY);
+
+        void DrawCell(int i, char c, int floor)
         {
-            var groundColor = c == Vocabulary.Pit ? Palette.PitHole : (i % 2 == 0 ? Palette.Ground : Palette.GroundDark);
-            UIKit.Shape(board, "Cell", UISprites.Rounded, groundColor, new Vector2(X(i), baseY - cell * 0.25f), new Vector2(cell * 0.94f, cell * 0.5f));
-            float top = baseY;
+            float top = FloorY(floor);
+            bool upper = twoFloors && floor == 0;
+            // The upper floor is a thin floor, and its pits are open holes (nothing drawn).
+            if (!(upper && c == Vocabulary.Pit))
+            {
+                var groundColor = c == Vocabulary.Pit ? Palette.PitHole
+                    : c == Vocabulary.Crumble ? Palette.Crumble
+                    : (i % 2 == 0 ? Palette.Ground : Palette.GroundDark);
+                float h = upper ? cell * 0.3f : cell * 0.5f;
+                var ground = UIKit.Shape(board, "Cell", UISprites.Rounded, groundColor, new Vector2(X(i), top - h / 2f), new Vector2(cell * 0.94f, h));
+                if (c == Vocabulary.Crumble) cracks[Key(floor, i)] = ground;
+            }
             switch (c)
             {
                 case Vocabulary.Spike:
@@ -84,13 +108,13 @@ namespace RuleRunner.Cards
                     UIKit.Shape(board, "LowWall", UISprites.Rounded, Palette.LowWall, new Vector2(X(i), top + cell * 0.3f), new Vector2(cell * 0.8f, cell * 0.6f));
                     break;
                 case Vocabulary.HighWall:
-                    Block(i, Palette.HighWall, cell * 1.6f);
+                    Block(i, Palette.HighWall, cell * 1.6f, top);
                     break;
                 case Vocabulary.Trap:
                     trapSpikes.Add(UIKit.Shape(board, "Trap", UISprites.Triangle, Palette.TrapUp, new Vector2(X(i), top + cell * 0.22f), new Vector2(cell * 0.7f, cell * 0.44f)));
                     break;
                 case Vocabulary.Orb:
-                    orbs[i] = UIKit.Shape(board, "Orb", UISprites.Circle, Palette.Orb, new Vector2(X(i), top + cell * 0.3f), new Vector2(cell * 0.4f, cell * 0.4f));
+                    orbs[Key(floor, i)] = UIKit.Shape(board, "Orb", UISprites.Circle, Palette.Orb, new Vector2(X(i), top + cell * 0.3f), new Vector2(cell * 0.4f, cell * 0.4f));
                     break;
                 case Vocabulary.Finish:
                     UIKit.Shape(board, "Flag", UISprites.Rounded, Palette.Finish, new Vector2(X(i), top + cell * 0.55f), new Vector2(cell * 0.4f, cell * 0.4f));
@@ -103,9 +127,9 @@ namespace RuleRunner.Cards
             if (built) StartCoroutine(Loop());
         }
 
-        void Place(float x, float lift, int dir)
+        void Place(float x, float lift, int dir, float ground)
         {
-            runner.anchoredPosition = new Vector2(x, baseY + cell * 0.31f + lift);
+            runner.anchoredPosition = new Vector2(x, ground + cell * 0.31f + lift);
             eye.anchoredPosition = new Vector2(cell * 0.14f * dir, cell * 0.06f);
         }
 
@@ -120,8 +144,9 @@ namespace RuleRunner.Cards
             while (true)
             {
                 foreach (var o in orbs.Values) o.enabled = true;
+                foreach (var c in cracks.Values) { c.enabled = true; c.color = Palette.Crumble; }
                 runner.GetComponent<Image>().color = Palette.Runner;
-                Place(X(spec.Start), 0f, spec.Dir);
+                Place(X(spec.Start), 0f, spec.Dir, FloorY(0));
                 SetTraps(0);
                 qiText.text = "Energy " + spec.Qi;
                 actionText.text = "";
@@ -139,7 +164,8 @@ namespace RuleRunner.Cards
                     else if (f.StarvedRule >= 0) actionText.text = "not enough Energy!";
                     else actionText.text = f.HoldingRule >= 0 ? "waiting..." : "";
                     actionText.color = f.StarvedRule >= 0 ? Theme.Danger : Theme.Gold;
-                    actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), baseY + cell * 1.5f);
+                    float from = FloorY(f.FloorBefore), to = FloorY(f.Floor);
+                    actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), from + cell * (twoFloors ? 1.25f : 1.5f));
 
                     float height = f.Action == ActionType.Jump ? cell * 1.0f : f.Action == ActionType.BigJump ? cell * 1.4f : 0f;
                     for (float t = 0; t < 1f; t += Time.unscaledDeltaTime / StepSeconds)
@@ -147,12 +173,27 @@ namespace RuleRunner.Cards
                         float k = Mathf.Clamp01(t);
                         float x = f.Blocked ? X(f.XBefore) : Mathf.Lerp(X(f.XBefore), X(f.X), k);
                         int dir = f.Action == ActionType.Turn ? (k < 0.5f ? f.DirBefore : f.Dir) : f.Dir;
-                        Place(x, height * 4f * k * (1f - k), dir);
+                        Place(x, height * 4f * k * (1f - k), dir, from);
                         yield return null;
                     }
-                    Place(X(f.X), 0f, f.Dir);
+                    // A cracked tile left behind breaks; on the upper floor it leaves an open hole.
+                    if (f.Crumbled >= 0 && cracks.TryGetValue(Key(f.FloorBefore, f.Crumbled), out var crack))
+                    {
+                        if (twoFloors && f.FloorBefore == 0) crack.enabled = false;
+                        else crack.color = Palette.PitHole;
+                    }
+                    if (f.Fell)
+                    {
+                        for (float t = 0; t < 1f; t += Time.unscaledDeltaTime / (StepSeconds * 0.6f))
+                        {
+                            float k = Mathf.Clamp01(t);
+                            Place(X(f.X), 0f, f.Dir, Mathf.Lerp(from, to, k * k));
+                            yield return null;
+                        }
+                    }
+                    Place(X(f.X), 0f, f.Dir, to);
                     qiText.text = "Energy " + f.Qi;
-                    if (f.CollectedOrb && orbs.TryGetValue(f.X, out var orb))
+                    if (f.CollectedOrb && orbs.TryGetValue(Key(f.Floor, f.X), out var orb))
                     {
                         orb.enabled = false;
                         actionText.text = "+2 Energy";

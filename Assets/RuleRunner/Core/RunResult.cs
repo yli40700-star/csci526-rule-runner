@@ -11,10 +11,19 @@ namespace RuleRunner.Core
         public int XBefore;
         public int DirBefore;
         public int QiBefore;
+        /// <summary>Floor at the start of the step: 0 = the level's Map (upper floor), 1 = Lower. Always 0 on one-row levels.</summary>
+        public int FloorBefore;
 
         public int X;
         public int Dir;
         public int Qi;
+        public int Floor;
+
+        /// <summary>True when the runner dropped through a pit in the upper floor onto the lower floor this step.</summary>
+        public bool Fell;
+
+        /// <summary>Index of the cracked tile (on FloorBefore) that broke because the runner left it this step, or -1.</summary>
+        public int Crumbled = -1;
 
         /// <summary>The action actually performed (Walk when no rule fired).</summary>
         public ActionType Action;

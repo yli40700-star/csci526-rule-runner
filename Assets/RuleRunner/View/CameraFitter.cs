@@ -18,6 +18,7 @@ namespace RuleRunner.View
 
         Camera cam;
         int mapLength = 10;
+        float extraHeight;
         int lastW, lastH;
 
         void Awake()
@@ -28,9 +29,11 @@ namespace RuleRunner.View
             cam.backgroundColor = Palette.Background;
         }
 
-        public void Fit(int length)
+        /// <param name="extraHeight">More world height above the ground line, e.g. MapView.FloorGap for a two-floor level.</param>
+        public void Fit(int length, float extraHeight = 0f)
         {
             mapLength = length;
+            this.extraHeight = extraHeight;
             Apply();
         }
 
@@ -47,7 +50,7 @@ namespace RuleRunner.View
 
             float aspect = cam.pixelHeight > 0 ? (float)cam.pixelWidth / cam.pixelHeight : 2.5f;
             float worldWidth = mapLength + 2.6f;        // cells + the two edge walls + margin
-            float worldHeight = MapView.HighWallHeight + 1.6f;
+            float worldHeight = MapView.HighWallHeight + 1.6f + extraHeight;
             float sizeForWidth = worldWidth / aspect * 0.5f;
             cam.orthographicSize = Mathf.Max(sizeForWidth, worldHeight * 0.5f);
 

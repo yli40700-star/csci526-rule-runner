@@ -671,6 +671,288 @@
       ],
       "qiLine": "Out of Energy. Check which card fires at each spike and at each pit.",
       "previousLine": "Your 2-2 cards only turn at walls. Here the dead end is a spike."
+    },
+    {
+      "id": "3-1",
+      "chapter": 3,
+      "title": "Turn Around",
+      "hint": "The flag is behind you. Cracked ground breaks once you step off it.",
+      "map": "fgpgcocoH",
+      "start": 3,
+      "dir": 1,
+      "qi": 0,
+      "slots": 2,
+      "conditions": [
+        "pit",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "turn"
+      ],
+      "solution": [
+        "IF wall THEN turn",
+        "IF pit THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF spike AND NOT ground2 THEN turn",
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF NOT ground THEN jump"
+      ],
+      "previousExpected": "timeout",
+      "concept": "crumble",
+      "hints": [
+        "Sometimes forward is the wrong way.",
+        "Every cracked tile you walk over is a pit on the way back.",
+        "IF Wall ahead THEN Turn, then IF Pit ahead THEN Jump."
+      ],
+      "deathPit": [
+        "That was solid ground a minute ago.",
+        "Your footprints are holes now."
+      ],
+      "deathTimeout": [
+        "It's been walking into the same wall for a while now."
+      ],
+      "qiLine": "The orbs on the far side pay for the turn and the jumps home.",
+      "previousLine": "Your 2-3 cards only turn at a spike. Walls don't move.",
+      "newItems": [
+        {
+          "title": "NEW TILE: Cracked ground",
+          "line": "Holds you while you stand on it. Step off, and it falls away into a pit.",
+          "map": "gccgg",
+          "start": 0,
+          "dir": 1,
+          "qi": 0,
+          "rules": [],
+          "steps": 4
+        }
+      ]
+    },
+    {
+      "id": "3-2",
+      "chapter": 3,
+      "title": "Double Back",
+      "hint": "Two cracked tiles in a row leave a double pit behind you.",
+      "map": "fgpgccoooH",
+      "start": 3,
+      "dir": 1,
+      "qi": 0,
+      "slots": 3,
+      "conditions": [
+        "pit",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF wall THEN turn",
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF pit THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "pit",
+      "concept": "crumble",
+      "noIntro": true,
+      "hints": [
+        "Two footprints in a row make a pit too wide for a Jump.",
+        "Big Jump only where the pit is double. AND can tell the two apart.",
+        "IF Wall ahead THEN Turn, IF Pit ahead AND NOT Ground 2 ahead THEN Big Jump, IF Pit ahead THEN Jump."
+      ],
+      "deathPit": [
+        "One Jump cannot clear what two footprints left.",
+        "The real pit was one tile wide. Yours is two."
+      ],
+      "deathTimeout": [
+        "It's been walking into the same wall for a while now."
+      ],
+      "qiLine": "A Big Jump at every pit costs too much. Save it for the double one you made.",
+      "previousLine": "Your 3-1 cards: two footprints make a pit one Jump cannot clear."
+    },
+    {
+      "id": "3-3",
+      "chapter": 3,
+      "title": "Trapdoor",
+      "hint": "The flag is on the floor below. The only way down is a hole you make yourself.",
+      "map": "HggcggoH",
+      "lower": "fgsggggH",
+      "start": 2,
+      "dir": 1,
+      "qi": 0,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall"
+      ],
+      "actions": [
+        "jump",
+        "turn"
+      ],
+      "solution": [
+        "IF wall THEN turn",
+        "IF spike THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF pit AND NOT ground2 THEN bigjump",
+        "IF pit THEN jump"
+      ],
+      "previousExpected": "timeout",
+      "concept": "floors",
+      "hints": [
+        "The flag is downstairs.",
+        "To fall through a hole, no card may jump it. Only jump what has to be jumped.",
+        "IF Wall ahead THEN Turn, then IF Spike ahead THEN Jump."
+      ],
+      "deathPit": [
+        "That hole had nothing under it."
+      ],
+      "deathSpike": [
+        "Downstairs has spikes too."
+      ],
+      "deathTimeout": [
+        "It jumped over the only way down.",
+        "Upstairs has no flag."
+      ],
+      "qiLine": "Every Energy counts. Spend it only on what has to be jumped.",
+      "previousLine": "Your 3-2 cards jump every pit, including the way down.",
+      "newItems": [
+        {
+          "title": "NEW: Two floors",
+          "line": "Walk into a hole in the upper floor and you drop to the floor below. Cards still see the hole as a pit.",
+          "map": "ggcggH",
+          "lower": "fggggH",
+          "start": 1,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF wall THEN turn"
+          ],
+          "steps": 8
+        }
+      ]
+    },
+    {
+      "id": "3-4",
+      "chapter": 3,
+      "title": "Two Floors",
+      "hint": "Two ways down, and only one lands safely. A hole shows you what is under it.",
+      "map": "HggpgccggoH",
+      "lower": "fggsgsggggH",
+      "start": 2,
+      "dir": 1,
+      "qi": 5,
+      "slots": 2,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF wall THEN turn",
+        "IF NOT ground AND ground2 THEN jump"
+      ],
+      "solutionQiLeft": 0,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF spike THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "floors",
+      "noIntro": true,
+      "hints": [
+        "One of the two holes is over the spikes.",
+        "Jump a gap only when the tile after it is ground. The double hole is the way down.",
+        "IF Wall ahead THEN Turn, then IF NOT Ground ahead AND Ground 2 ahead THEN Jump."
+      ],
+      "deathPit": [
+        "That hole had nothing under it."
+      ],
+      "deathSpike": [
+        "Wrong hole. That one is over the spikes.",
+        "The far half of the double hole is over a spike. Walk in, don't jump in."
+      ],
+      "deathTimeout": [
+        "It jumped over the only way down."
+      ],
+      "qiLine": "An AND card costs 1 more each time. Count before you jump.",
+      "previousLine": "Your 3-3 cards never jump a pit, and that hole is over the spikes."
+    },
+    {
+      "id": "3-5",
+      "chapter": 3,
+      "title": "Bridge for Later",
+      "hint": "A cracked tile, a spike, then two more cracks stand between you and the Energy. The flag is downstairs.",
+      "map": "HggcsccgoooH",
+      "lower": "fpggsssggggH",
+      "start": 1,
+      "dir": 1,
+      "qi": 4,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "allowAnd": true,
+      "solution": [
+        "IF spike AND ground2 THEN bigjump",
+        "IF wall THEN turn",
+        "IF NOT ground THEN jump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF NOT ground AND ground2 THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "crumble",
+      "noIntro": true,
+      "hints": [
+        "The far crack is your way back. Do not land on it on the way out.",
+        "Spike ahead with ground behind it only happens on the way out. On the way back, the tile behind the spike is a hole.",
+        "IF Spike ahead AND Ground 2 ahead THEN Big Jump, IF Wall ahead THEN Turn, IF NOT Ground ahead THEN Jump."
+      ],
+      "deathPit": [
+        "Out of Energy downstairs.",
+        "The pit downstairs needs 1 Energy. Count what the trip costs."
+      ],
+      "deathSpike": [
+        "You landed on the far crack. Coming back, there was nothing left to stand on.",
+        "Big Jump over the spike, not onto the cracks."
+      ],
+      "deathTimeout": [
+        "It's been walking into the same wall for a while now."
+      ],
+      "qiLine": "Big Jump with AND costs 4, and you start with 4. Spend anything first and it cannot fire.",
+      "previousLine": "Your 3-4 cards land on the far crack, and it will not be there for the trip back."
     }
   ]
 }

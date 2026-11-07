@@ -13,10 +13,16 @@ namespace RuleRunner.Core
         public string Title;
         public string Hint;
         public string Map;
+        /// <summary>
+        /// Two-floor levels (chapter 3): the floor under Map, same length, or null for a one-row level.
+        /// The runner starts on Map (the upper floor); walking or jumping into a pit there drops it onto this floor.
+        /// </summary>
+        public string Lower;
         public int Start;
         public int Dir = 1;
         public int Qi;
         public int Slots;
+        public bool TwoFloors => !string.IsNullOrEmpty(Lower);
         public List<Condition> Conditions = new List<Condition>();
         public List<ActionType> Actions = new List<ActionType>();
         /// <summary>False before NOT is introduced: cards cannot be negated in this level.</summary>
@@ -104,6 +110,8 @@ namespace RuleRunner.Core
         public string Title = "";
         public string Line = "";
         public string Map = "ggg";
+        /// <summary>Optional floor under Map (see LevelDef.Lower).</summary>
+        public string Lower;
         public int Start;
         public int Dir = 1;
         public int Qi = 5;

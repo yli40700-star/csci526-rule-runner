@@ -15,6 +15,9 @@ namespace RuleRunner.View
         /// <summary>World position of the runner's head, for floating labels.</summary>
         public Vector3 HeadPosition => transform.position + new Vector3(0f, Size + 0.35f, 0f);
 
+        /// <summary>World y of each floor (0 = the level's Map, 1 = Lower); set from MapView.FloorY when a level loads.</summary>
+        public System.Func<int, float> FloorY = floor => 0f;
+
         void Awake()
         {
             visual = new GameObject("Visual").transform;
@@ -23,10 +26,10 @@ namespace RuleRunner.View
             eye = Shapes.Create(visual, "Eye", Shapes.Square, Palette.RunnerEye, new Vector2(0.18f, 0.38f), new Vector2(0.14f, 0.18f), 6);
         }
 
-        public void Place(int x, int facing)
+        public void Place(int x, int facing, int floor = 0)
         {
             StopAllCoroutines();
-            transform.position = new Vector3(x, 0f, 0f);
+            transform.position = new Vector3(x, FloorY(floor), 0f);
             visual.localPosition = Vector3.zero;
             visual.localScale = Vector3.one;
             visual.localRotation = Quaternion.identity;
@@ -43,8 +46,10 @@ namespace RuleRunner.View
         /// <summary>Animates one simulation step over the given duration.</summary>
         public IEnumerator PlayStep(StepFrame f, float duration)
         {
-            Vector3 from = new Vector3(f.XBefore, 0f, 0f);
-            Vector3 to = new Vector3(f.X, 0f, 0f);
+            // The move happens on the floor the step started on; a drop to the floor below comes after it.
+            float y = FloorY(f.FloorBefore);
+            Vector3 from = new Vector3(f.XBefore, y, 0f);
+            Vector3 to = new Vector3(f.X, y, 0f);
             float t = 0f;
             switch (f.Action)
             {
@@ -101,7 +106,22 @@ namespace RuleRunner.View
                     visual.localScale = Vector3.one;
                     break;
             }
+            if (f.Fell) yield return Drop(f.X, y, FloorY(f.Floor), duration * 0.6f);
             SetDir(f.Dir);
+        }
+
+        /// <summary>Falls straight down through a hole in the upper floor onto the floor below.</summary>
+        IEnumerator Drop(int x, float fromY, float toY, float duration)
+        {
+            float t = 0f;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / duration;
+                float k = Mathf.Clamp01(t);
+                transform.position = new Vector3(x, Mathf.Lerp(fromY, toY, k * k), 0f);
+                yield return null;
+            }
+            transform.position = new Vector3(x, toY, 0f);
         }
 
         /// <summary>Plays the ending: fall, hurt, or a victory hop.</summary>

@@ -28,6 +28,26 @@ namespace RuleRunner.App
         const string NotTriedKey = "rr_not_tried";        // the player has pressed a NOT chip at least once
         const string NotCoachKey = "rr_not_coach";        // the one-step NOT spotlight in the NOT level was shown
         const string AndCoachKey = "rr_and_coach";        // the one-step +AND spotlight in the first AND level was shown
+
+        /// <summary>
+        /// Cleared levels, intro cards seen and one-time coach marks. Kept in memory only, so every Play in the editor
+        /// and every page load of the WebGL build starts from scratch. Set Persist to true to keep them in PlayerPrefs
+        /// between sessions again.
+        /// </summary>
+        static class Saved
+        {
+            static readonly bool Persist = false;
+            static readonly Dictionary<string, int> memory = new Dictionary<string, int>();
+            public static void Reset() => memory.Clear();
+            public static int GetInt(string key, int fallback) =>
+                Persist ? PlayerPrefs.GetInt(key, fallback) : (memory.TryGetValue(key, out int v) ? v : fallback);
+            public static void SetInt(string key, int value)
+            {
+                if (Persist) PlayerPrefs.SetInt(key, value);
+                else memory[key] = value;
+            }
+        }
+
         bool notCoachActive;   // the arrow is a one-time lesson: "hints live here"
         bool andCoachActive;
 
@@ -57,9 +77,11 @@ namespace RuleRunner.App
         readonly Dictionary<string, int> fails = new Dictionary<string, int>();
         readonly Dictionary<string, int> hintsShown = new Dictionary<string, int>();
         int deathX = -1;
+        int deathFloor;   // two-floor levels: which floor deathX is on
 
         void Awake()
         {
+            Saved.Reset();   // fresh start every launch, even if domain reload on Play is turned off
             Application.targetFrameRate = 60;
             BuildWorld();
             BuildUI();
@@ -140,7 +162,7 @@ namespace RuleRunner.App
                 var next = def != null && def.Chapter > 0 ? LevelDatabase.Next(def) : null;
                 if (next != null) LoadLevel(next); else ShowLevelSelect();
             };
-            tutorialScreen.Cleared += id => PlayerPrefs.SetInt(ClearedKey + id, 1);
+            tutorialScreen.Cleared += id => Saved.SetInt(ClearedKey + id, 1);
             tutorialScreen.StageStarted += id => analytics.LevelStarted(id);
             tutorialScreen.RunEnded += (id, ids, won, hints) =>
             {
@@ -216,17 +238,18 @@ namespace RuleRunner.App
             map.gameObject.SetActive(true);
             runner.gameObject.SetActive(true);
             map.Build(level);
+            runner.FloorY = map.FloorY;
             cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd, level.Tutorial);
             // The tutorial's cards ride above the runner, so the ground sits lower to leave them room.
             cameraFitter.groundFromBottom = level.Tutorial ? 0.45f : 1.3f;
-            cameraFitter.Fit(level.Map.Length);
+            cameraFitter.Fit(level.Map.Length, level.TwoFloors ? MapView.FloorGap : 0f);
 
             if (!rulesByLevel.TryGetValue(level.Id, out var rules))
                 rulesByLevel[level.Id] = rules = level.StartCards.ConvertAll(r => r.Clone());
             gameScreen.Show();
             gameScreen.Setup(level);
             loadout.Setup(level, rules);
-            loadout.SetNotPulse(level.AllowNot && !level.Tutorial && PlayerPrefs.GetInt(NotTriedKey, 0) == 0);
+            loadout.SetNotPulse(level.AllowNot && !level.Tutorial && Saved.GetInt(NotTriedKey, 0) == 0);
             headCards.Show(level.Tutorial);
             BindHeadCards();
             ResetRun();
@@ -240,7 +263,7 @@ namespace RuleRunner.App
             tutorial.LevelLoaded(level, demo);
             // A tutorial level shows an intro card only when it brings something new (Big Jump, card order, Energy);
             // chapter levels that teach something (all of chapter 1, and 2-2) show it until the level is cleared.
-            bool showIntro = level.IntroUntilCleared ? !IsCleared(level.Id) : PlayerPrefs.GetInt(IntroKey(level), 0) == 0;
+            bool showIntro = level.IntroUntilCleared ? !IsCleared(level.Id) : Saved.GetInt(IntroKey(level), 0) == 0;
             if (level.HasIntro && showIntro) ShowIntro();
             if (demo) StartCoroutine(StartDemo());
         }
@@ -282,14 +305,14 @@ namespace RuleRunner.App
 
         void ShowIntro()
         {
-            if (level == null || playback != null) return;
+            if (level == null || playback != null || !level.HasIntro) return;
             introCard.Show(level);
             IntroItems.Build(introCard.DiagramArea, level.Guide, !level.HideQi);
         }
 
         void OnIntroClosed()
         {
-            PlayerPrefs.SetInt(IntroKey(level), 1);
+            Saved.SetInt(IntroKey(level), 1);
         }
 
         void UpdateHintButton()
@@ -315,9 +338,9 @@ namespace RuleRunner.App
 
         void OnNotToggled()
         {
-            if (PlayerPrefs.GetInt(NotTriedKey, 0) == 0)
+            if (Saved.GetInt(NotTriedKey, 0) == 0)
             {
-                PlayerPrefs.SetInt(NotTriedKey, 1);
+                Saved.SetInt(NotTriedKey, 1);
                 loadout.SetNotPulse(false);
             }
             EndNotCoach();
@@ -327,7 +350,7 @@ namespace RuleRunner.App
         void MaybeCoachNot()
         {
             if (notCoachActive || level == null || level.Tutorial || level.Guide.Concept != "not") return;
-            if (loadout.Rules.Count == 0 || PlayerPrefs.GetInt(NotCoachKey, 0) == 1) return;
+            if (loadout.Rules.Count == 0 || Saved.GetInt(NotCoachKey, 0) == 1) return;
             var card = loadout.CardAt(0);
             if (card == null) return;
             notCoachActive = true;
@@ -339,7 +362,7 @@ namespace RuleRunner.App
             if (!notCoachActive) return;
             notCoachActive = false;
             coach.Hide();
-            PlayerPrefs.SetInt(NotCoachKey, 1);
+            Saved.SetInt(NotCoachKey, 1);
         }
 
         // ---------- AND guidance: same one-time spotlight, on the +AND chip of the first AND level ----------
@@ -347,7 +370,7 @@ namespace RuleRunner.App
         void MaybeCoachAnd()
         {
             if (andCoachActive || notCoachActive || level == null || level.Tutorial || level.Guide.Concept != "and") return;
-            if (loadout.Rules.Count == 0 || PlayerPrefs.GetInt(AndCoachKey, 0) == 1) return;
+            if (loadout.Rules.Count == 0 || Saved.GetInt(AndCoachKey, 0) == 1) return;
             var card = loadout.CardAt(0);
             if (card == null) return;
             andCoachActive = true;
@@ -359,7 +382,7 @@ namespace RuleRunner.App
             if (!andCoachActive) return;
             andCoachActive = false;
             coach.Hide();
-            PlayerPrefs.SetInt(AndCoachKey, 1);
+            Saved.SetInt(AndCoachKey, 1);
         }
 
         /// <summary>Hovering a card marks every spot where it would fire, by simulating the current cards.</summary>
@@ -369,13 +392,13 @@ namespace RuleRunner.App
             if (index < 0)
             {
                 map.ClearMarks();
-                if (deathX >= 0) map.MarkDeath(deathX);
+                if (deathX >= 0) map.MarkDeath(deathX, deathFloor);
                 return;
             }
             var result = Simulator.Run(level, loadout.Rules);
-            var spots = new List<(int, int)>();
+            var spots = new List<(int, int, int)>();
             foreach (var f in result.Frames)
-                if (f.FiredRule == index) spots.Add((f.XBefore, f.DirBefore));
+                if (f.FiredRule == index) spots.Add((f.XBefore, f.DirBefore, f.FloorBefore));
             map.ShowPreview(spots, Theme.ActionColor(loadout.Rules[index].Action));
         }
 
@@ -408,7 +431,7 @@ namespace RuleRunner.App
             resultPopup.Hide();
             if (level == null) return;
             map.ResetState();
-            if (deathX >= 0) map.MarkDeath(deathX); // keep showing where the last run died while editing
+            if (deathX >= 0) map.MarkDeath(deathX, deathFloor); // keep showing where the last run died while editing
             runner.Place(level.Start, level.Dir);
             gameScreen.SetRunning(false);
             loadout.SetEditable(true);
@@ -475,8 +498,9 @@ namespace RuleRunner.App
                 loadout.SetQi(f.Qi, level.Qi);
                 gameScreen.Log(DescribeStep(f, rules), f.StarvedRule >= 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
 
+                if (f.Crumbled >= 0) map.Crumble(f.Crumbled, f.FloorBefore);   // the cracked tile gives way as the runner leaves it
                 yield return runner.PlayStep(f, step);
-                if (f.CollectedOrb) map.CollectOrb(f.X);
+                if (f.CollectedOrb) map.CollectOrb(f.X, f.Floor);
                 if (level.Tutorial)
                 {
                     headCards.Clear();
@@ -506,20 +530,24 @@ namespace RuleRunner.App
                 tutorial.DemoFinished();
                 yield break;
             }
-            if (result.Won) PlayerPrefs.SetInt(ClearedKey + level.Id, 1);
+            if (result.Won) Saved.SetInt(ClearedKey + level.Id, 1);
             else if (level.Tutorial)
             {
                 // No popup and no words: rewind to the step before the fall and freeze there, with the X on
                 // the spot, then the finger shows what to change.
                 fails.TryGetValue(level.Id, out int f);
                 fails[level.Id] = f + 1;
-                if (result.Outcome != Outcome.Timeout && result.Frames.Count > 0) deathX = result.Frames[result.Frames.Count - 1].X;
+                if (result.Outcome != Outcome.Timeout && result.Frames.Count > 0)
+                {
+                    deathX = result.Frames[result.Frames.Count - 1].X;
+                    deathFloor = result.Frames[result.Frames.Count - 1].Floor;
+                }
                 playback = null;
                 ResetRun();
                 if (result.Frames.Count > 0)
                 {
                     var last = result.Frames[result.Frames.Count - 1];
-                    runner.Place(last.XBefore, last.DirBefore);
+                    runner.Place(last.XBefore, last.DirBefore, last.FloorBefore);
                 }
                 tutorial.RunFinished(result);
                 UpdateHintButton();
@@ -535,17 +563,22 @@ namespace RuleRunner.App
                 if (result.Outcome != Outcome.Timeout && result.Frames.Count > 0)
                 {
                     deathX = result.Frames[result.Frames.Count - 1].X;
-                    map.MarkDeath(deathX);
+                    deathFloor = result.Frames[result.Frames.Count - 1].Floor;
+                    map.MarkDeath(deathX, deathFloor);
                 }
                 gameScreen.Log(line, Theme.Gold);
                 gameScreen.ShowBanner(line);
                 UpdateHintButton();
                 int failed = f + 1;
-                if (failed >= FailsBeforeNudge && PlayerPrefs.GetInt(NudgeShownKey, 0) == 0)
+                if (failed >= FailsBeforeNudge && Saved.GetInt(NudgeShownKey, 0) == 0)
                 {
                     hintsShown.TryGetValue(level.Id, out int shown);
-                    gameScreen.ShowNudge(shown < level.Guide.Hints.Count);
-                    PlayerPrefs.SetInt(NudgeShownKey, 1);
+                    bool toHint = shown < level.Guide.Hints.Count;
+                    if (toHint || level.HasIntro)   // without an intro card there is no "?" to point at
+                    {
+                        gameScreen.ShowNudge(toHint);
+                        Saved.SetInt(NudgeShownKey, 1);
+                    }
                 }
             }
             playback = null;
@@ -612,10 +645,12 @@ namespace RuleRunner.App
             else
                 s += "no card fired, Walk";
             if (f.Blocked) s += " - blocked by a wall";
+            if (f.Crumbled >= 0) s += " - the cracked ground behind gave way";
+            if (f.Fell) s += " - dropped through the hole to the floor below";
             if (f.CollectedOrb) s += " - picked up an Energy orb (+" + Vocabulary.OrbQi + ")";
             return s;
         }
 
-        static bool IsCleared(string id) => PlayerPrefs.GetInt(ClearedKey + id, 0) == 1;
+        static bool IsCleared(string id) => Saved.GetInt(ClearedKey + id, 0) == 1;
     }
 }
