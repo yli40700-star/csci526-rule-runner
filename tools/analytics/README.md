@@ -42,8 +42,8 @@ With an empty `endpoint` the game only prints each record to the browser console
 ## Charts
 
 After some play-testing, open the Apps Script editor and run `buildSummary`. It rebuilds the `summary` tab
-(tables and charts) from rows whose build starts with `SUMMARY_BUILD_PREFIX` (`beta`), leaving out
-`-internal` rows:
+(tables and charts) from rows whose build starts with `SUMMARY_BUILD_PREFIX` (`beta`). `-internal` rows (team testing)
+are counted while `INCLUDE_INTERNAL` is `true`; set it to `false` to see outside players only:
 
 - **M1 Level completion funnel**: per level, % of sessions that opened it and % of openers that cleared it.
 - **M2 Runs to clear**: runs until the first win, per player (candlestick of min / Q1 / Q3 / max; median in the table).

@@ -18,11 +18,14 @@ var COLUMNS = [
   'eventType', 'endX', 'endFloor', 'playerId'
 ];
 
-/**
- * buildSummary only uses rows whose build tag starts with this prefix. Team testing is tagged
- * "<build>-internal" by the game and is always left out.
- */
+/** buildSummary only uses rows whose build tag starts with this prefix. */
 var SUMMARY_BUILD_PREFIX = 'beta';
+
+/**
+ * Team testing is tagged "<build>-internal" by the game (Editor, localhost, or a URL with ?internal=1).
+ * true: count it in the summary (more data while there are few outside players); false: outside players only.
+ */
+var INCLUDE_INTERNAL = true;
 
 /** Above this share of failed runs repeating the previous failure, a level is flagged (metric 3). */
 var REPEAT_THRESHOLD = 0.4;
@@ -87,14 +90,14 @@ function getSheet_() {
 function buildSummary() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var values = getSheet_().getDataRange().getValues();
-  var m = computeMetrics_(values, SUMMARY_BUILD_PREFIX, ss.getSpreadsheetTimeZone());
+  var m = computeMetrics_(values, SUMMARY_BUILD_PREFIX, ss.getSpreadsheetTimeZone(), INCLUDE_INTERNAL);
 
   var summary = ss.getSheetByName('summary') || ss.insertSheet('summary');
   summary.clear();
   summary.getCharts().forEach(function (c) { summary.removeChart(c); });
 
   summary.getRange(1, 1).setValue('Rule Runner Beta metrics: builds starting with "' + SUMMARY_BUILD_PREFIX +
-    '", internal runs excluded. ' + m.sessions + ' sessions, ' + m.runs + ' runs. Updated ' + new Date());
+    '", internal (team) runs ' + (INCLUDE_INTERNAL ? 'included' : 'excluded') + '. ' + m.sessions + ' sessions, ' + m.runs + ' runs. Updated ' + new Date());
 
   // Full tables side by side on row 3 (every level, with its sample size).
   writeTable_(summary, 3, 1, m.funnel);
@@ -160,7 +163,7 @@ function writeTable_(sheet, row, col, table) {
  * Pure computation (no Sheets calls), so it can be tested outside Apps Script.
  * values: the runs tab as a 2-D array, header row first. Returns the four metric tables, header row first.
  */
-function computeMetrics_(values, buildPrefix, timeZone) {
+function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
   var header = values[0];
   var col = {};
   header.forEach(function (h, i) { col[h] = i; });
@@ -174,7 +177,7 @@ function computeMetrics_(values, buildPrefix, timeZone) {
   var rows = values.slice(1).filter(function (r) {
     var build = String(get(r, 'build'));
     var used = get(r, 'sessionId') !== '' && get(r, 'levelId') !== '' &&
-      build.indexOf(buildPrefix) === 0 && !/-internal$/.test(build);
+      build.indexOf(buildPrefix) === 0 && (includeInternal || !/-internal$/.test(build));
     var b = buildRows[build] || (buildRows[build] = { rows: 0, used: used });
     b.rows++;
     return used;
