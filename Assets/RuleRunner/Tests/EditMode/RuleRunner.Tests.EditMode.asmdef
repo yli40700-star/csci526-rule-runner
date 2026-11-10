@@ -4,6 +4,7 @@
     "references": [
         "RuleRunner.Core",
         "RuleRunner.Levels",
+        "RuleRunner.Analytics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
