@@ -89,11 +89,20 @@ namespace RuleRunner.App
         }
 
         /// <summary>A new player goes straight into the first tutorial level; anyone who has cleared one sees the level list.</summary>
-        void Start()
+        // The game opens on the title screen: T1's demo loops under RULE RUNNER; START goes on into T1, Levels opens the list.
+        void Start() => ShowTitle();
+
+        void ShowTitle()
         {
-            var first = LevelDatabase.All.FirstOrDefault(l => l.Tutorial && l.Playable);
-            if (first != null && !LevelDatabase.All.Any(l => l.Tutorial && IsCleared(l.Id))) LoadLevel(first);
-            else ShowLevelSelect();
+            StopPlayback();
+            tutorial.Stop();
+            levelSelect.Hide();
+            resultPopup.Hide();
+            introCard.gameObject.SetActive(false);
+            gameScreen.Hide();
+            map.gameObject.SetActive(false);
+            runner.gameObject.SetActive(false);
+            tutorialScreen.ShowTitle();
         }
 
         void BuildWorld()
@@ -155,6 +164,7 @@ namespace RuleRunner.App
             // The tutorial levels (T1-T5) play in their own screen, a port of docs/proto/tutorial.html.
             tutorialScreen = TutorialScreen.Create(canvasRect);
             tutorialScreen.Back += ShowLevelSelect;
+            tutorialScreen.LevelsRequested += ShowLevelSelect;
             // After T5 the player picks from the level list; after the AND guide (2-0) the chapter goes straight on.
             tutorialScreen.Finished += id =>
             {
@@ -354,7 +364,7 @@ namespace RuleRunner.App
             var card = loadout.CardAt(0);
             if (card == null) return;
             notCoachActive = true;
-            coach.Show(card.NotChip, "Tap +NOT to flip the condition. IF NOT Ground ahead fires before ANY danger - pits and spikes alike.", true);
+            coach.Show(card.NotChip, "Tap the NOT switch to flip the condition. IF NOT Ground ahead fires before ANY danger - pits and spikes alike.", true);
         }
 
         void EndNotCoach()

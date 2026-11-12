@@ -50,7 +50,7 @@ namespace RuleRunner.Cards
         Image bodyImage, band;
         Outline glow;
         Text priorityText, hitsText, condText, actionText, notText;
-        Image notChip;
+        Image notChip, notRing, notStrike;
         Button notButton, condArea, actionArea, leftButton, rightButton, removeButton;
         GameObject classic;
 
@@ -124,7 +124,9 @@ namespace RuleRunner.Cards
             card.notButton = card.notChip.gameObject.AddComponent<Button>();
             card.notButton.targetGraphic = card.notChip;
             card.notButton.onClick.AddListener(() => card.ToggleNot?.Invoke(card));
+            card.notRing = NotSwitchRing(card.notChip, 9f);
             card.notText = UIKit.Label(card.notChip.transform, "Text", "NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            card.notStrike = NotSwitchStrike(card.notChip, 32f);
             NotTooltip.Attach(card.notChip.rectTransform);
             card.condIcon = UIKit.Centered(ifRt, "Icon", new Vector2(0, 2f), Icons.Size);
             var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20));
@@ -234,10 +236,7 @@ namespace RuleRunner.Cards
         void BindClassic(Rule rule, bool editable, bool allowNot, bool lockConditions)
         {
             notChip.gameObject.SetActive(allowNot);
-            // Reads like a toggle: "+NOT" (off, outlined) / "NOT" (on, red).
-            notChip.color = rule.Negate ? Theme.Not : Theme.Raised;
-            notText.text = rule.Negate ? "NOT" : "+NOT";
-            notText.color = rule.Negate ? Theme.Text : Theme.Dim;
+            PaintNotSwitch(notChip, notRing, notStrike, notText, rule.Negate);
             condText.text = (rule.Negate ? "NOT " : "") + Vocabulary.Display(rule.Condition);
             condText.color = rule.Negate ? Theme.Hex(0xffb3a3) : Theme.Text;
             Icons.DrawCondition(condIcon, rule.Condition, rule.Negate);
@@ -324,14 +323,45 @@ namespace RuleRunner.Cards
             var button = tall ? cond1.Not : notButton;
             if (PulseNot && notVisible && !negated && button.interactable)
             {
+                // The off switch fills with red and back, hinting that it can be turned on.
                 float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
-                chip.color = Color.Lerp(Theme.Raised, Theme.Not, k * 0.8f);
+                chip.color = Theme.Not.WithAlpha(k * 0.8f);
                 text.color = Color.Lerp(Theme.Dim, Theme.Text, k);
             }
             if (Mathf.Abs(lift - liftTarget) < 0.05f) return;
             lift = Mathf.Lerp(lift, liftTarget, 1f - Mathf.Exp(-Time.deltaTime * 18f));
             body.offsetMin = new Vector2(0f, lift);
             body.offsetMax = new Vector2(0f, lift);
+        }
+
+        /// <summary>The outline of a NOT switch: the same rounded shape as the chip's fill (UIKit.RoundOutline), 1.5 wide.</summary>
+        static Image NotSwitchRing(Image chip, float radius)
+        {
+            var ring = UIKit.RoundOutline(UIKit.Panel(chip.transform, "Ring", Theme.Dim, Vector2.zero, Vector2.one), radius, 1.5f);
+            ring.raycastTarget = false;
+            return ring;
+        }
+
+        /// <summary>The slash across "NOT" while the switch is off. Created after the label so it draws on top of it.</summary>
+        static Image NotSwitchStrike(Image chip, float width)
+        {
+            var strike = UIKit.Shape(chip.transform, "Strike", null, Theme.Dim, Vector2.zero, new Vector2(width, 1.5f));
+            strike.raycastTarget = false;
+            strike.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 18f);
+            return strike;
+        }
+
+        /// <summary>
+        /// The NOT switch reads like a switch, not a label: off is an outlined pill with "NOT" struck through in grey;
+        /// on is a filled red pill with a white "NOT".
+        /// </summary>
+        static void PaintNotSwitch(Image chip, Image ring, Image strike, Text text, bool on)
+        {
+            chip.color = on ? Theme.Not : Theme.Not.WithAlpha(0f);
+            ring.enabled = !on;
+            strike.enabled = !on;
+            text.text = "NOT";
+            text.color = on ? Color.white : Theme.Dim;
         }
 
         public static string ActionLabel(ActionType a)
@@ -344,7 +374,7 @@ namespace RuleRunner.Cards
         sealed class TallCondition
         {
             public Button Area, Not;
-            public Image NotChip;
+            public Image NotChip, NotRing, NotStrike;
             public Text NotText, Name;
             RectTransform icon;
 
@@ -362,7 +392,9 @@ namespace RuleRunner.Cards
                 c.Not = c.NotChip.gameObject.AddComponent<Button>();
                 c.Not.targetGraphic = c.NotChip;
                 c.Not.onClick.AddListener(() => toggleNot());
-                c.NotText = UIKit.Label(c.NotChip.transform, "Text", "+NOT", 11, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+                c.NotRing = NotSwitchRing(c.NotChip, 7f);
+                c.NotText = UIKit.Label(c.NotChip.transform, "Text", "NOT", 11, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+                c.NotStrike = NotSwitchStrike(c.NotChip, 28f);
                 NotTooltip.Attach(c.NotChip.rectTransform);
                 c.Name = UIKit.Label(UIKit.Rect(row, "Name", Vector2.zero, Vector2.one, new Vector2(46, 0), Vector2.zero), "Text", "", 13,
                     TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);
@@ -374,9 +406,7 @@ namespace RuleRunner.Cards
             {
                 Icons.DrawCondition(icon, condition, negate);
                 NotChip.gameObject.SetActive(allowNot);
-                NotChip.color = negate ? Theme.Not : Theme.Raised;
-                NotText.text = negate ? "NOT" : "+NOT";
-                NotText.color = negate ? Theme.Text : Theme.Dim;
+                PaintNotSwitch(NotChip, NotRing, NotStrike, NotText, negate);
                 // The red NOT button already says it, so the name only turns red (no "NOT " prefix).
                 Name.text = Vocabulary.Display(condition);
                 Name.color = negate ? Theme.Hex(0xffb3a3) : Theme.Text;

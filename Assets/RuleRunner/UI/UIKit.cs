@@ -101,6 +101,15 @@ namespace RuleRunner.UI
             return img;
         }
 
+        /// <summary>An outline that lines up exactly with Round(img, radius) on the same rect, <paramref name="thick"/> units wide.</summary>
+        public static Image RoundOutline(Image img, float radius, float thick)
+        {
+            img.sprite = UISprites.OutlineRing(radius, thick);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = UISprites.CornerRadius / Mathf.Max(1f, radius);
+            return img;
+        }
+
         public static Image Box(Transform parent, string name, Color color, float radius, Vector2 anchorMin, Vector2 anchorMax,
             Vector2 offsetMin = default, Vector2 offsetMax = default) =>
             Round(Panel(parent, name, color, anchorMin, anchorMax, offsetMin, offsetMax), radius);

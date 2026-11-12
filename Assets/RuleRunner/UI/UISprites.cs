@@ -13,6 +13,20 @@ namespace RuleRunner.UI
         const float Border = 22f;
 
         static Sprite rounded, outline, circle, triangle;
+        static readonly System.Collections.Generic.Dictionary<int, Sprite> rings = new System.Collections.Generic.Dictionary<int, Sprite>();
+
+        /// <summary>
+        /// An outline whose corners match UIKit.Round(radius) on the same rect and whose line is <paramref name="thick"/> units
+        /// wide, when the Image uses pixelsPerUnitMultiplier = CornerRadius / radius (see UIKit.RoundOutline). The plain
+        /// Outline sprite ties its corner radius to its thickness, so it cannot line up with a fill of any radius.
+        /// </summary>
+        public static Sprite OutlineRing(float radius, float thick)
+        {
+            float ring = CornerRadius * thick / Mathf.Max(1f, radius);   // line width in sprite pixels
+            int key = Mathf.RoundToInt(ring * 100f);
+            if (rings.TryGetValue(key, out var s) && s) return s;
+            return rings[key] = Make(RoundedCoverage(ring), true);
+        }
 
         public static Sprite Rounded => rounded ? rounded : (rounded = Make(RoundedCoverage(0f), true));
         public static Sprite Outline => outline ? outline : (outline = Make(RoundedCoverage(2.5f), true));
