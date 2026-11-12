@@ -52,7 +52,7 @@ namespace RuleRunner.UI
             screen.scroll.onValueChanged.AddListener(_ => screen.UpdateMoreHint());
 
             UIKit.Label(UIKit.Rect(root.transform, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(20, 10), new Vector2(-20, 36)),
-                "Text", "CSCI 526  -  Alpha build  -  grey-box prototype", 14, TextAnchor.MiddleCenter, Theme.Faint);
+                "Text", "CSCI 526  -  Beta build  -  grey-box prototype", 14, TextAnchor.MiddleCenter, Theme.Faint);
             return screen;
         }
 
