@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Two Floors</title>
+<style>
+  /* Colors from Theme (UIKit.cs) and Palette.cs in the game. */
+  :root {
+    --bg:#141922; --surface:#1e2531; --surface2:#283041; --raised:#343e53; --raised-hover:#3f4a62; --line:#3a4459;
+    --text:#eef1f5; --dim:#8d97aa; --faint:#5d677a; --accent:#43b86a; --gold:#f5c542; --not:#ff6b4a; --qi:#4fd6e8;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"Helvetica Neue",Arial,sans-serif; user-select:none; }
+  #app { max-width:820px; margin:0 auto; padding:12px 16px 24px; }
+  #top { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--surface); border-radius:12px 12px 0 0; border-bottom:1px solid var(--line); }
+  .btn { background:var(--raised); color:var(--dim); border:none; border-radius:8px; padding:7px 12px; font:inherit; font-size:13px; font-weight:bold; cursor:pointer; }
+  .btn:hover { background:var(--raised-hover); }
+  .chip { background:var(--gold); color:var(--bg); border-radius:8px; padding:5px 10px; font-weight:bold; font-size:14px; }
+  #dots { display:flex; gap:7px; }
+  .dot { width:11px; height:11px; border-radius:50%; background:var(--raised); }
+  .dot.on { background:var(--gold); } .dot.done { background:var(--accent); }
+  #hint { flex:1; margin:0 6px; background:var(--surface2); color:var(--text);
+          border:1px solid var(--gold); border-radius:10px; padding:7px 12px; font-size:13px; text-align:center; visibility:hidden; }
+
+  #hintBtn { display:none; background:var(--gold); color:var(--bg); }
+  #banner { position:absolute; left:50%; top:12px; transform:translateX(-50%); max-width:70%; background:#141922e6; border:1px solid var(--gold); color:var(--gold);
+            border-radius:10px; padding:8px 14px; font-size:14px; text-align:center; display:none; z-index:3; }
+  #nudge { position:absolute; right:84px; top:6px; color:var(--gold); font-size:13px; font-weight:bold; display:none; animation:bob 1s ease-in-out infinite; z-index:3; }
+  @keyframes bob { 50% { transform:translateY(-5px); } }
+  #stage { position:relative; background:var(--surface); border-radius:0 0 12px 12px; overflow:hidden; }
+  canvas { width:100%; display:block; }
+
+  /* The skill card. Same parts as RuleCardView: band, IF, divider, THEN, footer. */
+  .card { width:120px; background:var(--surface2); border-radius:12px; padding:5px; box-shadow:0 5px 10px #0008; border:2px solid transparent; transition:border-color .15s, box-shadow .15s, opacity .2s; }
+  .card .band { height:22px; border-radius:7px; display:flex; align-items:center; padding:0 4px; transition:background .2s; }
+  .card .band .n { width:17px; height:17px; border-radius:50%; background:#0000005a; font-size:11px; font-weight:bold; display:grid; place-items:center; }
+  .card .sec { border-radius:8px; padding:2px 4px 4px; margin-top:4px; transition:background .15s, box-shadow .15s; }
+  .card .lab { display:flex; align-items:center; justify-content:space-between; font-size:11px; font-weight:bold; color:var(--dim); height:16px; }
+  .card .dia { display:flex; justify-content:center; height:40px; }
+  .card .dia svg { width:84px; height:40px; }
+  .card .name { text-align:center; font-size:11px; min-height:14px; color:var(--text); }
+  .card .then .name { font-weight:bold; font-size:12px; }
+  .card .div { height:1px; background:var(--line); margin:3px 10px 0; }
+  .card .sec.empty .dia { border:2px dashed var(--faint); border-radius:8px; margin:0 6px; }
+  .card .sec.lit { background:#f5c54233; box-shadow:inset 0 0 0 2px var(--gold); }
+  .card .sec.miss { background:#e04f4f26; box-shadow:inset 0 0 0 2px #e04f4f; }
+  #bubble .card { position:relative; transition:opacity .2s, filter .2s, border-color .15s, box-shadow .15s; }
+  #bubble .card.unread { opacity:.3; filter:grayscale(1); }
+  #bubble .card.never { opacity:.22; filter:grayscale(1); border:2px dashed var(--faint); }
+  #bubble .card.reading { border-color:#fff; box-shadow:0 0 14px #ffffff88; }
+  .card .sec.if { position:relative; }
+  .badge { position:absolute; top:50%; left:-13px; margin-top:-11px; width:22px; height:22px; border-radius:50%; display:none; place-items:center;
+           font-size:14px; font-weight:bold; color:#fff; z-index:2; box-shadow:0 2px 6px #0008; }
+  .badge.yes { display:grid; background:var(--accent); }
+  .badge.no { display:grid; background:#e04f4f; }
+  #reader { position:absolute; bottom:-16px; width:0; height:0; margin-left:-9px; border:9px solid transparent; border-bottom-color:#fff; display:none;
+            transition:left .18s ease-out; filter:drop-shadow(0 0 4px #fff); }
+  .card.skip { opacity:.35; }
+  .card .sec.starve { background:#e04f4f33; box-shadow:inset 0 0 0 2px #e04f4f; }
+  .card .band .cost { margin-left:auto; display:flex; gap:3px; }
+  .pip { width:9px; height:9px; border-radius:50%; background:var(--qi); box-shadow:0 0 4px #4fd6e8aa; display:inline-block; }
+  .opt .cost { display:flex; gap:3px; justify-content:center; }
+  #energy { position:absolute; right:14px; top:12px; display:none; align-items:center; gap:6px; background:var(--surface2); border-radius:10px; padding:6px 10px;
+            font-size:12px; font-weight:bold; color:var(--qi); letter-spacing:.5px; }
+  #energy .pip { width:14px; height:14px; transition:background .2s, box-shadow .2s; }
+  #energy .pip.used { background:var(--raised); box-shadow:none; }
+  #energy { transition:transform .2s, box-shadow .2s; }
+  #energy.spend { transform:scale(1.35); transform-origin:right top; box-shadow:0 0 0 2px var(--qi), 0 0 18px #4fd6e8aa; }
+  #energy.spend::after { content:attr(data-spent); position:absolute; right:4px; top:100%; margin-top:4px; color:var(--qi); font-size:16px; }
+  .band .cost.spend .pip { transform:scale(1.5); box-shadow:0 0 8px #4fd6e8; }
+  .band .cost .pip { transition:transform .2s; }
+  #energy.flash { animation:eflash .3s 3; }
+  @keyframes eflash { 50% { background:#e04f4f; color:#fff; } }
+  .card.win { border-color:var(--gold); box-shadow:0 0 22px #f5c542aa; }
+  .card .foot { display:flex; justify-content:space-between; margin-top:5px; }
+  .card .foot .btn { padding:3px 10px; font-size:13px; color:var(--text); }
+  .notchip { cursor:pointer; font-size:10px; padding:1px 6px; border-radius:7px; background:var(--raised); color:var(--dim); }
+  .notchip.on { background:var(--not); color:#fff; }
+  #bubble { position:absolute; transform:translate(-50%,-100%); pointer-events:none; display:flex; gap:6px; }
+  #bubble::after { content:""; position:absolute; left:50%; bottom:-11px; transform:translateX(-50%); border:7px solid transparent; border-top-color:var(--surface2); }
+  .shake { animation:shake .45s; }
+  @keyframes shake { 0%,100% { translate:0 } 20% { translate:-7px } 40% { translate:7px } 60% { translate:-5px } 80% { translate:5px } }
+
+  /* Loadout: the cards; tapping IF or THEN opens a picker like OptionPicker. */
+  #panel { margin-top:12px; background:var(--surface); border-radius:12px; padding:12px 14px; min-height:150px; }
+  #panel .title { color:var(--gold); font-size:13px; font-weight:bold; margin-bottom:8px; }
+  #panel .loadout { display:flex; align-items:flex-start; gap:12px; }
+  #panel .card.big { width:156px; transition:transform .3s; }
+  #panel .card.big .sec { cursor:pointer; }
+  #panel .card.big .sec:hover { background:#ffffff12; }
+  #panel .card.big.locked .sec, #panel .card.big.lockif .sec.if { cursor:default; }
+  #panel .card.big.lockif .sec.if:hover { background:none; }
+  #panel .card.big.lockif .notchip { cursor:default; }
+  #panel .card.big.locked .sec:hover { background:none; }
+  #panel .card.big .dia svg { width:96px; height:44px; }
+  #panel .card.big .dia { height:46px; }
+  #panel .card.big .name { font-size:13px; }
+  #panel.off .card.big .sec, #panel.off .card.big .foot { pointer-events:none; }
+  .opt { width:110px; height:84px; background:var(--surface2); border:2px solid transparent; border-radius:12px; cursor:pointer; color:var(--text);
+         display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font:inherit; font-size:12px; font-weight:bold; padding:0; transition:transform .12s, border-color .12s; }
+  .opt svg { width:84px; height:40px; }
+  .opt span { text-align:center; padding:0 4px; }
+  .opt:hover { background:var(--raised-hover); }
+  .opt.sel { border-color:var(--gold); background:var(--raised-hover); }
+  .pulse { animation:pulse 1.1s ease-in-out infinite; }
+  .opt.pulse { border-color:var(--gold); }
+  @keyframes pulse { 0%,100% { box-shadow:0 0 0 0 #f5c54200; } 50% { box-shadow:0 0 0 6px #f5c54299; } }
+  #picker { position:fixed; inset:0; background:#0008; display:none; place-items:center; z-index:15; }
+  #picker .box { background:var(--surface); border-radius:16px; padding:16px 18px 14px; box-shadow:0 10px 30px #000a; max-width:94vw; }
+  #picker h3 { margin:0 0 12px; color:var(--gold); font-size:16px; font-weight:normal; }
+  #picker .grid { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  #picker .cancel { display:block; margin:12px auto 0; color:var(--text); }
+
+  #next { position:absolute; right:18px; top:50%; margin-top:-29px; width:58px; height:58px; border-radius:50%; border:none; background:var(--accent); display:none; place-items:center; cursor:pointer; animation:pulse 1.1s infinite; }
+  #next svg { width:28px; height:28px; }
+  .fly { position:fixed; transform-origin:0 0; transition:transform .35s ease-in; pointer-events:none; z-index:9; background:var(--surface2); border-radius:12px; display:grid; place-items:center; }
+  .fly svg { width:84px; height:40px; }
+
+  /* After the NOT lesson: how NOT looks on a real card from now on. */
+  #newIntro, #notIntro { position:fixed; inset:0; background:#0009; display:none; place-items:center; z-index:20; }
+  #newIntro .box, #notIntro .box { background:var(--surface); border-radius:16px; padding:18px 20px 16px; width:min(440px,92vw); box-shadow:0 10px 30px #000a; }
+  #newIntro h3, #notIntro h3 { margin:0 0 12px; color:var(--gold); font-size:16px; }
+  #newIntro .demo, #notIntro .demo { display:flex; align-items:center; justify-content:center; gap:16px; }
+  #newIntro .eq, #notIntro .eq { font-size:26px; color:var(--dim); font-weight:bold; }
+  #newIntro p, #notIntro p { color:var(--dim); font-size:13px; text-align:center; margin:14px 0 12px; }
+  #notIntro .card { width:132px; position:relative; }
+  #finger { position:absolute; width:26px; height:26px; border-radius:50%; background:#fff; border:2px solid #000a; pointer-events:none; transition:transform .35s, opacity .2s; }
+  #newIntro .opt { height:auto; min-height:84px; padding:8px 4px; }
+  #newIntro .ok, #notIntro .ok { display:block; margin:0 auto; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top"><button class="btn">&lt; Levels</button><span class="chip" id="lvl">1-1</span><b id="ttl"></b><div id="hint"></div><button class="btn" id="hintBtn">Hint</button><div id="dots"></div></div>
+  <div id="stage">
+    <canvas id="cv" width="760" height="440"></canvas>
+    <div id="bubble"></div>
+    <div id="banner"></div>
+    <div id="nudge">Stuck? Try a hint &uarr;</div>
+    <div id="energy">ENERGY <span id="pips"></span></div>
+  </div>
+  <div style="position:relative"><div id="panel"></div><button id="next"></button></div>
+</div>
+<div id="picker"><div class="box"><h3 id="pickTitle"></h3><div class="grid" id="pickGrid"></div><button class="btn cancel" id="pickCancel">Cancel</button></div></div>
+<div id="newIntro">
+  <div class="box">
+    <h3 id="newTitle"></h3>
+    <div class="demo"><div class="opt" id="jumpOpt" style="pointer-events:none"></div><div class="eq" id="newEq">&rarr;</div><div class="opt sel" id="bigOpt" style="pointer-events:none"></div></div>
+    <p id="newText"></p>
+    <button class="btn ok" id="newOk">Got it</button>
+  </div>
+</div>
+<div id="notIntro">
+  <div class="box">
+    <h3>NOT</h3>
+    <div class="demo">
+      <div class="opt sel" id="niOpt" style="pointer-events:none"></div>
+      <div class="eq">=</div>
+      <div class="card" id="niCard"></div>
+    </div>
+    <p>From now on, tap <b style="color:var(--not)">NOT</b> on a card to flip what it looks for.</p>
+    <button class="btn ok" id="niOk">Got it</button>
+  </div>
+</div>
+<script>
+const C = { qi:'#4fd6e8', ground:'#8a93a3', groundDark:'#5c6473', pit:'#0d1016', spike:'#e04f4f', wall:'#3d4555', finish:'#5cc96b', runner:'#f5d03b', eye:'#1d232e',
+            gold:'#f5c542', not:'#ff6b4a', line:'#3a4459', walk:'#7d8798', jump:'#4c8dff', bigjump:'#9b6bff' };
+const T = 42, W = 760, H = 440, GYS = [250, 390];
+let GY = GYS[0];  // the floor the runner is on: everything drawn around the runner follows it
+
+// ---------- card diagrams, drawn like Icons.cs: the runner plus the next three cells ----------
+const X = i => i * 23 + 10;
+function cell(i, kind, dim) {
+  const a = dim ? 0.35 : 1;
+  let s = `<rect x="${X(i) - 10}" y="28" width="20" height="8" rx="2" fill="${kind === 'p' ? C.pit : C.ground}" opacity="${kind === '?' ? 0.18 : a}"/>`;
+  if (kind === 's') for (let k = 0; k < 2; k++) { const cx = X(i) - 4.5 + 9 * k; s += `<path d="M${cx - 4.5} 28 L${cx} 18 L${cx + 4.5} 28 Z" fill="${C.spike}" opacity="${a}"/>`; }
+  if (kind === 'p') s += `<rect x="${X(i) - 10}" y="22" width="20" height="2" rx="1" fill="${C.line}" opacity="${a}"/>`;
+  return s;
+}
+const runnerIcon = `<rect x="${X(0) - 6.5}" y="14.5" width="13" height="13" rx="2" fill="${C.runner}"/><rect x="${X(0) + 1.5}" y="17" width="3" height="4" rx="1" fill="${C.eye}"/>`;
+const wrap = s => `<svg viewBox="0 0 89 44">${s}</svg>`;
+// Two floors: top floor with a hole, bottom floor under it. down = the runner falls through instead of jumping.
+function floorsIcon(down) {
+  let s = '';
+  for (let i = 0; i < 4; i++) if (i !== 2) s += `<rect x="${X(i) - 10}" y="18" width="20" height="5" rx="2" fill="${C.ground}"/>`;
+  for (let i = 1; i < 4; i++) s += `<rect x="${X(i) - 10}" y="38" width="20" height="5" rx="2" fill="${C.ground}" opacity=".7"/>`;
+  s += `<rect x="${X(0) - 6}" y="6" width="12" height="12" rx="2" fill="${C.runner}"/>`;
+  const dot = (x, y) => `<circle cx="${x}" cy="${y}" r="2.25" fill="#fffe"/>`;
+  if (down) for (let k = 0; k < 6; k++) { const t = k / 5; s += dot(X(0) + 8 + (X(2) - X(0) - 8) * t, 12 + 22 * t * t); }
+  else for (let k = 0; k < 6; k++) { const t = k / 5; s += dot(X(0) + 8 + (X(3) - X(0) - 8) * t, 12 - 16 * t * (1 - t) * 2); }
+  return wrap(s);
+}
+const orbIcon = () => wrap(`<rect x="24" y="30" width="40" height="7" rx="2" fill="${C.ground}"/><circle cx="44" cy="20" r="8" fill="${C.qi}"/>`);
+// A condition is a base (ground / pit / spike) plus a NOT flag. "notground" is the T2-only option that
+// shows NOT ground as its own tile, before the player has met the NOT button.
+function condIcon(cond, neg = false) {
+  if (!cond) return '';
+  if (cond === 'notground') { cond = 'ground'; neg = true; }
+  const col = neg ? C.not : C.gold;
+  const two = cond === 'ground2';
+  const at = two ? 2 : 1;
+  const k = { ground:'g', ground2:'g', pit:'p', spike:'s' }[cond];
+  let s = cell(0, 'g') + (two ? cell(1, '?', true) + cell(2, k) : cell(1, k) + cell(2, '?', true)) + cell(3, '?', true) + runnerIcon;
+  s += `<rect x="${X(at) - 10}" y="39" width="20" height="4" rx="2" fill="${col}"/>`;
+  s += `<path d="M${X(at) - 4} 2.5 L${X(at) + 4} 2.5 L${X(at)} 9.5 Z" fill="${col}"/>`;
+  if (neg) s += `<rect x="${X(at) - 1.75}" y="9" width="3.5" height="26" rx="1.5" fill="${C.not}" transform="rotate(40 ${X(at)} 22)"/>`;
+  return wrap(s);
+}
+function actIcon(act) {
+  if (!act) return '';
+  let s = cell(0, 'g') + cell(1, 'g', true) + cell(2, 'g', true) + cell(3, 'g', true) + runnerIcon;
+  const dot = (x, y) => `<circle cx="${x}" cy="${y}" r="2.25" fill="#fffe"/>`;
+  const arc = (to, h, n) => { for (let k = 0; k < n; k++) { const t = k / (n - 1); s += dot(X(0) + 6 + (X(to) - X(0) - 6) * t, 19 - h * 4 * t * (1 - t)); } };
+  const land = i => `<rect x="${X(i) - 10}" y="39" width="20" height="4" rx="2" fill="${C.gold}"/>`;
+  if (act === 'walk') {
+    for (let k = 0; k < 3; k++) s += dot(X(0) + 9 + (X(1) - 2 - X(0) - 9) * k / 2, 19);
+    s += `<path d="M${X(1) + 1} 15.5 L${X(1) + 7} 19 L${X(1) + 1} 22.5 Z" fill="#fffe"/>`;
+  } else if (act === 'jump') {
+    arc(2, 21, 6);
+    s += land(2);
+  } else {
+    arc(3, 27, 8);
+    s += land(3);
+  }
+  return wrap(s);
+}
+const NAME = { ground:'Ground ahead', pit:'Pit ahead', spike:'Spike ahead', notground:'NOT Ground ahead', ground2:'Ground 2 ahead', walk:'Walk', jump:'Jump', bigjump:'Big Jump' };
+const DIST = { walk:1, jump:2, bigjump:3 };
+const COST = { walk:0, jump:1, bigjump:3 };
+const pips = n => '<span class="cost">' + '<i class="pip"></i>'.repeat(n) + '</span>';
+const condName = (cond, neg) => cond === 'notground' ? NAME.notground : (neg ? 'NOT ' : '') + NAME[cond];
+
+function cardHTML(card, n, opts = {}) {
+  const band = card.then ? C[card.then] : C.line;
+  const chip = opts.notChip ? `<span class="notchip${card.not ? ' on' : ''}" id="${opts.chipId || ''}">${card.not ? 'NOT' : '+NOT'}</span>` : '';
+  const badge = opts.badge ? '<span class="badge"></span>' : '';
+  const foot = opts.foot ? `<div class="foot"><button class="btn" data-move="-1"${n === 1 ? ' style="visibility:hidden"' : ''}>&lt;</button><button class="btn" data-move="1"${n === opts.count ? ' style="visibility:hidden"' : ''}>&gt;</button></div>` : '';
+  const cost = opts.cost && card.then ? pips(COST[card.then]) : '';
+  return `<div class="band" style="background:${band}"><span class="n">${n}</span>${cost}</div>
+    <div class="sec if${card.if ? '' : ' empty'}" data-sec="if">${badge}<div class="lab">IF ${chip}</div><div class="dia">${condIcon(card.if, card.not)}</div><div class="name">${card.if ? condName(card.if, card.not) : ''}</div></div>
+    <div class="div"></div>
+    <div class="sec then${card.then ? '' : ' empty'}" data-sec="then"><div class="lab">THEN</div><div class="dia">${actIcon(card.then)}</div><div class="name">${card.then ? NAME[card.then] : ''}</div></div>${foot}`;
+}
+
+const BASE_IFS = ['ground', 'pit', 'spike'];
+// Two floors. A hole in the top floor drops the runner to the bottom floor; it only kills when there is no floor below.
+// The cards choose the floor: jumping the hole keeps the runner on top, walking into it takes the bottom road.
+//  F-1 Fall Through: the top has a double spike, the bottom only a single one. Do not jump the hole.  (new: two floors)
+//  F-2 Stay On Top: now the bottom floor is the deadly one. Jump the hole.
+//  F-3 The Cheap Floor: the top needs a Big Jump; Energy only covers the small jumps below.
+//  F-4 Two Ways: an Energy orb makes the top floor affordable too. Both floors reach a flag.  (new: Energy orb)
+const G2_IFS = [...BASE_IFS, 'ground2'];
+const WALKS = ['walk', 'jump', 'bigjump'];
+const LEVEL = (id, title, rows, energy, slots, ifs, thens, hints, extra = {}) => ({ id, title, rows, map:rows[0], energy, ifs, thens,
+  notChip:true, noBlink:true, reorder:slots > 1, cards:Array.from({ length:slots }, () => ({ if:null, then:null })), hints, ...extra });
+const STAGES = [
+  LEVEL('F-1', 'Fall Through', ['gggpggssgf', '...ggsgggf'], 3, 1, BASE_IFS, ['jump'],
+    ['A hole in the top floor is not the end.', 'The top floor has a double spike. The bottom floor does not.',
+     'IF Spike ahead THEN Jump.'], { newFloors:true }),
+  LEVEL('F-2', 'Stay On Top', ['ggpggggpggf', '..ggssgggsf'], 4, 1, BASE_IFS, ['jump'],
+    ['This time the bottom floor is the dangerous one.', 'Jump over the hole to stay on top.',
+     'IF Pit ahead THEN Jump.']),
+  LEVEL('F-3', 'The Cheap Floor', ['ggpgggwsgggf', '..gggsgggsgf'], 3, 2, BASE_IFS, ['jump', 'bigjump'],
+    ['Count the Energy each floor would cost.', 'The top floor needs a Big Jump. The bottom floor only needs small ones.',
+     'IF Spike ahead THEN Jump.']),
+  LEVEL('F-4', 'Two Ways', ['ggpgoggwsgggf', '..gsggsggsggf'], 3, 2, BASE_IFS, ['jump', 'bigjump'],
+    ['Both floors can reach a flag.', 'The top floor has an Energy orb on it.',
+     'Bottom: IF Spike ahead THEN Jump. Top: IF Pit ahead THEN Jump, then IF NOT Ground ahead THEN Big Jump.'], { newOrb:true, twoWays:true }),
+];
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const bubble = document.getElementById('bubble'), panel = document.getElementById('panel'), nextBtn = document.getElementById('next'), dots = document.getElementById('dots');
+const PLAY = '<svg viewBox="0 0 32 32"><path d="M9 5 L26 16 L9 27 Z" fill="#141922"/></svg>';
+const AGAIN = '<svg viewBox="0 0 32 32"><path d="M24 10 A10 10 0 1 0 26 18" fill="none" stroke="#141922" stroke-width="4" stroke-linecap="round"/><path d="M20 4 L26 10 L19 13" fill="none" stroke="#141922" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+const S = { stage:0, map:'', rows:['', ''], lay:0, eaten:new Set(), cards:[], ghost:false, slow:false, beam:null, hl:null, mark:null, won:false, pulse:new Set(), done:new Set() };
+const R = { x:0, y:0, fall:0, rot:0, alpha:1 };
+let parts = [], floats = [], token = 0;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const st = () => STAGES[S.stage];
+const offX = () => (W - S.map.length * T) / 2;
+const px = i => offX() + i * T + T / 2;
+const standable = t => t === 'g' || t === 'f' || t === 'o';
+/** Tile on floor l (0 top, 1 bottom) at column i; an eaten orb is plain ground, '.' is no floor. */
+const tileAt = (l, i) => { const t = S.rows[l][i]; return t === 'o' && S.eaten.has(l + ':' + i) ? 'g' : t; };
+/** t = the tile ahead, t2 = the tile after it (where a Jump lands). */
+function matches(card, t, t2) {
+  const base = { ground:standable(t), ground2:standable(t2), pit:t === 'p', spike:t === 's' }[card.if];
+  return card.not ? !base : base;
+}
+
+function tween(ms, f, my) {
+  return new Promise(res => {
+    const t0 = performance.now();
+    (function step(now) {
+      if (my !== token) return res();
+      const k = Math.min(1, (now - t0) / ms);
+      f(k);
+      k < 1 ? requestAnimationFrame(step) : res();
+    })(t0);
+  });
+}
+
+const headCards = () => [...bubble.querySelectorAll('.card')];
+function renderCards() {
+  const n = S.cards.length;
+  const s = st();
+  bubble.innerHTML = S.cards.map((c, i) => `<div class="card">${cardHTML(c, i + 1, { badge:true, notChip:s.notChip, cost:s.energy != null })}</div>`).join('')
+    + (n > 1 ? '<div id="reader"></div>' : '');
+  const lo = document.getElementById('loadout');
+  if (!lo) return;
+  const ifLocked = s.locked || s.lockIf;
+  lo.innerHTML = S.cards.map((c, i) => `<div class="card big${s.locked ? ' locked' : ''}${ifLocked ? ' lockif' : ''}" data-i="${i}">${cardHTML(c, i + 1, { foot:s.reorder, count:n, notChip:s.notChip, cost:s.energy != null })}</div>`).join('');
+  lo.querySelectorAll('.card.big').forEach(el => {
+    const i = +el.dataset.i;
+    if (!s.locked) el.querySelectorAll('.sec').forEach(sec => { if (!(ifLocked && sec.dataset.sec === 'if')) sec.onclick = () => openPicker(i, sec.dataset.sec); });
+    const chip = el.querySelector('.notchip');
+    if (chip && !ifLocked) chip.onclick = e => { e.stopPropagation(); toggleNot(i); };
+    el.querySelectorAll('[data-move]').forEach(b => b.onclick = () => move(i, +b.dataset.move));
+  });
+  applyPulse();
+}
+function clearLit() {
+  bubble.querySelectorAll('.lit, .miss, .starve').forEach(e => e.classList.remove('lit', 'miss', 'starve'));
+  bubble.querySelectorAll('.skip, .unread, .reading, .never').forEach(e => e.classList.remove('skip', 'unread', 'reading', 'never'));
+  bubble.querySelectorAll('.badge').forEach(b => { b.className = 'badge'; b.textContent = ''; });
+  moveReaderHome();
+}
+
+function resetRunner() {
+  Object.assign(R, { x:px(0), y:0, fall:0, rot:0, alpha:S.ghost ? 0.55 : 1 });
+  S.lay = 0;
+  GY = GYS[0];
+  S.eaten = new Set();
+  S.beam = S.hl = S.mark = null;
+  clearLit();
+}
+
+function renderEnergy() {
+  const e = document.getElementById('energy'), max = st().energy, shown = Math.max(max ?? 0, S.energy ?? 0);
+  e.style.display = max != null ? 'flex' : 'none';
+  if (max == null) return;
+  document.getElementById('pips').innerHTML = Array.from({ length:shown }, (_, i) => `<i class="pip${i < S.energy ? '' : ' used'}"></i>`).join('');
+}
+function flashEnergy() {
+  const e = document.getElementById('energy');
+  e.classList.remove('flash'); void e.offsetWidth; e.classList.add('flash');
+}
+
+async function runOnce(my) {
+  resetRunner();
+  S.energy = st().energy ?? null;
+  renderEnergy();
+  let x = 0;
+  await sleep(500);
+  while (true) {
+    if (my !== token) return 'stop';
+    if (tileAt(S.lay, x) === 'f') return 'win';
+    // What a card sees is on the runner's own floor; a missing floor ('.') looks like a pit.
+    const look = (i, edge) => { const t = tileAt(S.lay, i); return t == null ? edge : t === '.' ? 'p' : t; };
+    const ahead = look(x + 1, 'g'), ahead2 = look(x + 2, 'H');
+    // Cards are read left to right and reading stops at the first IF that matches.
+    const fire = S.cards.findIndex(c => c.if && c.then && matches(c, ahead, ahead2));
+    // As in the game: the first matching card must pay its Energy; if it cannot, it does nothing and the runner walks.
+    const starved = fire >= 0 && S.energy != null && S.energy < COST[S.cards[fire].then];
+    S.beam = { tile:x + 1, lit:fire >= 0 };
+    // A Walk card on open ground just walks: no card reading for every plain step.
+    const quiet = fire >= 0 && S.cards[fire].then === 'walk' && ahead !== 'w';
+    if (quiet) {
+      await sleep(40);
+    } else if (S.cards.length > 1 && fire >= 0) {
+      // Only when some card will act: on plain ground nothing is shown, the runner just walks.
+      if (await readInOrder(fire, ahead, ahead2, my, starved) === 'stop') return 'stop';
+    } else if (fire >= 0) {
+      const hc = headCards();
+      S.hl = x + 1;
+      hc[fire].querySelector('.sec.if').classList.add('lit');
+      await sleep(S.slow ? 700 : 260);
+      if (my !== token) return 'stop';
+      if (starved) { hc[fire].querySelector('.sec.then').classList.add('starve'); flashEnergy(); }
+      else hc[fire].querySelector('.sec.then').classList.add('lit');
+      await sleep(starved ? 1000 : S.slow ? 450 : 160);
+    } else {
+      await sleep(S.slow ? 120 : 40);
+    }
+    if (my !== token) return 'stop';
+    const act = fire >= 0 && !starved ? S.cards[fire].then : 'walk';
+    if (S.energy != null && act !== 'walk') {
+      S.energy -= COST[act];
+      renderEnergy();
+      floats.push({ x:R.x, y:GY - 60, text:'-' + COST[act], life:1 });
+      // Draw the eye to the Energy bar: it lights up, shows what was spent, and the runner waits a moment.
+      const e = document.getElementById('energy');
+      e.dataset.spent = '-' + COST[act];
+      e.classList.add('spend');
+      const cardCost = headCards()[fire] && headCards()[fire].querySelector('.band .cost');
+      if (cardCost) cardCost.classList.add('spend');
+      await sleep(900);
+      e.classList.remove('spend');
+      if (cardCost) cardCost.classList.remove('spend');
+      if (my !== token) return 'stop';
+    }
+    const to = x + DIST[act], from = R.x, dest = px(to);
+    const h = { walk:0, jump:78, bigjump:92 }[act];
+    if (act === 'walk' ? ahead === 'w' : tileAt(S.lay, to) === 'w') {
+      // A low wall blocks walking, and a jump cannot land on it: the runner is stuck here (the game times out).
+      S.beam = S.hl = null;
+      clearLit();
+      S.mark = act === 'walk' ? x + 1 : to;
+      await tween(450, k => { R.x = from + Math.sin(Math.PI * k) * 10; R.y = act === 'walk' ? 0 : -Math.sin(Math.PI * k) * 40; }, my);
+      return my === token ? 'dead' : 'stop';
+    }
+    await tween(act === 'walk' ? 280 : (S.slow ? 800 : act === 'jump' ? 520 : 620), k => {
+      R.x = from + (dest - from) * k;
+      R.y = h ? -Math.sin(Math.PI * k) * h : -Math.abs(Math.sin(Math.PI * k * 2)) * 3;
+    }, my);
+    S.beam = S.hl = null;
+    clearLit();
+    if (my !== token) return 'stop';
+    x = to;
+    let t = tileAt(S.lay, x);
+    if ((t == null || t === 'p' || t === '.') && S.lay === 0) {
+      // A hole in the top floor: drop to the bottom floor. It is only deadly when there is nothing to land on.
+      const below = tileAt(1, x);
+      await tween(380, k => { R.fall = k * k * (GYS[1] - GYS[0]); }, my);
+      if (my !== token) return 'stop';
+      S.lay = 1;
+      GY = GYS[1];
+      R.fall = 0;
+      t = below;
+      if (standable(t)) burst(R.x, GY, '#cbd5e1', 8);
+    }
+    if (t == null || t === 'p' || t === '.') {
+      S.mark = x;
+      await tween(500, k => { R.fall = k * k * 120; R.alpha = (S.ghost ? 0.55 : 1) * (1 - k); }, my);
+      return my === token ? 'dead' : 'stop';
+    }
+    if (t === 's') {
+      S.mark = x;
+      burst(R.x, GY - 20, C.spike, 14);
+      await tween(450, k => { R.rot = k * Math.PI / 2; R.alpha = (S.ghost ? 0.55 : 1) * (1 - k * 0.7); }, my);
+      return my === token ? 'dead' : 'stop';
+    }
+    if (t === 'o') {
+      // Energy orb: +2, and the orb is gone for the rest of this run.
+      S.eaten.add(S.lay + ':' + x);
+      S.energy += 2;
+      renderEnergy();
+      burst(R.x, GY - 20, C.qi, 14);
+      floats.push({ x:R.x, y:GY - 60, text:'+2', life:1 });
+    }
+  }
+}
+
+// Several cards: every check starts with all cards grey. A pointer moves from the left card to the right
+// one; each card it reaches gets a red cross (no match) or a gold tick (match). At the first tick it stops:
+// the cards to its right are never read and stay grey.
+async function readInOrder(fire, ahead, ahead2, my, starved) {
+  const hc = headCards(), ptr = document.getElementById('reader');
+  hc.forEach(c => { c.classList.add('unread'); c.querySelector('.badge').className = 'badge'; });
+  ptr.style.display = 'block';
+  // When a card further right would also match, this is the moment the order decides: hold it longer.
+  const shadowed = fire >= 0 && S.cards.some((c, i) => i > fire && matches(c, ahead, ahead2));
+  const last = fire >= 0 ? fire : hc.length - 1;
+  for (let i = 0; i <= last; i++) {
+    ptr.style.left = hc[i].offsetLeft + hc[i].offsetWidth / 2 + 'px';
+    hc[i].classList.remove('unread');
+    hc[i].classList.add('reading');
+    await sleep(fire >= 0 ? 320 : 150);
+    if (my !== token) return 'stop';
+    hc[i].classList.remove('reading');
+    const badge = hc[i].querySelector('.badge');
+    if (i === fire) {
+      badge.className = 'badge yes';
+      badge.textContent = '\u2713';
+      S.hl = S.beam.tile;
+      hc[i].querySelector('.sec.if').classList.add('lit');
+      await sleep(260);
+      if (my !== token) return 'stop';
+      if (starved) {
+        // The IF is right, but the THEN cannot be paid for.
+        hc[i].querySelector('.sec.then').classList.add('starve');
+        flashEnergy();
+        await sleep(1000);
+        return;
+      }
+      hc[i].querySelector('.sec.then').classList.add('lit');
+      if (shadowed) for (let j = i + 1; j < hc.length; j++) hc[j].classList.add('never');
+      await sleep(shadowed ? 1400 : 220);
+      return;
+    }
+    badge.className = 'badge no';
+    badge.textContent = '\u2717';
+    // Hold the cross a moment so the miss is seen before the pointer moves on.
+    await sleep(900);
+    if (my !== token) return 'stop';
+    hc[i].classList.add('unread');
+  }
+}
+
+function moveReaderHome() {
+  const ptr = document.getElementById('reader');
+  if (ptr) ptr.style.display = 'none';
+}
+
+async function loop(my) {
+  let deaths = 0;
+  while (my === token) {
+    const r = await runOnce(my);
+    if (r === 'win') return celebrate();
+    if (r === 'stop') return;
+    deaths++;
+    hintPanel();
+    if (deaths >= 2) offerHint();
+    await sleep(700);
+  }
+}
+
+// Hint button (as in GameScreen): shows up after two failed runs; each press reveals the next line in a banner.
+function offerHint() {
+  const s = st();
+  if (!s.hints || S.hintsShown >= s.hints.length) return;
+  const b = document.getElementById('hintBtn');
+  b.style.display = 'inline-block';
+  b.textContent = `Hint ${S.hintsShown + 1}/${s.hints.length}`;
+  if (S.hintsShown === 0) document.getElementById('nudge').style.display = 'block';
+}
+document.getElementById('hintBtn').onclick = () => {
+  const s = st();
+  document.getElementById('nudge').style.display = 'none';
+  const banner = document.getElementById('banner');
+  banner.textContent = s.hints[S.hintsShown++];
+  banner.style.display = 'block';
+  const b = document.getElementById('hintBtn');
+  if (S.hintsShown >= s.hints.length) b.style.display = 'none';
+  else b.textContent = `Hint ${S.hintsShown + 1}/${s.hints.length}`;
+};
+
+// After a fall, every part of a card the player has not touched yet blinks: IF, THEN and the NOT button
+// (or the ">" that moves a card, in the order level). A part stops blinking once it is used.
+// With several cards, the empty card blinks first; once no card is empty, the first card does.
+function hintPanel() {
+  const s = st();
+  if (s.noBlink) return;
+  let parts;
+  if (s.locked) parts = ['0:move'];
+  else if (s.lockIf) parts = S.done.has('0:move') ? ['0:then'] : ['0:move'];
+  else {
+    const empty = S.cards.findIndex(c => !c.if || !c.then);
+    const i = empty >= 0 ? empty : 0;
+    parts = (s.blink || ['if', 'then'].concat(s.notChip ? ['not'] : [])).map(p => `${i}:${p}`);
+  }
+  parts.forEach(p => { if (!S.done.has(p)) S.pulse.add(p); });
+  applyPulse();
+}
+function applyPulse() {
+  document.querySelectorAll('#loadout .card.big').forEach((card, i) => {
+    const el = { if:card.querySelector('.sec.if'), then:card.querySelector('.sec.then'), not:card.querySelector('.notchip'), move:card.querySelector('[data-move="1"]') };
+    for (const [p, e] of Object.entries(el)) if (e) e.classList.toggle('pulse', S.pulse.has(`${i}:${p}`));
+  });
+}
+function used(part) {
+  S.done.add(part);
+  S.pulse.delete(part);
+}
+
+function celebrate() {
+  S.won = true;
+  S.ghost = false;
+  R.alpha = 1;
+  headCards().forEach(c => c.classList.add('win'));
+  panel.classList.add('off');
+  for (let i = 0; i < 4; i++) setTimeout(() => burst(px(S.map.length - 1), GY - 70, [C.gold, C.finish, C.jump, '#f472b6'][i], 18), i * 150);
+  renderDots(true);
+  if (st().twoWays) {
+    const banner = document.getElementById('banner');
+    banner.textContent = (S.lay === 0 ? 'You took the top floor.' : 'You took the bottom floor.') + ' There is another way. Can you find it?';
+    banner.style.display = 'block';
+  }
+  if (st().notIntro) setTimeout(showNotIntro, 1300);
+  else showNext();
+}
+function showNext() {
+  nextBtn.innerHTML = S.stage < STAGES.length - 1 ? PLAY : AGAIN;
+  nextBtn.style.display = 'grid';
+}
+
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 4;
+    parts.push({ x, y, vx:Math.cos(a) * v, vy:Math.sin(a) * v - 3, life:1, color });
+  }
+}
+
+function renderDots(doneCurrent) {
+  dots.innerHTML = STAGES.map((_, i) =>
+    `<div class="dot ${i < S.stage || (i === S.stage && doneCurrent) ? 'done' : i === S.stage ? 'on' : ''}"></div>`).join('');
+}
+
+function buildPanel(s) {
+  panel.classList.remove('off');
+  panel.innerHTML = s.watch ? '' : '<div class="title">LOADOUT</div><div class="loadout" id="loadout"></div>';
+}
+
+// ---------- picking (IF / THEN) and moving cards ----------
+function openPicker(i, kind) {
+  if (S.won) return;
+  const s = st(), card = S.cards[i];
+  document.getElementById('pickTitle').textContent = kind === 'if' ? 'IF ...' : 'THEN ...';
+  const grid = document.getElementById('pickGrid');
+  grid.innerHTML = '';
+  const cur = kind === 'then' ? card.then : card.not && !s.notChip ? 'not' + card.if : card.if;
+  for (const key of kind === 'if' ? s.ifs : s.thens) {
+    const b = document.createElement('button');
+    b.className = 'opt' + (cur === key ? ' sel' : '') + ([].concat(s.pulseOpt || []).includes(key) && cur !== key ? ' pulse' : '');
+    b.innerHTML = (kind === 'if' ? condIcon(key) : actIcon(key)) + `<span>${NAME[key]}</span>` + (kind === 'then' && s.energy != null ? pips(COST[key]) : '');
+    b.onclick = () => { closePicker(); choose(i, kind, key); };
+    grid.appendChild(b);
+  }
+  document.getElementById('picker').style.display = 'grid';
+}
+function closePicker() { document.getElementById('picker').style.display = 'none'; }
+document.getElementById('pickCancel').onclick = closePicker;
+document.getElementById('picker').onclick = e => { if (e.target.id === 'picker') closePicker(); };
+
+function choose(i, kind, key) {
+  if (S.won) return;
+  used(`${i}:${kind}`);
+  const my = ++token;
+  resetRunner();
+  const prev = S.cards.map(c => ({ ...c }));
+  if (kind === 'then') S.cards[i] = { ...S.cards[i], then:key };
+  else if (key === 'notground') S.cards[i] = { ...S.cards[i], if:'ground', not:true };
+  // With a NOT button on the card, picking a new condition keeps the NOT setting.
+  else S.cards[i] = { ...S.cards[i], if:key, not:st().notChip ? !!S.cards[i].not : false };
+  const next = S.cards.map(c => ({ ...c }));
+  // The loadout card changes first; the card over the runner catches up when the copy lands.
+  renderCards();
+  S.cards = prev;
+  bubble.innerHTML = prev.map((c, j) => `<div class="card">${cardHTML(c, j + 1, { badge:true, notChip:st().notChip, cost:st().energy != null })}</div>`).join('');
+  S.cards = next;
+  const from = document.querySelector(`#loadout .card.big[data-i="${i}"] .sec.${kind} .dia svg`);
+  const target = headCards()[i].querySelector(`.sec.${kind} .dia`);
+  requestAnimationFrame(() => fly(from, kind === 'if' ? condIcon(next[i].if, next[i].not) : actIcon(key), target, () => {
+    if (my !== token) return;
+    renderCards();
+    loop(my);
+  }));
+}
+
+function toggleNot(i) {
+  if (S.won) return;
+  used(`${i}:not`);
+  const my = ++token;
+  S.cards[i] = { ...S.cards[i], not:!S.cards[i].not };
+  resetRunner();
+  renderCards();
+  const sec = headCards()[i].querySelector('.sec.if');
+  sec.classList.add('lit');
+  setTimeout(() => sec.classList.remove('lit'), 350);
+  loop(my);
+}
+
+function move(i, d) {
+  const j = i + d;
+  if (S.won || j < 0 || j >= S.cards.length) return;
+  used('0:move');
+  const my = ++token;
+  [S.cards[i], S.cards[j]] = [S.cards[j], S.cards[i]];
+  resetRunner();
+  renderCards();
+  bubble.classList.add('shake');
+  setTimeout(() => bubble.classList.remove('shake'), 450);
+  loop(my);
+}
+
+function fly(fromEl, html, toEl, done) {
+  const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+  const d = document.createElement('div');
+  d.className = 'fly';
+  d.innerHTML = html;
+  Object.assign(d.style, { left:a.left + 'px', top:a.top + 'px', width:a.width + 'px', height:a.height + 'px' });
+  document.body.appendChild(d);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    d.style.transform = `translate(${b.left + (b.width - a.width * b.height / a.height) / 2 - a.left}px,${b.top - a.top}px) scale(${b.height / a.height})`;
+  }));
+  setTimeout(() => { d.remove(); done(); }, 380);
+}
+
+async function playStage(i) {
+  const my = ++token;
+  const s = STAGES[i];
+  parts = [];
+  Object.assign(S, { stage:i, map:s.map, rows:s.rows, cards:s.cards.map(c => ({ ...c })), ghost:!s.watch, slow:!!s.watch, won:false, pulse:new Set(), done:new Set(), hintsShown:0 });
+  document.getElementById('hintBtn').style.display = 'none';
+  document.getElementById('banner').style.display = 'none';
+  document.getElementById('nudge').style.display = 'none';
+  document.getElementById('lvl').textContent = s.id;
+  document.getElementById('ttl').textContent = s.title || '';
+  const hint = document.getElementById('hint');
+  hint.textContent = s.hint || '';
+  hint.style.visibility = s.hint ? 'visible' : 'hidden';
+  nextBtn.style.display = 'none';
+  renderDots(false);
+  buildPanel(s);
+  resetRunner();
+  if (s.breakFrom) {
+    // The card from the last stage shows up, then cracks and goes blank.
+    S.cards = s.breakFrom.map(c => ({ ...c }));
+    renderCards();
+    await sleep(900);
+    if (my !== token) return;
+    bubble.classList.add('shake');
+    burst(R.x, GY - 140, '#cbd5e1', 12);
+    await sleep(450);
+    bubble.classList.remove('shake');
+    S.cards = s.cards.map(c => ({ ...c }));
+  }
+  renderCards();
+  S.energy = s.energy ?? null;
+  renderEnergy();
+  if (s.newFloors) {
+    await showIntro('NEW: TWO FLOORS', floorsIcon(false) + '<span>Jump the hole</span>', floorsIcon(true) + '<span>Walk in</span>',
+      'A hole in the top floor drops you to the floor below.<br>Jump it to stay on top.', '<span style="font-size:16px">or</span>');
+    if (my !== token) return;
+  }
+  if (s.newOrb) {
+    await showIntro('NEW TILE: Energy orb', orbIcon() + '<span>Energy orb</span>', '<span style="font-size:22px;color:var(--qi)">+2</span>' + pips(2),
+      'Step on an orb to get 2 Energy. Jump over it and it stays there.');
+    if (my !== token) return;
+  }
+  if (s.newWall) {
+    const wall = '<svg viewBox="0 0 89 44"><rect x="10" y="28" width="69" height="8" rx="2" fill="#8a93a3"/><rect x="31" y="12" width="27" height="16" rx="2" fill="#c28f5a"/></svg><span>Low wall</span>';
+    await showIntro('NEW TILE: Low wall', wall, condIcon('ground', true) + '<span>NOT Ground ahead</span>',
+      'A low wall stops a walking runner, and a jump cannot land on it. A Jump clears it.<br>It is not ground either.');
+    if (my !== token) return;
+  }
+  if (s.newGround2) {
+    await showIntro('NEW CONDITION: Ground 2 ahead', condIcon('ground') + '<span>Ground ahead</span>', condIcon('ground2') + '<span>Ground 2 ahead</span>',
+      'Ground 2 ahead looks two tiles ahead: exactly where a Jump would land.');
+    if (my !== token) return;
+  }
+  if (s.newWalk) {
+    await showIntro('NEW ACTION: Walk', actIcon('jump') + '<span>Jump</span>' + pips(1), actIcon('walk') + '<span>Walk (free)</span>',
+      'A Walk card costs nothing. When it acts, the cards to its right are not read.');
+    if (my !== token) return;
+  }
+  if (s.newAction || s.newEnergy || s.newOrder) {
+    await (s.newAction ? showNewAction(s.newAction) : s.newEnergy ? showEnergy() : showOrder());
+    if (my !== token) return;
+  }
+  await sleep(400);
+  if (my !== token) return;
+  if (s.watch) {
+    if (await runOnce(my) === 'win') celebrate();
+  } else {
+    loop(my);
+  }
+}
+
+nextBtn.onclick = () => playStage(S.stage < STAGES.length - 1 ? S.stage + 1 : 0);
+
+// ---------- a new action: Jump next to the new one, then the level starts with an empty card ----------
+function showIntro(title, left, right, text, eq = '&rarr;') {
+  document.getElementById('newEq').innerHTML = eq;
+  document.getElementById('newTitle').textContent = title;
+  document.getElementById('jumpOpt').innerHTML = left;
+  document.getElementById('bigOpt').innerHTML = right;
+  document.getElementById('newText').innerHTML = text;
+  const box = document.getElementById('newIntro');
+  box.style.display = 'grid';
+  return new Promise(res => document.getElementById('newOk').onclick = () => { box.style.display = 'none'; res(); });
+}
+const showNewAction = act => showIntro('NEW: BIG JUMP', actIcon('jump') + `<span>${NAME.jump}</span>`, actIcon(act) + `<span>${NAME[act]}</span>`,
+  'Jump clears one tile. <b style="color:#b89bff">Big Jump</b> clears two tiles in a row.');
+const miniCard = (n, color, cond, act) => `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+  <span style="background:${color};border-radius:6px;padding:1px 10px;font-size:11px">${n}</span>${condIcon(cond)}${actIcon(act)}</div>`;
+const showOrder = () => showIntro('NEW: MORE THAN ONE CARD',
+  miniCard(1, C.jump, 'spike', 'jump'), miniCard(2, C.bigjump, 'pit', 'bigjump'),
+  'Cards are checked <b style="color:var(--text)">from left to right</b>.<br>The first card whose IF matches is the one that acts; the cards after it are not checked.');
+const showEnergy = () => showIntro('NEW: ENERGY',
+  actIcon('jump') + `<span>${NAME.jump}</span>` + pips(1), actIcon('bigjump') + `<span>${NAME.bigjump}</span>` + pips(2),
+  'Every jump costs <b style="color:var(--qi)">Energy</b>: Jump 1, Big Jump 2. You get 3 per run.<br>A card without enough Energy does nothing.');
+
+// ---------- NOT on a real card: tap +NOT and "Ground ahead" becomes "NOT Ground ahead" ----------
+const ni = document.getElementById('notIntro'), niCard = document.getElementById('niCard');
+let niTimer = null;
+function showNotIntro() {
+  const opt = document.getElementById('niOpt');
+  opt.innerHTML = condIcon('notground') + `<span>${NAME.notground}</span>`;
+  ni.style.display = 'grid';
+  const cycle = async () => {
+    niCard.innerHTML = cardHTML({ if:'ground', not:false, then:'jump' }, 1, { notChip:true, chipId:'niChip' }) + '<div id="finger" style="opacity:0"></div>';
+    const chip = document.getElementById('niChip'), finger = document.getElementById('finger');
+    const cr = niCard.getBoundingClientRect(), r = chip.getBoundingClientRect();
+    finger.style.left = r.left - cr.left + r.width / 2 - 13 + 'px';
+    finger.style.top = r.top - cr.top + r.height / 2 - 13 + 'px';
+    finger.style.transform = 'translate(40px,50px)';
+    await sleep(600);
+    finger.style.opacity = 1;
+    finger.style.transform = 'translate(0,0)';
+    await sleep(500);
+    finger.style.transform = 'scale(.8)';
+    await sleep(150);
+    chip.classList.add('on');
+    chip.textContent = 'NOT';
+    const sec = niCard.querySelector('.sec.if');
+    sec.querySelector('.dia').innerHTML = condIcon('notground');
+    sec.querySelector('.name').textContent = NAME.notground;
+    sec.classList.add('lit');
+    finger.style.transform = 'translate(30px,40px)';
+    finger.style.opacity = 0;
+  };
+  cycle();
+  niTimer = setInterval(cycle, 3200);
+}
+document.getElementById('niOk').onclick = () => { clearInterval(niTimer); ni.style.display = 'none'; showNext(); };
+
+// ---------- drawing (colors from Palette.cs) ----------
+function drawTile(t, x0, i, l) {
+  const gy = GYS[l];
+  if (t == null || t === '.') return;
+  if (t === 'p') { if (l === 1) { ctx.fillStyle = C.pit; ctx.fillRect(x0, gy, T, H - gy); } return; }
+  ctx.fillStyle = i % 2 ? C.groundDark : C.ground;
+  ctx.fillRect(x0 + 1, gy, T - 2, l === 0 ? 18 : T);
+  if (t === 'w') { ctx.fillStyle = '#c28f5a'; ctx.fillRect(x0 + 4, gy - T * 0.6, T - 8, T * 0.6); }
+  if (t === 'o') { ctx.fillStyle = C.qi; ctx.shadowColor = C.qi; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(x0 + T / 2, gy - 18, 9, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+  if (t === 's') {
+    ctx.fillStyle = C.spike;
+    ctx.beginPath();
+    for (let k = 0; k < 3; k++) { ctx.moveTo(x0 + 4 + k * 11.5, gy); ctx.lineTo(x0 + 10 + k * 11.5, gy - 24); ctx.lineTo(x0 + 16 + k * 11.5, gy); }
+    ctx.fill();
+  }
+  if (t === 'f') {
+    ctx.fillStyle = '#eef1f5'; ctx.fillRect(x0 + T / 2 + 6, gy - 66, 3, 66);
+    ctx.fillStyle = C.finish; ctx.fillRect(x0 + T / 2 - 15, gy - 66, 21, 20);
+  }
+}
+
+function drawRunner() {
+  ctx.save();
+  ctx.globalAlpha = R.alpha;
+  ctx.translate(R.x, GY + R.y + R.fall);
+  ctx.rotate(R.rot);
+  ctx.fillStyle = C.runner; ctx.fillRect(-17, -34, 34, 34);
+  ctx.fillStyle = C.eye; ctx.fillRect(5, -28, 6, 8);
+  ctx.restore();
+}
+
+function draw() {
+  ctx.fillStyle = '#1d232e'; ctx.fillRect(0, 0, W, H);
+  const ox = offX();
+  ctx.fillStyle = C.wall;
+  ctx.fillRect(ox - T, GYS[0] - 120, T, H - GYS[0] + 120);
+  ctx.fillRect(ox + S.map.length * T, GYS[0] - 120, T, H - GYS[0] + 120);
+  for (let l = 0; l < 2; l++) for (let i = 0; i < S.map.length; i++) drawTile(tileAt(l, i), ox + i * T, i, l);
+
+  if (S.hl != null) {
+    ctx.save();
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 4; ctx.shadowColor = C.gold; ctx.shadowBlur = 16;
+    ctx.strokeRect(ox + S.hl * T + 3, GY - 32, T - 6, T + 28);
+    ctx.restore();
+  }
+  if (S.beam) {
+    // What the runner looks at: a dashed line to the next tile, gold when a card's IF matches it.
+    ctx.save();
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = S.beam.lit ? 3 : 2;
+    ctx.strokeStyle = S.beam.lit ? C.gold : 'rgba(238,241,245,.45)';
+    ctx.beginPath(); ctx.moveTo(R.x + 8, GY + R.y - 24); ctx.lineTo(ox + S.beam.tile * T + T / 2, GY + 2); ctx.stroke();
+    ctx.restore();
+  }
+  if (S.mark != null) {
+    const cx = ox + S.mark * T + T / 2, cy = GY - 40;
+    ctx.save(); ctx.strokeStyle = C.spike; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - 12, cy - 12); ctx.lineTo(cx + 12, cy + 12); ctx.moveTo(cx + 12, cy - 12); ctx.lineTo(cx - 12, cy + 12); ctx.stroke();
+    ctx.restore();
+  }
+  drawRunner();
+
+  parts = parts.filter(p => p.life > 0);
+  for (const p of parts) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 0.02;
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+  floats = floats.filter(f => f.life > 0);
+  for (const f of floats) {
+    f.y -= 0.8; f.life -= 0.015;
+    ctx.globalAlpha = Math.max(0, f.life); ctx.fillStyle = '#4fd6e8'; ctx.font = 'bold 22px Helvetica Neue, Arial';
+    ctx.textAlign = 'center'; ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // The cards ride above the runner's head.
+  const s = cv.clientWidth / W, bw = bubble.offsetWidth;
+  const left = Math.min(Math.max(R.x * s, bw / 2 + 4), cv.clientWidth - bw / 2 - 4);
+  bubble.style.left = left + 'px';
+  // Keep the whole card row (and its tick badges) inside the map even when the map is drawn small.
+  bubble.style.top = Math.max(bubble.offsetHeight + 14, (GY - 126) * s) + 'px';
+  bubble.style.opacity = R.fall > 0 ? Math.max(0.3, R.alpha) : 1;
+  requestAnimationFrame(draw);
+}
+
+// ?level=5 opens a level directly.
+const startAt = Math.min(STAGES.length, Math.max(1, +new URLSearchParams(location.search).get('level') || 1)) - 1;
+playStage(startAt);
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
