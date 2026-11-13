@@ -1,0 +1,3083 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rule Runner 机关工坊</title>
+<style>
+  :root {
+    --bg: #141922; --surface: #1e2531; --surface2: #283041; --raised: #343e53; --line: #3a4459;
+    --text: #eef1f5; --dim: #8d97aa; --faint: #5d677a;
+    --accent: #43b86a; --gold: #f5c542; --danger: #e05555; --qi: #4fd6e8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; min-height: 100dvh; overflow-x: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px 0; flex-wrap: wrap; }
+  .brand { font-weight: 800; letter-spacing: .12em; font-size: 15px; white-space: nowrap; background: linear-gradient(90deg, #ffe07a, #ff9d4d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand small { font-weight: 500; letter-spacing: 0; color: var(--dim); -webkit-text-fill-color: var(--dim); margin-left: 8px; font-size: 13px; }
+  #totalStars { color: var(--gold); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #levels { display: flex; gap: 3px; flex-wrap: wrap; margin-left: auto; }
+  .lv {
+    width: 37px; height: 36px; padding: 0; border-radius: 9px; background: var(--surface); color: var(--dim);
+    font-size: 13px; font-weight: 700; line-height: 1.05; transition: background .12s, transform .12s, color .12s;
+  }
+  .lv:hover { background: var(--surface2); color: var(--text); transform: translateY(-1px); }
+  .lv.on { background: linear-gradient(180deg, #44506b, #353f55); color: var(--text); box-shadow: inset 0 0 0 1.5px var(--gold); }
+  .lv.hard { color: #ffb29c; }
+  .lv .st { display: block; font-size: 7px; letter-spacing: .5px; color: #4a5570; margin-top: 2px; }
+  .lv .st b { color: var(--gold); font-weight: 400; }
+
+  .brief { padding: 10px 20px 8px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brief h1 { margin: 0; font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .brief p { margin: 0; color: var(--dim); flex: 1 1 340px; min-width: 240px; font-size: 14px; }
+  #found { color: #9ad44a; font-size: 13px; white-space: nowrap; }
+  #bestInfo { color: #ffd27a; font-size: 13px; white-space: nowrap; }
+
+  .stage-wrap { position: relative; flex: 1 1 auto; min-height: 280px; margin: 0 20px; border-radius: 16px; overflow: hidden; background: #10141c; box-shadow: 0 0 0 1px #2b3446, 0 14px 40px rgba(0, 0, 0, .35); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #hud { position: absolute; top: 8px; left: 12px; color: var(--text); font-size: 12px; pointer-events: none; font-variant-numeric: tabular-nums; display: flex; gap: 10px; background: rgba(16, 20, 28, .55); padding: 2px 9px; border-radius: 8px; }
+  #hud b { color: var(--gold); font-weight: 600; }
+  #legend { position: absolute; bottom: 8px; left: 14px; right: 14px; display: flex; gap: 12px; flex-wrap: wrap; color: var(--dim); font-size: 12px; pointer-events: none; }
+  #legend span { display: inline-flex; align-items: center; gap: 5px; }
+  #legend b { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  #banner {
+    position: absolute; top: 12px; left: 50%; transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+    background: rgba(30, 37, 49, .97); border: 1px solid var(--line); border-radius: 14px; padding: 12px 18px;
+    display: flex; align-items: center; gap: 16px; box-shadow: 0 12px 34px rgba(0, 0, 0, .45);
+    transition: opacity .18s, transform .18s; max-width: calc(100% - 28px);
+  }
+  #banner.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  #banner h2 { margin: 0; font-size: 17px; white-space: nowrap; }
+  #banner.win h2 { color: #6fdc8f; }
+  #banner.lose h2 { color: #ff8b8b; }
+  #banner p { margin: 0; color: var(--dim); font-size: 13px; }
+  #bStars { font-size: 24px; letter-spacing: 2px; color: var(--raised); line-height: 1; white-space: nowrap; }
+  #bStars:empty { display: none; }
+  #bStars b { color: var(--gold); font-weight: 400; }
+  #banner button { background: var(--accent); padding: 7px 14px; border-radius: 9px; font-weight: 700; white-space: nowrap; }
+  #banner.lose button { background: var(--raised); }
+
+  #toast {
+    position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); background: rgba(224, 85, 85, .95);
+    padding: 6px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .18s;
+    pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+  #toast.info { background: rgba(49, 150, 190, .95); }
+  #tip {
+    position: absolute; left: 0; top: 0; max-width: 260px; padding: 5px 9px; border-radius: 8px; background: rgba(16, 20, 28, .94); color: var(--text);
+    font-size: 12px; line-height: 1.4; pointer-events: none; opacity: 0; transition: opacity .1s; z-index: 5;
+  }
+  #tip.show { opacity: 1; }
+  #intro {
+    position: absolute; left: 50%; transform: translateX(-50%); width: min(620px, calc(100% - 24px)); display: none; z-index: 7;
+    background: rgba(27, 33, 45, .97); border: 1px solid #3f4a62; border-radius: 16px; padding: 12px 16px 14px; box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  }
+  #intro.show { display: block; animation: rise .22s ease-out; }
+  #intro.low { bottom: 12px; }
+  #intro.high { top: 12px; }
+  @keyframes rise { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .in-tag { color: var(--gold); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+  #inItems { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 14px; margin-top: 8px; }
+  .in-item { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .in-pic { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 10px; background: #141a26; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .in-pic canvas { position: static; width: 44px; height: 44px; display: block; }
+  .in-pic svg { width: 28px; height: 28px; }
+  .in-item b { display: block; font-size: 14px; }
+  .in-item span { display: block; color: var(--dim); font-size: 12px; line-height: 1.4; }
+  #inAsk { margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: #ffe9b0; }
+  .in-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .in-foot > span { color: var(--dim); font-size: 12px; }
+  .in-chip { --c: #4c8dff; height: 30px; padding: 0 10px 0 6px; border-radius: 15px; background: var(--surface2); box-shadow: inset 0 0 0 1.5px var(--c); font-size: 13px; font-weight: 600; color: var(--text); display: inline-flex; align-items: center; gap: 5px; }
+  .in-chip.on { color: #fff; }
+  .in-chip svg { width: 18px; height: 18px; }
+  .in-chip.on { background: var(--c); }
+  #inGo { margin-left: auto; background: linear-gradient(180deg, #52cf7c, #38a55d); height: 34px; padding: 0 16px; border-radius: 10px; font-weight: 700; }
+  @media (max-width: 700px) {   /* The stage is too short to share: the card goes under it. */
+    #intro, #intro.low, #intro.high { position: fixed; inset: auto 8px 8px; width: auto; transform: none; max-height: 34vh; overflow-y: auto; padding-bottom: 0; }
+    #intro.show { animation: none; }
+    #inItems { grid-template-columns: 1fr; gap: 6px; }
+    .in-foot { position: sticky; bottom: 0; background: rgb(27, 33, 45); padding: 6px 0 12px; }
+  }
+  #helpBtn { width: 22px; height: 22px; padding: 0; border-radius: 50%; background: var(--raised); color: var(--text); font-size: 13px; font-weight: 700; line-height: 22px; flex: 0 0 22px; }
+  #helpBtn:hover { background: #4b5873; }
+
+  .dock { display: grid; grid-template-columns: 210px minmax(0, 1fr) 250px; gap: 16px; padding: 10px 20px 14px; align-items: stretch; }
+  .panel { background: linear-gradient(180deg, #232b3a, #1c2330); border-radius: 14px; padding: 10px 14px; box-shadow: 0 0 0 1px #2b3446; }
+  .qi-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .qi-head span { color: var(--dim); font-size: 13px; }
+  #qiValue { color: var(--qi); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  #qiPips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  #qiPips i { width: 15px; height: 15px; border-radius: 50%; background: var(--qi); display: block; transition: background .15s; }
+  #qiNote { color: var(--faint); font-size: 12px; margin-top: 6px; }
+
+  #slots { display: flex; gap: 10px; justify-content: center; align-items: stretch; flex-wrap: wrap; }
+  .slot {
+    --c: #4c8dff; position: relative; width: 122px; min-height: 112px; background: linear-gradient(180deg, #2f384b, #252d3d); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, .35); cursor: grab; touch-action: none; transition: transform .12s, box-shadow .12s, opacity .12s, filter .12s;
+  }
+  .slot:hover { transform: translateY(-3px); }
+  .slot.sel { box-shadow: 0 0 0 2.5px var(--gold), 0 8px 18px rgba(0, 0, 0, .4); transform: translateY(-3px); }
+  .slot.off { filter: grayscale(.9); opacity: .45; cursor: not-allowed; transform: none; }
+  .slot.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .slot .band { height: 24px; background: var(--c); display: flex; align-items: center; justify-content: space-between; padding: 0 9px; }
+  .slot .band b { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .pips { display: flex; gap: 3px; }
+  .pips i { width: 10px; height: 10px; border-radius: 50%; background: var(--qi); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+  .slot .art { display: flex; justify-content: center; padding: 8px 0 2px; }
+  .slot .art svg { width: 38px; height: 38px; }
+  .slot .name { text-align: center; font-weight: 700; font-size: 14px; padding-bottom: 8px; }
+  .slot .drop {
+    position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; background: rgba(0, 0, 0, .45);
+    font-size: 12px; text-align: center; display: none; padding: 0;
+  }
+  .slot:hover .drop { display: block; }
+  .slot.empty { background: transparent; box-shadow: inset 0 0 0 2px var(--line); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--dim); }
+  .slot.empty b { font-size: 28px; line-height: 1.1; font-weight: 400; }
+  .slot.empty span { font-size: 13px; }
+
+  .controls { display: flex; flex-direction: column; gap: 7px; }
+  #run { background: linear-gradient(180deg, #52cf7c, #38a55d); border-radius: 12px; height: 48px; font-size: 17px; font-weight: 800; box-shadow: 0 6px 16px rgba(56, 165, 93, .3); }
+  #run:hover { filter: brightness(1.08); }
+  #run.stop { background: linear-gradient(180deg, #ef6a6a, #cf4545); box-shadow: 0 6px 16px rgba(207, 69, 69, .3); }
+  .row { display: flex; gap: 7px; }
+  .row button { flex: 1; height: 30px; background: var(--raised); border-radius: 8px; font-weight: 600; font-size: 12px; white-space: nowrap; }
+  .row button:hover:not(:disabled) { background: #3f4a62; }
+  .row button:disabled { opacity: .4; cursor: default; }
+  .row button.on { background: var(--gold); color: #1a1f28; }
+  #bestBtn { background: linear-gradient(180deg, #7a5cc7, #5f46a3); }
+  #bestBtn:hover { background: linear-gradient(180deg, #8a6cd7, #6f56b3); }
+
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(430px, 100vw); background: #1a202b; border-left: 1px solid var(--line); z-index: 15;
+    transform: translateX(102%); transition: transform .2s; display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0, 0, 0, .4);
+  }
+  #drawer.open { transform: none; }
+  @media (min-width: 1100px) {
+    body.lib-open #wrap { margin-right: 446px; }
+    body.lib-open .brief, body.lib-open .dock { padding-right: 446px; }
+    body.lib-open .slot { width: 90px; }
+  }
+  .d-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 8px; }
+  .d-head h2 { margin: 0; font-size: 18px; }
+  #equipCount { color: var(--gold); font-size: 14px; font-weight: 700; }
+  #library { flex: 1; overflow-y: auto; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 5px; }
+  .skill-row {
+    --c: #4c8dff; display: grid; grid-template-columns: 42px 1fr auto; gap: 10px; align-items: center; text-align: left; width: 100%; padding: 6px 10px;
+    background: var(--surface); border-radius: 12px; box-shadow: inset 4px 0 0 var(--c);
+  }
+  .skill-row:hover { background: var(--surface2); }
+  .skill-row.try .t b::after { content: '本关试试'; margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: rgba(245, 197, 66, .18); color: var(--gold); font-size: 11px; font-weight: 600; }
+  .skill-row.on { background: var(--raised); box-shadow: inset 4px 0 0 var(--c), inset 0 0 0 1.5px var(--gold); }
+  .skill-row svg { width: 34px; height: 34px; }
+  .skill-row .t b { font-size: 14px; }
+  .skill-row .t small { color: var(--dim); margin-left: 6px; }
+  .skill-row .t p { margin: 1px 0 0; color: var(--dim); font-size: 12px; line-height: 1.4; }
+  #closeDrawer { margin: 0 14px 14px; height: 40px; background: var(--accent); border-radius: 10px; font-weight: 700; }
+
+  #ghost {
+    position: fixed; left: 0; top: 0; width: 56px; height: 56px; border-radius: 12px; pointer-events: none; z-index: 20;
+    display: none; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(0, 0, 0, .5);
+  }
+  #ghost svg { width: 34px; height: 34px; }
+
+  @media (max-width: 960px) {
+    .dock { grid-template-columns: 1fr; }
+    #levels { margin-left: 0; }
+    .stage-wrap { margin: 0 16px; }
+    header, .brief, .dock { padding-left: 16px; padding-right: 16px; }
+    .slot { width: 104px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">RULE RUNNER<small>机关工坊 · 内部原型</small></div>
+  <span id="totalStars"></span>
+  <nav id="levels"></nav>
+</header>
+<section class="brief">
+  <h1 id="lvTitle"></h1><button id="helpBtn" title="看本关的新挑战">?</button><p id="lvHint"></p><span id="bestInfo"></span><span id="found"></span>
+</section>
+<main class="stage-wrap" id="wrap">
+  <canvas id="stage"></canvas>
+  <div id="hud"><span id="stepText"></span><span id="starText"></span><span id="bellyText"></span></div>
+  <div id="legend"></div>
+  <div id="banner"><div id="bStars"></div><div><h2 id="bTitle"></h2><p id="bText"></p></div><button id="bBtn"></button></div>
+  <div id="toast"></div>
+  <div id="tip"></div>
+  <div id="intro">
+    <div class="in-tag">新挑战</div>
+    <div id="inItems"></div>
+    <p id="inAsk"></p>
+    <div class="in-foot"><span>试试带上</span><span id="inTry" style="display:contents"></span><button id="inGo">我来试试</button></div>
+  </div>
+</main>
+<footer class="dock">
+  <div class="panel">
+    <div class="qi-head"><span>可用的气</span><div id="qiValue">0</div></div>
+    <div id="qiPips"></div>
+    <div id="qiNote"></div>
+  </div>
+  <div id="slots"></div>
+  <div class="controls">
+    <button id="run"></button>
+    <div class="row"><button id="undo">撤销</button><button id="clear">清空</button><button id="openLib">技能库</button><button id="bestBtn">最优解</button></div>
+    <div class="row" id="speed"><button data-s="1">1×</button><button data-s="2">2×</button><button data-s="4">4×</button><button id="pathBtn">路线</button></div>
+  </div>
+</footer>
+<aside id="drawer">
+  <div class="d-head"><h2>技能库</h2><span id="equipCount"></span></div>
+  <div id="library"></div>
+  <button id="closeDrawer">配好了</button>
+</aside>
+<div id="ghost"></div>
+
+<script>
+/*CORE*/
+
+/*LEVELS*/
+
+/*ROUTES*/
+/*BEST*/
+
+const ICONS = {
+  jump: 'M3 19 C7 5 15 5 20 15 M20 15 L14.5 14 M20 15 L21.5 9.5',
+  turn: 'M18 21 V10 a6 6 0 0 0 -12 0 v7 M2 13 L6 17.5 L10 13',
+  gulp: 'M3 10 C7 5 17 5 21 10 C17 13 7 13 3 10 Z M3 15 C7 12.5 17 12.5 21 15 C17 20 7 20 3 15 Z',
+  echo: 'M3 12 H6 M9 8 A5.6 5.6 0 0 1 9 16 M13 5 A9.9 9.9 0 0 1 13 19 M17 2 A14 14 0 0 1 17 22',
+  fire: 'M12 2 C13 8 19 10 19 15 A7 7 0 0 1 5 15 C5 12 7 11 8 8 C9 10 11 10 12 2 Z',
+  decoy: 'M8 21 H16 M9.5 21 V17 H14.5 V21 M6.5 17 V9 A5.5 5.5 0 0 1 17.5 9 V17 Z M9.5 10.5 H10.5 M13.5 10.5 H14.5',
+  flip: 'M8 21 V4 M3.5 8.5 L8 4 L12.5 8.5 M16 3 V20 M11.5 15.5 L16 20 L20.5 15.5',
+  portal: 'M12 2 C6 2 3 7 3 12 C3 18 7 22 12 22 C17 22 21 18 21 12 C21 7 18 2 12 2 Z M12 8 C9.5 8 8 10 8 12 C8 14.5 10 16 12 16 C14.5 16 16 14 16 12 C16 10 14.5 8 12 8 Z',
+};
+const OUTCOME_TEXT = { lava: '掉进岩浆了', spike: '撞上尖刺了', slime: '被史莱姆碰到了', laser: '被激光烧到了', bull: '被蛮牛撞飞了', blast: '被炸飞了', fell: '掉出地图了', loop: '绕圈了', timeout: '走不完了' };
+const NOTE_TEXT = { fizzle: '空中跳不起来', hollow: '前面没有卡可回响', empty: '身边没东西可吞', stuck: '前面堵住了，吐不出来', toobig: '太大了吞不下', gulp: '吞', spit: '吐' };
+const BELLY_TEXT = { B: '箱子', M: '替身', E: '史莱姆', X: '炸药桶', W: '一肚子水' };
+const LASER_CHARS = '()AV';
+const LEGEND = {
+  '&': ['岩浆，碰到就死，水能冷却', '#ff6a1f'], '=': ['木头，一点火烧光相连的', '#a9764a'], '%': ['易碎地板，离开就塌', '#b59a78'], x: ['裂石，只有爆炸炸得开', '#8d6f4e'], '^': ['尖刺', '#e04f4f'], '~': ['水，水面能踩', '#3a94e0'],
+  B: ['箱子', '#c28f5a'], X: ['炸药桶，怕火和激光', '#e2543a'], E: ['史莱姆，从上面踩会高高弹起', '#6fd06a'], '}': ['蛮牛，看见人就冲', '#a8563c'], _: ['压力板，压住时门开', '#e0b84f'], D: ['门', '#e0b84f'],
+  L: ['拉杆，碰一下红蓝互换', '#d46be0'], R: ['红块，拉杆没动时是实的', '#e8604c'], N: ['蓝块，拉杆动过才是实的', '#4c8dff'],
+  '(': ['激光，箱子和替身能挡', '#ff3b4e'], '*': ['星星', '#f5c542'], F: ['终点', '#5cc96b'],
+};
+const LASER_TIP = '激光：碰到就死。箱子和替身挡得住，穿得过传送门，碰到炸药桶会引爆。';
+const TIPS = {
+  '&': '岩浆：碰到就死。太稠，不会流动。一格水能把一格岩浆冷成石头。箱子进去会烧没，石头替身不怕烫。',
+  o: '冷却的岩浆：和石头一样结实。',
+  '=': '木头：一点火，相连的全部烧光。烧掉支撑，上面的东西就掉下来。',
+  '%': '易碎地板：托你一次，离开就塌。箱子和替身一压就碎，史莱姆不会。',
+  x: '裂石：只有爆炸炸得开，火和蛮牛都不行。',
+  '^': '尖刺：碰到就死。水能把它盖住。',
+  _: '压力板：一直有东西压着，门才开。史莱姆太轻，压不住。',
+  D: '门：压力板压住时才开，一松开就关。水过不去。',
+  L: '拉杆：碰一下红块蓝块互换，再碰换回来。喷火能隔空扳动。',
+  R: '红块：拉杆没动时是实的，动过就消失。',
+  N: '蓝块：拉杆没动时是空的，动过就变实。',
+  '(': LASER_TIP, ')': LASER_TIP, A: LASER_TIP, V: LASER_TIP,
+  '*': '星星：路过就拿到，每关 3 颗。', F: '终点',
+};
+const OBJ_TIPS = {
+  B: '箱子：能推、能烧、能吞。浮在水上，挡得住激光。',
+  X: '炸药桶：能推能吞，碰到火或激光就炸，炸开周围一圈，站太近会被炸飞。',
+  E: '史莱姆：侧面碰到会死，从上面踩会高高弹起。能吞，能烧，浮在水上。',
+  U: '蛮牛：看见同一排的人或替身就猛冲，撞碎木头和箱子，撞到石头才停。背后喷火也会让它往前冲。吞不下。',
+};
+const PORTAL_COLORS = ['#31c7e8', '#ff9f43'];
+const WALK_SECONDS = 0.27;   // One cell of walking at 1×.
+const GRAVITY = 44;          // Cells per second squared, for everything that falls.
+const STORE_KEY = 'rr_workshop_v3';
+
+const $ = s => document.querySelector(s);
+const canvas = $('#stage');
+let ctx = canvas.getContext('2d');
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const svgIcon = (skill, color) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[skill]}"/></svg>`;
+const ICON_PATHS = Object.fromEntries(Object.entries(ICONS).map(([k, d]) => [k, new Path2D(d)]));
+const starMarkup = n => `<b>${'★'.repeat(n)}</b>${'★'.repeat(3 - n)}`;
+const emptyPlan = () => ({ cards: {}, portals: [] });
+const clonePlan = p => ({ cards: { ...p.cards }, portals: p.portals.map(x => x.slice()) });
+
+const store = {
+  read() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { return {}; } },
+  write(v) { try { localStorage.setItem(STORE_KEY, JSON.stringify(v)); } catch (e) { /* private mode */ } },
+};
+
+const saved = store.read();
+const state = {
+  index: 0, level: null, world: null, plan: emptyPlan(), open: null, history: [], loadout: [], lastLoadout: [], mode: 'plan', selected: null, speed: 1, showPath: true,
+  preview: null, reached: new Set(), result: null, frameIndex: 0, phase: 0, frameT: 0, stepSeconds: 1, holdSeconds: 0, moveSeconds: 1, fallRun: 0, flood: null, keepStar: null, outcomeT: 0, burned: {}, hover: null, demo: false,
+  stars: saved.stars || {}, routes: saved.routes || {}, seen: saved.seen || {}, intro: false, plans: {}, loadouts: {},
+};
+let drag = null;
+const fx = { particles: [], floats: [], rings: [], ripples: [], burns: [], ghosts: [], sucks: [], timers: [], flame: null, flash: null, shake: 0 };
+const anim = { door: 0, lever: 0, flip: 1, face: 1, squash: 0, mouth: 0, recoil: 0, dip: 0, dipV: 0, chargeId: null };
+const actors = new Map();   // What the view shows of each loose object: it follows the rules a moment behind, under gravity.
+const view = { w: 0, h: 0, cell: 40, ox: 0, oy: 0 };
+
+/** The library slides in beside the map, not over it: choosing skills is exactly when the map has to stay in view. */
+function showDrawer(open) {
+  const box = $('#drawer');
+  box.style.top = document.querySelector('header').offsetHeight + 'px';
+  box.classList.toggle('open', open);
+  document.body.classList.toggle('lib-open', open);
+}
+
+const saveProgress = () => store.write({ stars: state.stars, routes: state.routes, seen: state.seen });
+
+// ---------- Budget ----------
+
+const spent = (plan = state.plan, open = state.open) =>
+  Object.values(plan.cards).reduce((t, k) => t + SKILLS[k].cost, 0) + SKILLS.portal.cost * (plan.portals.length + (open ? 1 : 0));
+const remaining = () => state.level.qi - spent();
+const usedSkills = plan => [...new Set(Object.values(plan.cards).concat(plan.portals.length ? ['portal'] : []))].sort();
+const portalAt = (plan, k) => plan.portals.findIndex(p => p[0] === k || p[1] === k);
+
+function refreshPreview() {
+  state.preview = simulate(state.level, state.plan);
+  state.reached = new Set(state.preview.frames.map(f => f.firedAt).filter(Boolean));
+}
+
+function setPlan(plan, open) {
+  state.demo = false;
+  state.plan = plan;
+  state.open = open;
+  state.plans[state.level.id] = { plan, open };
+  refreshPreview();
+  renderDock();
+}
+
+function commit(plan, open = state.open) {
+  state.history.push({ plan: state.plan, open: state.open, loadout: state.loadout.slice() });
+  setPlan(plan, open);
+}
+
+// ---------- Editing (any edit stops a run and returns to planning) ----------
+
+function occupied(k) { return state.plan.cards[k] !== undefined || portalAt(state.plan, k) >= 0 || state.open === k; }
+
+function placeCard(x, y, skill, from = null) {
+  toPlan();
+  if (!canPlaceAt(state.level, state.world, x, y)) { toast('这一格放不了卡'); return; }
+  const k = cellKey(x, y);
+  if (k === from) return;
+  if (skill === 'portal') return placePortal(k, from);
+  if (portalAt(state.plan, k) >= 0 || state.open === k) { toast('这一格已经有传送门了'); return; }
+  const next = clonePlan(state.plan);
+  if (from !== null) delete next.cards[from];
+  next.cards[k] = skill;
+  if (spent(next) > state.level.qi) { toast(`气不够：${SKILLS[skill].zh}要 ${SKILLS[skill].cost} 气`); return; }
+  commit(next);
+}
+
+function placePortal(k, from) {
+  const next = clonePlan(state.plan);
+  if (occupied(k)) { toast('这一格已经有卡了'); return; }
+  if (from !== null) {
+    if (state.open === from) { commit(next, k); return; }
+    const pair = next.portals[portalAt(next, from)];
+    const other = pair[0] === from ? pair[1] : pair[0];
+    if (!inPortalRange(k, other)) { toast(`两个门最远隔 ${PORTAL_RANGE} 格`); return; }
+    pair[pair[0] === from ? 0 : 1] = k;
+    commit(next);
+    return;
+  }
+  if (state.open) {
+    if (!inPortalRange(k, state.open)) { toast(`两个门最远隔 ${PORTAL_RANGE} 格`); return; }
+    next.portals.push([state.open, k]);
+    commit(next, null);
+    clearToast();
+    return;
+  }
+  if (remaining() < SKILLS.portal.cost) { toast(`气不够：传送门要 ${SKILLS.portal.cost} 气`); return; }
+  commit(next, k);
+  toast('再放一个门作为出口', true);
+}
+
+function removeAt(k) {
+  toPlan();
+  if (!occupied(k)) return;
+  const next = clonePlan(state.plan);
+  if (state.open === k) { commit(next, null); return; }
+  const i = portalAt(next, k);
+  if (i >= 0) next.portals.splice(i, 1);
+  else delete next.cards[k];
+  commit(next);
+}
+
+function undo() {
+  toPlan();
+  const last = state.history.pop();
+  if (!last) return;
+  state.loadout = last.loadout;
+  state.loadouts[state.level.id] = state.loadout;
+  renderSlots();
+  renderLibrary();
+  setPlan(last.plan, last.open);
+}
+
+function clearCards() {
+  toPlan();
+  if (!spent()) return;
+  commit(emptyPlan(), null);
+}
+
+function toggleEquip(id) {
+  toPlan();
+  if (state.loadout.includes(id)) {
+    const next = clonePlan(state.plan);
+    Object.keys(next.cards).forEach(k => { if (next.cards[k] === id) delete next.cards[k]; });
+    let open = state.open;
+    if (id === 'portal') { next.portals = []; open = null; }
+    commit(next, open);
+    state.loadout = state.loadout.filter(x => x !== id);
+    if (state.selected === id) state.selected = null;
+  } else {
+    if (state.loadout.length >= state.level.slots) { toast(`卡槽只有 ${state.level.slots} 个，先卸下一张`); return; }
+    state.loadout = state.loadout.concat(id);
+  }
+  state.loadouts[state.level.id] = state.loadout;
+  state.lastLoadout = state.loadout;
+  renderSlots();
+  renderLibrary();
+  renderDock();
+  if (state.intro) renderTryChips();
+}
+
+// ---------- Flow ----------
+
+function loadLevel(index) {
+  state.index = index;
+  state.level = LEVELS[index];
+  state.world = makeWorld(state.level);
+  const kept = state.plans[state.level.id];
+  state.plan = kept ? kept.plan : emptyPlan();
+  state.open = kept ? kept.open : null;
+  state.history = [];
+  state.selected = null;
+  state.loadout = state.loadouts[state.level.id] || state.lastLoadout.slice(0, state.level.slots);
+  state.loadouts[state.level.id] = state.loadout;
+  refreshPreview();
+  toPlan(true);
+  $('#lvTitle').textContent = state.level.title;
+  $('#lvHint').textContent = state.level.hint;
+  const inMapRows = c => state.level.map.some(r => (c === '(' ? [...LASER_CHARS].some(q => r.includes(q)) : r.includes(c)));
+  const legend = Object.keys(LEGEND).filter(c => (c === '}' ? inMapRows('{') || inMapRows('}') : inMapRows(c))).map(c => LEGEND[c]);
+  $('#legend').innerHTML = legend.map(([text, color]) => `<span><b style="background:${color}"></b>${text}</span>`).join('');
+  renderLevels();
+  renderSlots();
+  renderLibrary();
+  renderFound();
+  layout();
+  renderDock();
+  anim.door = anim.lever = anim.leverV = 0;
+  state.rayFrame = null;
+  $('#helpBtn').style.display = state.level.intro ? '' : 'none';
+  $('#intro').className = '';
+  state.intro = false;
+  if (state.level.intro && !state.seen[state.level.id]) openIntro();
+  else showDrawer(state.loadout.length === 0);
+}
+
+// ---------- The new-challenge card ----------
+
+/** The cells the card points at: what is new here, never where the answer is. */
+function spotCells() {
+  const { intro } = state.level, f = state.preview.frames[0], { w, h } = state.world, out = (intro.cells || []).slice(), want = intro.spot || '';
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (want.includes(f.cells[i]) || (want.includes('~') && f.wet[i] === '1')) out.push([x, y]);
+  }
+  for (const o of f.objs) if (want.includes(o.t)) out.push([o.x, o.y]);
+  return out;
+}
+
+function renderTryChips() {
+  const box = $('#inTry');
+  box.innerHTML = '';
+  for (const id of state.level.intro.tryIt) {
+    const s = SKILLS[id], b = document.createElement('button');
+    b.className = 'in-chip' + (state.loadout.includes(id) ? ' on' : '');
+    b.style.setProperty('--c', s.color);
+    b.innerHTML = `${svgIcon(id, '#fff')}${s.zh}`;
+    b.onclick = () => equipSuggested(id);
+    box.appendChild(b);
+  }
+}
+
+/** Equips a suggested skill, making room by dropping one the card did not suggest. */
+function equipSuggested(id) {
+  if (state.loadout.includes(id)) return;
+  if (state.loadout.length >= state.level.slots) {
+    const spare = state.loadout.find(s => !state.level.intro.tryIt.includes(s)) || state.loadout[state.loadout.length - 1];
+    toggleEquip(spare);
+  }
+  toggleEquip(id);
+  renderTryChips();
+}
+
+function openIntro() {
+  const { intro } = state.level;
+  showDrawer(false);
+  $('#inItems').innerHTML = intro.items.map((it, i) => {
+    const s = it.skill && SKILLS[it.skill];
+    return `<div class="in-item"><div class="in-pic" data-i="${i}"${s ? ` style="box-shadow:inset 0 0 0 2px ${s.color}"` : ''}>${s ? svgIcon(it.skill, s.color) : ''}</div><div><b>${s ? s.zh : it.name}</b><span>${it.text}</span></div></div>`;
+  }).join('');
+  intro.items.forEach((it, i) => { if (it.el) document.querySelector(`.in-pic[data-i="${i}"]`).appendChild(thumb(it.el)); });
+  $('#inAsk').textContent = intro.ask;
+  renderTryChips();
+  state.spots = spotCells();
+  state.intro = true;
+  // Sits on whichever edge hides the fewest of the cells it is pointing at.
+  const box = $('#intro'), stage = canvas.getBoundingClientRect();
+  const mean = state.spots.reduce((t, c) => t + py(c[1] + 0.5), 0) / Math.max(1, state.spots.length);
+  const hidden = side => {
+    box.className = 'show ' + side;
+    const r = box.getBoundingClientRect();
+    return state.spots.filter(([x, y]) => {
+      const cx = stage.left + px(x + 0.5), cy = stage.top + py(y + 0.5);
+      return cx > r.left && cx < r.right && cy > r.top && cy < r.bottom;
+    }).length;
+  };
+  const [first, second] = mean < view.h / 2 ? ['low', 'high'] : ['high', 'low'];
+  box.className = 'show ' + (hidden(second) < hidden(first) ? second : first);
+}
+
+function closeIntro() {
+  if (!state.intro) return;
+  state.intro = false;
+  $('#intro').className = '';
+  state.seen[state.level.id] = 1;
+  saveProgress();
+  if (!state.loadout.length) showDrawer(true);
+}
+
+function toPlan(force = false) {
+  if (state.mode === 'plan' && !force) return;
+  state.mode = 'plan';
+  state.result = null;
+  state.frameIndex = 0;
+  state.phase = state.frameT = state.fallRun = 0;
+  state.flood = state.keepStar = state.rise = null;
+  fluid.on = fluid.busy = false;
+  state.outcomeT = 0;
+  state.burned = {};
+  for (const list of ['particles', 'floats', 'rings', 'ripples', 'burns', 'ghosts', 'sucks', 'timers']) fx[list] = [];
+  fx.flame = fx.flash = null;
+  fx.shake = 0;
+  anim.mouth = anim.squash = anim.recoil = anim.dip = anim.dipV = 0;
+  anim.flip = 1;
+  if (state.preview) { resetActors(state.preview.frames[0]); anim.face = state.preview.frames[0].dir; }
+  hideBanner();
+  renderDock();
+}
+
+function startRun() {
+  closeIntro();
+  toPlan();
+  state.selected = null;
+  if (state.open) toast('有一个传送门没配对，这次不会生效');
+  state.result = simulate(state.level, state.plan);
+  state.mode = 'run';
+  state.frameIndex = 1;
+  resetActors(state.result.frames[0]);
+  beginFrame();
+  renderDock();
+}
+
+/** How long a step lasts. holdSeconds is the card's own moment, moveSeconds the runner's move, and the rest lets the world catch up. */
+/** How long the longest fall of this step takes. A bull only charges at what has already landed in front of it. */
+function dropSeconds(f) {
+  let n = 0;
+  for (const path of Object.values(f.paths || {})) if (!path.some(p => p[2] === 'charge')) n = Math.max(n, path.filter(p => p[2] === 'fall').length);
+  return Math.sqrt(2 * n / GRAVITY);
+}
+
+/** How long a charging bull takes to cover d cells: it accelerates at 130 up to its top speed of 24. */
+const chargeSeconds = d => (d < 2.2 ? Math.sqrt(d / 65) : 0.185 + (d - 2.2) / 24);
+
+function timeStep(f, prev, changed, wetChanged) {
+  const skill = f.echoOf || f.firedSkill, falling = f.how === 'fall' && !f.arc;
+  state.fallRun = falling ? state.fallRun + 1 : f.arc < 0 ? 1 : 0;
+  let move = WALK_SECONDS, hold = 0, react = 0;
+  if (f.arc) move = 0.21;
+  if (falling) move = Math.max(0.05, Math.sqrt(2 * state.fallRun / GRAVITY) - Math.sqrt(2 * (state.fallRun - 1) / GRAVITY));
+  if (f.how === 'float') move = 0.2;
+  if (f.bumped) move = 0.24;
+  if (f.teleported) move = 0.5;
+  if (skill === 'jump') hold = f.note === 'fizzle' ? 0.2 : 0.09;
+  if (skill === 'turn') hold = 0.14;
+  if (skill === 'fire') { hold = 0.68; react = 0.3; }
+  if (skill === 'gulp') hold = f.mouth === 'gulp' && f.belly === 'W' ? 0.5 + Math.min(0.8, wetChanged * 0.05) : f.mouth ? 0.44 : 0.22;   // It stays to finish drinking.
+  if (skill === 'decoy') hold = 0.4;
+  if (skill === 'flip') { hold = 0.16; react = 0.6; }
+  if (f.echoOf) hold += 0.08;
+  if (f.blasts) { hold = Math.max(hold, 0.12); react = Math.max(react, 0.55); }
+  if (f.charge) { hold = Math.max(hold, 0.3); react = Math.max(react, dropSeconds(f) + 0.22 + Math.abs(f.charge.to - f.charge.from) / 16); }
+  if (changed >= 3) react = Math.max(react, 0.5 + Math.min(0.5, changed * 0.03));
+  if (f.how === 'float') move = Math.max(move, react);   // Carried up by the water, so it rises as fast as the water does.
+  state.holdSeconds = hold;
+  state.moveSeconds = move;
+  state.stepSeconds = hold + Math.max(move, react);
+  state.frameT = 0;
+  return { hold, move };
+}
+
+/** Which rows water leaves and which it arrives at, so that a flood drains from the top and fills from the bottom. */
+function floodOf(f, prev) {
+  const w = state.world.w, inn = [], out = [];
+  for (let i = 0; i < f.wet.length; i++) {
+    if (f.wet[i] === prev.wet[i]) continue;
+    const y = Math.floor(i / w) * f.g;
+    (f.wet[i] === '1' ? inn : out).push(y);
+  }
+  return { inMin: Math.min(...inn), inSpan: Math.max(...inn) - Math.min(...inn) || 1, outMin: Math.min(...out), outSpan: Math.max(...out) - Math.min(...out) || 1 };
+}
+
+/** Hands this step's object paths to the actors; new objects start where the runner made them. */
+function feedActors(f, prev, hold) {
+  for (const o of f.objs) { const a = actors.get(o.id); if (a) a.o = o; }
+  for (const [id, path] of Object.entries(f.paths || {})) {
+    let a = actors.get(+id);
+    if (!a) {
+      const kept = path[0][2] === 'born' ? 'M' : path[0][2] === 'spit' ? prev.belly : null;   // Made and destroyed in one step: it still has to be seen.
+      const o = f.objs.find(q => q.id === +id) || (kept && { id: +id, t: kept, dir: prev.dir });
+      if (!o) continue;
+      const kind = path[0][2];
+      a = makeActor(o);
+      a.x = kind === 'spit' ? prev.x + prev.dir * 0.4 : path[0][0];
+      a.y = kind === 'spit' ? prev.y : path[0][1];
+      a.grow = kind === 'spit' ? 0.25 : 0.55;
+      actors.set(+id, a);
+    }
+    a.wait = Math.max(a.wait, f.charge && f.charge.id === +id ? hold + dropSeconds(f) : hold);
+    a.queue.push(...path);
+  }
+}
+
+function beginFrame() {
+  const f = state.result.frames[state.frameIndex], prev = state.result.frames[state.frameIndex - 1];
+  state.phase = 0;
+  const w = state.world.w, s = view.cell;
+  const rx = px(prev.x + 0.5), ry = py(prev.y + 0.5), hy = py(prev.y) - s * 0.35;
+  const skill = f.echoOf || f.firedSkill;
+  let changed = 0, wetChanged = 0, cooled = 0;
+  for (let i = 0; i < f.cells.length; i++) {
+    if (f.cells[i] === 'o' && prev.cells[i] === '&') cooled++;
+    if (f.wet[i] !== prev.wet[i]) wetChanged++;
+    else if (f.cells[i] !== prev.cells[i] && prev.cells[i] !== '*') changed++;
+  }
+  const { hold, move } = timeStep(f, prev, changed, wetChanged);
+  const drinking = f.mouth === 'gulp' && f.belly === 'W';
+  const sinking = Object.values(f.paths || {}).some(path => path.some(q => q[2] === 'sink' || q[2] === 'born'));
+  state.flood = wetChanged && sinking ? floodOf(f, prev) : null;
+  state.rise = null;
+  feedActors(f, prev, hold);
+  const flight = hold * 0.5, drop = dropSeconds(f), opens = new Map(), blast = f.bolt ? flight : hold + drop;
+  state.swapAt = f.blasts ? blast : hold;
+  const hitAt = x => hold + drop + chargeSeconds(Math.abs(x - f.charge.from));
+  const byBull = y => !!f.charge && y === f.charge.y;
+
+  if (f.firedAt) {
+    const card = SKILLS[f.firedSkill];
+    state.burned[f.firedAt] = performance.now();
+    const said = NOTE_TEXT[f.note] || (f.echoOf ? `${card.zh}·${SKILLS[f.echoOf].zh}` : card.zh);
+    const bad = f.note && !'gulp spit star lever stomp'.includes(f.note);
+    fx.floats.push({ x: rx, y: hy, text: f.echoOf && NOTE_TEXT[f.note] ? `回响·${said}` : said, color: bad ? '#ff8b8b' : card.color, life: 1 });
+    fx.rings.push({ x: rx, y: ry, r0: s * 0.3, r1: s * 0.9, life: 1, color: card.color, width: 4, decay: 3.4 });
+    burst(rx, ry, card.color, 10);
+    if (f.echoOf) for (let i = 1; i <= 3; i++) fx.rings.push({ x: rx, y: ry, r0: s * 0.2, r1: s * (0.8 + i * 0.5), life: 1 + i * 0.25, color: SKILLS.echo.color, width: 3, decay: 2.6 });
+  }
+  if (f.bolt) {
+    anim.recoil = 1;
+    startFlame(f.bolt, hold * 0.8);
+    const last = f.bolt[f.bolt.length - 1], [ex, ey] = rayEnd(last);
+    if (f.cells === prev.cells && !f.blasts) later(flight, () => burst(ex, ey, '#ff8a3d', 10));
+  }
+  if (f.firedAt && skill === 'flip') fx.flash = { color: '224,95,176', life: 1, power: 0.28 };
+  if (f.firedAt && skill === 'decoy') { anim.squash = 0.8; later(hold * 0.5, () => dust(rx, ry + s * 0.3, 12)); }
+
+  // Wood burns outward from where the flame landed; a bull just splinters it. Stars and brittle floor wait for the runner.
+  const fireEnd = f.bolt ? f.bolt[f.bolt.length - 1] : f.blasts ? f.blasts[0] : null;
+  for (let i = 0; i < f.cells.length; i++) {
+    if (f.cells[i] === prev.cells[i]) continue;
+    const cx = i % w, cy = (i - cx) / w;
+    if (prev.cells[i] === '=') {
+      if (byBull(cy)) {
+        fx.ghosts.push({ x: cx, y: cy, t: hitAt(cx), wood: true, color: ['#b07a4c', '#7d5730'] });
+        opens.set(i, hitAt(cx));
+      } else if (fireEnd) {
+        const from = f.bolt ? [fireEnd[2], fireEnd[3]] : fireEnd, starts = flight + Math.hypot(cx - from[0], cy - from[1]) * 0.06;
+        fx.burns.push({ x: cx, y: cy, t: -starts, dur: 0.6 });
+        opens.set(i, starts + 0.42);   // Water stands on wood until the wood under it has burned through.
+      } else later(hold + 0.08, () => chunks(cx, cy, ['#b07a4c', '#7d5730'], 10));
+    }
+    if (prev.cells[i] === '%') {
+      const gone = byBull(cy) ? hitAt(cx) : f.blasts ? blast : hold + move * 0.5;
+      fx.ghosts.push({ x: cx, y: cy, t: gone, color: ['#c0a584', '#8d7a60'] });
+      opens.set(i, gone);
+    }
+    if (prev.cells[i] === 'x') {
+      later(blast, () => chunks(cx, cy, ['#4a566c', '#2f384a'], 12));
+      opens.set(i, blast);
+    }
+    if (prev.cells[i] === '*') {
+      const sx = px(cx + 0.5), sy = py(cy + 0.5);
+      state.keepStar = [cx, cy];
+      later(hold + move * 0.72, () => {
+        state.keepStar = null;
+        fx.floats.push({ x: sx, y: sy - s * 0.5, text: '★', color: '#f5c542', life: 1 });
+        burst(sx, sy, '#ffe07a', 22, 1.2);
+        fx.rings.push({ x: sx, y: sy, r0: 4, r1: s * 0.9, life: 1, color: '#ffe07a', width: 3, decay: 3 });
+      });
+    }
+  }
+  if (f.blasts) f.blasts.forEach(([bx, by], i) => later(blast + i * 0.08, () => explosion(bx, by)));
+  if (f.charge) {
+    const { from, y } = f.charge, a = actors.get(f.charge.id);
+    later(Math.max(0.04, hold + drop - 0.3), () => {
+      if (a) fx.floats.push({ x: px(from + 0.5), y: py(y) - 4, text: '！', color: '#ffb03a', life: 1 });
+      dust(px(from + 0.5), py(y + 1), 8);
+    });
+  }
+
+  // Objects that left the world this step.
+  const crush = (a, x, y) => later(hold + move * 0.85, () => {
+    if (a) { a.squash = 1.2; a.dying = 0.12; }
+    anim.squash = 1;
+    for (let q = 0; q < 22; q++) spawn({ x: px(x + 0.5), y: py(y + 0.8), vx: (Math.random() - 0.5) * 320, vy: -Math.random() * 240, g: GRAVITY * s * 0.5, decay: 1.4, size: 3 + Math.random() * 4, color: '#7fe07a' });
+  });
+  const smash = (a, t, x, y) => {
+    const when = hitAt(x);
+    if (a) a.dying = when;
+    later(when, () => { chunks(x, y, t === 'M' ? ['#a9b2c2', '#6c7486'] : ['#b07a4c', '#7d5730'], 14); fx.shake = Math.max(fx.shake, 3); });
+  };
+  const spatOut = f.mouth === 'spit';
+  if (f.charge) for (const [id, path] of Object.entries(f.paths || {})) {
+    const a = actors.get(+id), [x, y] = path[path.length - 1];
+    if (a && +id !== f.charge.id && !f.objs.some(q => q.id === +id)) smash(a, a.o.t, x, y);
+  }
+  if (f.note === 'stomp' && prev.belly === 'E') crush(actors.get(+Object.keys(f.paths)[0]), f.x, f.y);
+  /** Where a thing that left the world ran into lava, if that is what happened to it. */
+  const burnt = o => {
+    const path = (f.paths || {})[o.id], end = path ? path[path.length - 1] : [o.x, o.y];
+    return prev.cells[end[1] * w + end[0]] === '&' ? end : null;
+  };
+  for (const o of prev.objs) {
+    if (f.objs.some(q => q.id === o.id)) continue;
+    const a = actors.get(o.id);
+    if (f.mouth === 'gulp') {
+      anim.mouth = 1;
+      actors.delete(o.id);
+      fx.sucks.push({ t: o.t, x: a ? a.x : o.x, y: a ? a.y : o.y, tx: prev.x, ty: prev.y, life: 1, rate: 1 / (hold * 0.9), dir: prev.dir });
+    } else if (f.note === 'stomp') {
+      crush(a, o.x, o.y);
+    } else if (f.blasts) {
+      if (a) a.dying = blast;
+    } else if (burnt(o)) {
+      const [lx, ly] = burnt(o), when = hold + drop + (f.charge && f.charge.id === o.id ? chargeSeconds(Math.abs(lx - f.charge.from)) : 0.2);
+      if (a) a.dying = when;
+      later(when, () => {
+        burst(px(lx + 0.5), py(ly + 0.3), '#ffb347', 18);
+        for (let q = 0; q < 12; q++) spawn({ x: px(lx + Math.random()), y: py(ly + 0.2), vy: -60 - Math.random() * 90, vx: (Math.random() - 0.5) * 50, decay: 1.3, size: 6 + Math.random() * 8, color: '#3a3f4a', puff: true });
+      });
+    } else if (a && a.o.t === 'U') {
+      a.dying = hold + 0.35;
+    } else if (f.charge) {
+      smash(a, o.t, o.x, o.y);
+    } else {
+      if (a) a.dying = flight;
+      later(flight, () => { burst(px(o.x + 0.5), py(o.y + 0.5), o.t === 'E' ? '#7fe07a' : '#d9a56b', 16); for (let q = 0; q < 10; q++) spawn({ x: px(o.x + 0.5), y: py(o.y + 0.5), vy: -80 - Math.random() * 100, vx: (Math.random() - 0.5) * 60, decay: 2, size: s * 0.2, flame: true }); });
+    }
+  }
+  if (f.mouth || spatOut) later(hold * 0.1, () => { anim.mouth = 1; });
+  if (spatOut) {
+    anim.recoil = 0.7;
+    const sx = rx + prev.dir * s, sy = ry;
+    later(hold * 0.6, () => { fx.rings.push({ x: sx, y: sy, r0: s * 0.2, r1: s * 0.8, life: 1, color: '#ffd27a', width: 4, decay: 3 }); burst(sx, sy, '#ffd27a', 10); });
+    if (prev.belly === 'W') for (let q = 0; q < 26; q++) later(Math.random() * hold, () => spawn({ x: rx + prev.dir * s * 0.3, y: ry, vx: prev.dir * (220 + Math.random() * 260), vy: -60 - Math.random() * 180, g: GRAVITY * s * 0.5, decay: 1.2, size: 3 + Math.random() * 3, color: '#9fdcff' }));
+  }
+  if (f.note === 'lever') later(hold + move * 0.6, () => {
+    fx.floats.push({ x: px(f.x + 0.5), y: py(f.y), text: '红蓝互换', color: '#d46be0', life: 1 });
+    burst(px(f.x + 0.5), py(f.y + 0.5), '#f2a5fb', 12);
+  });
+  if (f.teleported && f.via) {
+    later(hold + move * 0.42, () => {
+      burst(px(f.via[0] + 0.5), py(f.via[1] + 0.5), '#7fe6ff', 18);
+      fx.rings.push({ x: px(f.via[0] + 0.5), y: py(f.via[1] + 0.5), r0: s * 0.6, r1: 3, life: 1, color: '#7fe6ff', width: 4, decay: 3 });
+    });
+    later(hold + move * 0.6, () => {
+      burst(px(f.x + 0.5), py(f.y + 0.5), '#7fe6ff', 18);
+      fx.rings.push({ x: px(f.x + 0.5), y: py(f.y + 0.5), r0: 3, r1: s * 0.8, life: 1, color: '#7fe6ff', width: 4, decay: 3 });
+    });
+  }
+  // Take-off, landing, and little scuffs.
+  if (f.arc > 0 && !prev.arc) { anim.squash = 0.6; later(hold, () => dust(rx, py(prev.y + 1) - 2, 7)); }
+  if (f.landed) later(hold + move * 0.9, () => {
+    const under = (f.y + f.g) * w + f.x, power = Math.min(1, 0.45 + state.fallRun * 0.14);
+    anim.squash = power;
+    if (f.wet[under] === '1') { anim.dipV = 5 + power * 5; splash(px(f.x + 0.5), py(f.g > 0 ? f.y + 1 : f.y), 12); }
+    else dust(px(f.x + 0.5), py(f.y + (f.g > 0 ? 1 : 0)), 8);
+  });
+  if (f.bumped) later(hold + move * 0.5, () => burst(rx + prev.dir * s * 0.42, ry, '#c9d2e0', 5, 0.6));
+  if ((wetChanged || cooled) && !state.flood) startFluid(f, prev, opens, hold, drinking);
+  renderDock();
+}
+
+function endFrame() {
+  const over = Math.min(0.05, state.frameT - state.stepSeconds);   // Time spent waiting for water to settle belongs to that step alone.
+  state.frameIndex++;
+  if (state.frameIndex < state.result.frames.length) {
+    beginFrame();
+    state.frameT = over;
+    return;
+  }
+  {
+    state.frameIndex = state.result.frames.length - 1;
+    state.phase = 1;
+    state.mode = 'outcome';
+    state.outcomeT = 0;
+    const f = state.result.frames[state.frameIndex], o = state.result.outcome;
+    if (o === 'win') confetti(px(f.x + 0.5), py(f.y));
+    else if (o === 'loop' || o === 'timeout' || o === 'fell') fx.floats.push({ x: px(f.x + 0.5), y: py(f.y) - 8, text: '?', color: '#c9d2e0', life: 1 });
+    else {
+      fx.shake = Math.max(fx.shake, o === 'blast' ? 16 : 10);
+      fx.flash = { color: '255,70,70', life: 1, power: 0.3 };
+      if (o === 'laser' || o === 'lava') for (let q = 0; q < 20; q++) spawn({ x: px(f.x + 0.5), y: py(f.y + 0.5), vy: -60 - Math.random() * 80, vx: (Math.random() - 0.5) * 60, decay: 1.2, size: 6, color: '#3a3f4a', puff: true });
+    }
+    renderDock();
+  }
+}
+
+function finishRun() {
+  state.mode = 'done';
+  const r = state.result, level = state.level, best = BEST[level.id];
+  if (r.outcome === 'win' && state.demo) {
+    showBanner('win', '这就是最优解', `${best.cost} 气全星通关。自己再做一遍才算数`, '清空重来', () => clearCards(), r.stars);
+  } else if (r.outcome === 'win') {
+    state.stars[level.id] = Math.max(state.stars[level.id] || 0, r.stars);
+    const route = usedSkills(state.plan).join('+') || 'none';
+    const routes = state.routes[level.id] = state.routes[level.id] || [];
+    if (!routes.includes(route)) routes.push(route);
+    saveProgress();
+    renderLevels();
+    renderFound();
+    const last = state.index === LEVELS.length - 1, used = spent();
+    const text = `用了 ${used} 气` + (r.stars < 3 ? '，还有星星没拿到' : used <= best.cost ? '，这就是最优解！' : `，全星最优是 ${best.cost} 气`);
+    showBanner('win', '通关！', text, last ? '回到第一关' : '下一关', () => loadLevel(last ? 0 : state.index + 1), r.stars);
+  } else {
+    showBanner('lose', OUTCOME_TEXT[r.outcome], '卡都还在，改完再跑', '继续改卡', () => toPlan());
+  }
+  renderDock();
+}
+
+/** Lays the proven best plan on the map, so that every level can be checked at a click. Undo brings the player's cards back. */
+function showBest() {
+  const best = BEST[state.level.id];
+  closeIntro();
+  toPlan();
+  state.history.push({ plan: state.plan, open: state.open, loadout: state.loadout.slice() });
+  state.loadout = usedSkills(best.plan);
+  state.loadouts[state.level.id] = state.loadout;
+  state.lastLoadout = state.loadout;
+  setPlan(clonePlan(best.plan), null);
+  state.demo = true;
+  renderSlots();
+  renderLibrary();
+  renderDock();
+  showDrawer(false);
+  toast(`全星最优解：${best.cost} 气。按运行看它怎么走，撤销可还原`, true);
+}
+
+// ---------- DOM ----------
+
+function renderLevels() {
+  const nav = $('#levels');
+  nav.innerHTML = '';
+  LEVELS.forEach((l, i) => {
+    const b = document.createElement('button');
+    b.className = 'lv' + (i === state.index ? ' on' : '') + (l.hard ? ' hard' : '');
+    b.title = l.title + (l.hard ? '（复杂关）' : '');
+    b.innerHTML = `${i + 1}<span class="st">${starMarkup(state.stars[l.id] || 0)}</span>`;
+    b.onclick = () => loadLevel(i);
+    nav.appendChild(b);
+  });
+  const total = Object.values(state.stars).reduce((sum, n) => sum + n, 0);
+  $('#totalStars').textContent = `★ ${total} / ${LEVELS.length * 3}`;
+}
+
+function renderFound() {
+  const n = (state.routes[state.level.id] || []).length, known = KNOWN_ROUTES[state.level.id];
+  $('#found').textContent = n ? `已发现 ${n} 种卡组，至少有 ${Math.max(n, known)} 种` : `至少有 ${known} 种卡组能通关`;
+  $('#bestInfo').textContent = `全星最优 ${BEST[state.level.id].cost} 气`;
+}
+
+function renderSlots() {
+  if (!state.loadout.includes(state.selected)) state.selected = null;   // Undo and the best plan can swap the loadout out from under a selection.
+  const box = $('#slots');
+  box.innerHTML = '';
+  for (let i = 0; i < state.level.slots; i++) {
+    const id = state.loadout[i];
+    const el = document.createElement('div');
+    if (!id) {
+      el.className = 'slot empty';
+      el.innerHTML = '<b>+</b><span>装备技能</span>';
+      el.onclick = () => showDrawer(true);
+      box.appendChild(el);
+      continue;
+    }
+    const s = SKILLS[id];
+    el.className = 'slot';
+    el.dataset.skill = id;
+    el.style.setProperty('--c', s.color);
+    el.innerHTML = `<div class="band"><b class="count"></b><div class="pips">${'<i></i>'.repeat(s.cost)}</div></div>
+      <div class="art">${svgIcon(id, s.color)}</div><div class="name">${s.zh}</div><button class="drop" title="卸下">×</button>`;
+    el.title = s.desc;
+    el.addEventListener('pointerdown', e => {
+      if (e.target.classList.contains('drop')) return;
+      startSlotDrag(e, id, el);
+    });
+    el.querySelector('.drop').onclick = () => toggleEquip(id);
+    box.appendChild(el);
+  }
+}
+
+function renderLibrary() {
+  $('#equipCount').textContent = `已装备 ${state.loadout.length} / ${state.level.slots}`;
+  const box = $('#library');
+  box.innerHTML = '';
+  for (const id of SKILL_IDS) {
+    const s = SKILLS[id];
+    const b = document.createElement('button');
+    b.className = 'skill-row' + (state.loadout.includes(id) ? ' on' : '') + (state.level.intro && state.level.intro.tryIt.includes(id) ? ' try' : '');
+    b.style.setProperty('--c', s.color);
+    b.innerHTML = `${svgIcon(id, s.color)}<div class="t"><b>${s.zh}</b><small>${s.name}</small><p>${s.desc}</p></div><div class="pips">${'<i></i>'.repeat(s.cost)}</div>`;
+    b.onclick = () => toggleEquip(id);
+    box.appendChild(b);
+  }
+}
+
+function renderDock() {
+  const planning = state.mode === 'plan';
+  const total = state.level.qi, left = remaining();
+  const counts = {};
+  Object.values(state.plan.cards).forEach(k => { counts[k] = (counts[k] || 0) + 1; });
+  if (state.plan.portals.length || state.open) counts.portal = state.plan.portals.length + (state.open ? 1 : 0);
+  document.querySelectorAll('.slot[data-skill]').forEach(el => {
+    const id = el.dataset.skill;
+    el.classList.toggle('off', SKILLS[id].cost > left && !(id === 'portal' && state.open));
+    el.classList.toggle('sel', state.selected === id);
+    el.querySelector('.count').textContent = counts[id] ? '×' + counts[id] : '';
+  });
+
+  $('#qiValue').textContent = `${left} / ${total}`;
+  const colored = Object.keys(state.plan.cards).flatMap(k => Array(SKILLS[state.plan.cards[k]].cost).fill(SKILLS[state.plan.cards[k]].color))
+    .concat(Array(SKILLS.portal.cost * (state.plan.portals.length + (state.open ? 1 : 0))).fill(SKILLS.portal.color));
+  $('#qiPips').innerHTML = Array.from({ length: total }, (_, i) => `<i style="${colored[i] ? `background:${colored[i]}` : ''}"></i>`).join('');
+  $('#qiNote').textContent = state.open ? '还差一个门的出口' : '放下卡时扣气，撤回就退气';
+
+  const run = $('#run');
+  const running = state.mode === 'run' || state.mode === 'outcome';
+  run.textContent = running ? '■ 停止' : state.mode === 'done' ? '▶ 再跑一次' : '▶ 运行';
+  run.classList.toggle('stop', running);
+  $('#undo').disabled = !state.history.length;
+  $('#clear').disabled = !spent();
+  document.querySelectorAll('#speed button[data-s]').forEach(b => b.classList.toggle('on', +b.dataset.s === state.speed));
+  $('#pathBtn').classList.toggle('on', state.showPath);
+
+  const f = state.result ? state.result.frames[state.frameIndex] : null;
+  $('#stepText').textContent = planning ? '规划中' : `第 ${state.frameIndex} 步`;
+  $('#starText').innerHTML = f ? `<b>★ ${f.stars}</b>` : '';
+  $('#bellyText').textContent = f && f.belly ? `嘴里：${BELLY_TEXT[f.belly]}` : '';
+}
+
+function showBanner(kind, title, text, label, action, stars = 0) {
+  $('#bStars').innerHTML = kind === 'win' ? starMarkup(stars) : '';
+  $('#bTitle').textContent = title;
+  $('#bText').textContent = text;
+  $('#bBtn').textContent = label;
+  $('#bBtn').onclick = action;
+  $('#banner').className = 'show ' + kind;
+}
+function hideBanner() { $('#banner').className = ''; }
+
+let toastTimer = 0;
+function clearToast() { clearTimeout(toastTimer); $('#toast').classList.remove('show'); }
+function toast(text, info = false) {
+  const el = $('#toast');
+  el.textContent = text;
+  el.className = 'show' + (info ? ' info' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.classList.remove('show'); }, info ? 2600 : 1700);
+}
+
+// ---------- Drag and click ----------
+
+function ghostAt(x, y) { $('#ghost').style.transform = `translate(${x - 28}px, ${y - 28}px) rotate(-4deg)`; }
+
+function beginDrag(e, skill, from) {
+  closeIntro();
+  drag = { skill, from, startX: e.clientX, startY: e.clientY, moved: false };
+  const g = $('#ghost');
+  g.style.background = SKILLS[skill].color;
+  g.innerHTML = svgIcon(skill, '#fff');
+  ghostAt(e.clientX, e.clientY);
+}
+
+function startSlotDrag(e, skill, el) {
+  e.preventDefault();
+  const pairing = skill === 'portal' && state.open;
+  if (SKILLS[skill].cost > remaining() && !pairing) {
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+    toast(`气不够：${SKILLS[skill].zh}要 ${SKILLS[skill].cost} 气，只剩 ${remaining()} 气`);
+    return;
+  }
+  beginDrag(e, skill, null);
+}
+
+/** Returns { x, y } for a grid cell, null off the stage, or { x: -1 } on the stage but outside the grid. */
+function cellFromPoint(clientX, clientY) {
+  const r = canvas.getBoundingClientRect();
+  if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return null;
+  const x = Math.floor((clientX - r.left - view.ox) / view.cell), y = Math.floor((clientY - r.top - view.oy) / view.cell);
+  return x >= 0 && y >= 0 && x < state.world.w && y < state.world.h ? { x, y } : { x: -1, y: -1 };
+}
+
+window.addEventListener('pointermove', e => {
+  const c = cellFromPoint(e.clientX, e.clientY);
+  state.hover = c && c.x >= 0 ? c : null;
+  if (state.hover) {
+    const k = cellKey(c.x, c.y);
+    canvas.style.cursor = occupied(k) ? 'grab' : state.selected && canPlaceAt(state.level, state.world, c.x, c.y) ? 'copy' : 'default';
+  } else canvas.style.cursor = 'default';
+  showTip(e);
+  if (!drag) return;
+  canvas.style.cursor = 'grabbing';
+  if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 6) {
+    drag.moved = true;
+    $('#ghost').style.display = 'flex';
+  }
+  ghostAt(e.clientX, e.clientY);
+});
+
+window.addEventListener('pointerup', e => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  $('#ghost').style.display = 'none';
+  const c = cellFromPoint(e.clientX, e.clientY);
+  if (!d.moved) {
+    if (d.from !== null) removeAt(d.from);
+    else { state.selected = state.selected === d.skill ? null : d.skill; renderDock(); }
+    return;
+  }
+  if (c === null) { if (d.from !== null) removeAt(d.from); return; }
+  if (c.x < 0) return;
+  placeCard(c.x, c.y, d.skill, d.from);
+});
+
+window.addEventListener('pointercancel', () => { drag = null; $('#ghost').style.display = 'none'; });
+
+const running = () => state.mode === 'run' || state.mode === 'outcome';
+
+canvas.addEventListener('pointerdown', e => {
+  const c = cellFromPoint(e.clientX, e.clientY);
+  if (e.button !== 0 || !c || c.x < 0 || running() || state.intro) return;
+  const k = cellKey(c.x, c.y);
+  if (state.plan.cards[k] !== undefined) { e.preventDefault(); beginDrag(e, state.plan.cards[k], k); return; }
+  if (portalAt(state.plan, k) >= 0 || state.open === k) { e.preventDefault(); beginDrag(e, 'portal', k); return; }
+  if (state.selected) placeCard(c.x, c.y, state.selected);
+});
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const c = cellFromPoint(e.clientX, e.clientY);
+  if (c && c.x >= 0 && !running() && occupied(cellKey(c.x, c.y))) removeAt(cellKey(c.x, c.y));
+});
+
+/** Names whatever is under the pointer: with this many machines the legend alone is not enough. */
+function describeCell(x, y) {
+  const f = state.preview.frames[0], i = y * state.world.w + x;
+  const o = f.objs.find(q => q.x === x && q.y === y);
+  if (o && OBJ_TIPS[o.t]) return OBJ_TIPS[o.t];
+  if (f.wet[i] === '1') return '水：往低处流，落进哪个坑就先填满哪个坑，满了才漫出去。水面能踩，箱子会浮，替身会沉。站在岸边或水面上用吞吐，能把这片水喝光。';
+  return TIPS[f.cells[i]] || '';
+}
+
+function showTip(e) {
+  const tip = $('#tip'), text = state.hover && !drag && state.mode === 'plan' ? describeCell(state.hover.x, state.hover.y) : '';
+  tip.classList.toggle('show', !!text);
+  if (!text) return;
+  tip.textContent = text;
+  const r = $('#wrap').getBoundingClientRect();
+  const x = Math.min(e.clientX - r.left + 14, r.width - tip.offsetWidth - 8), y = Math.max(8, e.clientY - r.top - tip.offsetHeight - 10);
+  tip.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+// A focused button would also take the Space that starts a run.
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });
+
+$('#run').onclick = () => (state.mode === 'run' || state.mode === 'outcome' ? toPlan() : startRun());
+$('#undo').onclick = undo;
+$('#clear').onclick = clearCards;
+$('#openLib').onclick = () => showDrawer(true);
+$('#bestBtn').onclick = showBest;
+$('#inGo').onclick = closeIntro;
+$('#helpBtn').onclick = () => {
+  if (!state.level.intro) return;
+  toPlan();
+  if (state.intro) closeIntro(); else openIntro();
+};
+$('#closeDrawer').onclick = () => showDrawer(false);
+$('#pathBtn').onclick = () => { state.showPath = !state.showPath; renderDock(); };
+document.querySelectorAll('#speed button[data-s]').forEach(b => { b.onclick = () => { state.speed = +b.dataset.s; renderDock(); }; });
+
+window.addEventListener('keydown', e => {
+  if (state.intro) {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); closeIntro(); }
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    if (e.key === 'Enter' && state.mode === 'done' && state.result.outcome === 'win') $('#bBtn').click();
+    else $('#run').click();
+  } else if (e.key === 'Escape') {
+    state.selected = null;
+    showDrawer(false);
+    renderDock();
+  } else if (/^[1-4]$/.test(e.key)) {
+    const id = state.loadout[+e.key - 1];
+    if (id) { state.selected = state.selected === id ? null : id; renderDock(); }
+  }
+});
+
+// ---------- World drawing ----------
+
+const px = x => view.ox + x * view.cell;
+const py = y => view.oy + y * view.cell;
+
+function layout() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  view.w = r.width;
+  view.h = r.height;
+  const { w, h } = state.world;
+  view.cell = Math.max(8, Math.floor(Math.min(58, (r.width - 16) / w, (r.height - 40) / h)));
+  view.ox = Math.round((r.width - view.cell * w) / 2);
+  view.oy = Math.round((r.height - 18 - view.cell * h) / 2);
+}
+
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, Math.max(0, r)); }
+function hexAlpha(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+const hash = (x, y) => (((x + 3) * 73856093) ^ ((y + 7) * 19349663)) >>> 0;
+const mix = (a, b, t) => a + (b - a) * t;
+
+const sprites = {};
+/** A soft round glow, painted once per colour so that hundreds of particles stay cheap. */
+function glowSprite(color) {
+  if (sprites[color]) return sprites[color];
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, hexAlpha(color, 1));
+  r.addColorStop(0.35, hexAlpha(color, 0.5));
+  r.addColorStop(1, hexAlpha(color, 0));
+  g.fillStyle = r;
+  g.fillRect(0, 0, 64, 64);
+  sprites[color] = c;
+  return c;
+}
+function drawGlow(x, y, r, color, alpha = 1) {
+  ctx.globalAlpha = clamp01(alpha);
+  ctx.drawImage(glowSprite(color), x - r, y - r, r * 2, r * 2);
+  ctx.globalAlpha = 1;
+}
+
+function drawIcon(skill, x, y, size, color, width = 2.4) {
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke(ICON_PATHS[skill]);
+  ctx.restore();
+}
+
+const isTerrain = c => '#%=xo'.includes(c) || LASER_CHARS.includes(c);
+const chr = (fr, x, y) => (x < 0 || y < 0 || x >= state.world.w || y >= state.world.h ? '#' : fr.cells[y * state.world.w + x]);
+const floorSide = (fr, x, y) => (isTerrain(chr(fr, x, y + 1)) ? 1 : isTerrain(chr(fr, x, y - 1)) ? -1 : 1);
+
+function drawBackdrop() {
+  const g = ctx.createLinearGradient(0, 0, 0, view.h);
+  g.addColorStop(0, '#1c2536');
+  g.addColorStop(1, '#0e1219');
+  ctx.fillStyle = g;
+  ctx.fillRect(-20, -20, view.w + 40, view.h + 40);
+  const { w, h } = state.world, s = view.cell;
+  const room = ctx.createRadialGradient(view.w / 2, view.h * 0.42, s, view.w / 2, view.h * 0.42, Math.max(view.w, view.h) * 0.62);
+  room.addColorStop(0, '#2a3550');
+  room.addColorStop(1, '#141a26');
+  ctx.fillStyle = room;
+  ctx.fillRect(px(0), py(0), w * s, h * s);
+  ctx.fillStyle = 'rgba(255,255,255,.035)';
+  for (let y = 0; y <= h; y++) for (let x = 0; x <= w; x++) ctx.fillRect(px(x) - 1, py(y) - 1, 2, 2);
+}
+
+function drawStone(x, y, fr) {
+  const s = view.cell, l = px(x), t = py(y), h = hash(x, y);
+  ctx.fillStyle = ['#2d3648', '#303a4e', '#2a3343', '#333e53'][h % 4];
+  ctx.fillRect(l, t, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,.2)';
+  ctx.fillRect(l, t + Math.floor(s / 2), s, 1);
+  ctx.fillRect(l + s * (y % 2 ? 0.28 : 0.72), t, 1, s / 2);
+  ctx.fillRect(l + s * (y % 2 ? 0.72 : 0.28), t + s / 2, 1, s / 2);
+  ctx.fillStyle = 'rgba(255,255,255,.04)';
+  ctx.fillRect(l + (h >> 3) % (s - 4), t + (h >> 7) % (s - 4), 3, 2);
+  if (!isTerrain(chr(fr, x, y - 1))) {
+    ctx.fillStyle = '#6d7b95';
+    ctx.fillRect(l, t, s, 2);
+    ctx.fillStyle = '#4a566c';
+    ctx.fillRect(l, t + 2, s, 3);
+  }
+  if (!isTerrain(chr(fr, x, y + 1))) { ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(l, t + s - 4, s, 4); }
+  if (!isTerrain(chr(fr, x - 1, y))) { ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(l, t, 2, s); }
+  if (!isTerrain(chr(fr, x + 1, y))) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(l + s - 2, t, 2, s); }
+}
+
+function drawWoodTile(x, y, char = 0) {
+  const s = view.cell, l = px(x), t = py(y);
+  ctx.fillStyle = char ? `rgb(${mix(109, 30, char)},${mix(74, 20, char)},${mix(44, 16, char)})` : '#6d4a2c';
+  ctx.fillRect(l, t, s, s);
+  const plank = char ? `rgb(${mix(176, 44, char)},${mix(122, 28, char)},${mix(76, 20, char)})` : '#b07a4c';
+  ctx.fillStyle = plank;
+  for (let k = 0; k < 3; k++) ctx.fillRect(l + 1, t + 1 + k * s / 3, s - 2, s / 3 - 2);
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.fillRect(l + s * (x % 2 ? 0.3 : 0.65), t + 1, 2, s / 3 - 2);
+  ctx.fillRect(l + s * (x % 2 ? 0.7 : 0.25), t + 1 + s / 3, 2, s / 3 - 2);
+  ctx.fillRect(l + s * (x % 2 ? 0.45 : 0.8), t + 1 + 2 * s / 3, 2, s / 3 - 2);
+}
+
+function drawBrittle(x, y, trembling = false, now = 0) {
+  const s = view.cell, l = px(x) + (trembling ? Math.sin(now / 24 + x) * 1.4 : 0), t = py(y) + (trembling ? 1.5 : 0);
+  ctx.fillStyle = '#c0a584';
+  ctx.fillRect(l + 1, t + 1, s - 2, s - 2);
+  ctx.fillStyle = '#d6bf9f';
+  ctx.fillRect(l + 1, t + 1, s - 2, 3);
+  ctx.strokeStyle = '#5b4a34';
+  ctx.lineWidth = trembling ? 2.2 : 1.6;
+  ctx.beginPath();
+  const a = x * 7 % 3 / 10, b = (x * 5 + y) % 3 / 10;
+  ctx.moveTo(l + s * (0.15 + a), t + 1);
+  ctx.lineTo(l + s * (0.42 + b), t + s * 0.36);
+  ctx.lineTo(l + s * (0.3 + a), t + s * 0.62);
+  ctx.lineTo(l + s * (0.58 + b), t + s - 1);
+  ctx.moveTo(l + s * (0.42 + b), t + s * 0.36);
+  ctx.lineTo(l + s - 2, t + s * (0.24 + a));
+  ctx.stroke();
+}
+
+function drawLava(x, y, fr, now) {
+  const s = view.cell, l = px(x), t = py(y), h = hash(x, y), top = chr(fr, x, y - 1) !== '&';
+  const skin = top ? t + s * 0.14 : t;
+  const wave = q => skin + (top ? Math.sin(now / 620 + (x + q) * 2.4) * s * 0.035 : 0);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(l, t + s);
+  ctx.lineTo(l + s, t + s);
+  for (let q = 1; q >= 0; q -= 0.125) ctx.lineTo(l + s * q, wave(q));
+  ctx.closePath();
+  const heat = ctx.createLinearGradient(0, t, 0, t + s);
+  heat.addColorStop(0, top ? '#ffc23a' : '#f4641c');
+  heat.addColorStop(0.42, '#f4641c');
+  heat.addColorStop(1, '#a92a10');
+  ctx.fillStyle = heat;
+  ctx.fill();
+  ctx.clip();
+  // Dark skin that forms on the surface and drifts, slower than anything else in the game.
+  ctx.fillStyle = 'rgba(92,24,8,.5)';
+  for (let k = 0; k < 3; k++) {
+    const speed = 170 + ((h >> k) & 7) * 40, q = ((now / speed + (h >> (k * 3)) % 97) * 0.05) % 1.4 - 0.2;
+    ctx.beginPath();
+    ctx.ellipse(l + s * q, t + s * (0.3 + k * 0.24), s * (0.2 - k * 0.03), s * 0.06, 0, 0, 7);
+    ctx.fill();
+  }
+  if (top) {
+    ctx.strokeStyle = 'rgba(255,236,160,.9)';
+    ctx.lineWidth = Math.max(1.5, s * 0.035);
+    ctx.beginPath();
+    for (let q = 0; q <= 1; q += 0.125) ctx.lineTo(l + s * q, wave(q) + 1);
+    ctx.stroke();
+    const phase = (now / 1500 + (h % 100) / 100) % 1, bx = l + s * (0.2 + ((h >> 5) % 60) / 100);
+    if (phase < 0.8) {
+      ctx.fillStyle = 'rgba(255,214,110,.85)';
+      ctx.beginPath();
+      ctx.arc(bx, wave(0.5) + s * 0.08, s * 0.1 * phase, 0, 7);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+  if (top) {
+    drawGlow(l + s / 2, t + s * 0.2, s * 0.8, '#ff7a1a', 0.3);
+    if (state.mode !== 'plan' && Math.random() < 0.012) spawn({ x: l + Math.random() * s, y: skin, vx: (Math.random() - 0.5) * 18, vy: -24 - Math.random() * 40, decay: 0.9, size: 1.6 + Math.random() * 1.6, color: '#ffb347', add: true });
+  }
+}
+
+/** Rock that was lava a moment ago: black, and still glowing in the cracks. While water is still reaching it, the lava shows through. */
+function drawCooled(x, y, fr, now) {
+  const s = view.cell, l = px(x), t = py(y), h = hash(x, y), i = y * state.world.w + x;
+  const k = fluid.on && fluid.busy && fluid.crust[i] >= 0 ? fluid.crust[i] : 1;
+  if (k < 1) drawLava(x, y, fr, now);
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.fillStyle = ['#27252c', '#2b2830', '#242228'][h % 3];
+  ctx.fillRect(l, t, s, s);
+  ctx.fillStyle = '#5a5560';
+  if (!isTerrain(chr(fr, x, y - 1))) ctx.fillRect(l, t, s, 3);
+  ctx.strokeStyle = `rgba(255,120,50,${0.4 + Math.sin(now / 700 + h) * 0.14})`;
+  ctx.lineWidth = Math.max(1, s * 0.025);
+  ctx.beginPath();
+  const a = 0.2 + ((h >> 2) % 30) / 100, b = 0.3 + ((h >> 6) % 40) / 100;
+  ctx.moveTo(l + s * a, t + 2);
+  ctx.lineTo(l + s * (a + 0.16), t + s * b);
+  ctx.lineTo(l + s * (a - 0.04), t + s * 0.68);
+  ctx.lineTo(l + s * (a + 0.2), t + s);
+  ctx.moveTo(l + s * (a + 0.16), t + s * b);
+  ctx.lineTo(l + s * 0.96, t + s * (b + 0.14));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawCracked(x, y, fr, now) {
+  drawStone(x, y, fr);
+  const s = view.cell, l = px(x), t = py(y), glow = 0.55 + Math.sin(now / 500 + x + y) * 0.2;
+  ctx.strokeStyle = `rgba(255,160,70,${glow})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(l + s * 0.5, t);
+  ctx.lineTo(l + s * 0.38, t + s * 0.3);
+  ctx.lineTo(l + s * 0.62, t + s * 0.52);
+  ctx.lineTo(l + s * 0.42, t + s);
+  ctx.moveTo(l + s * 0.38, t + s * 0.3);
+  ctx.lineTo(l + s * 0.08, t + s * 0.42);
+  ctx.moveTo(l + s * 0.62, t + s * 0.52);
+  ctx.lineTo(l + s * 0.94, t + s * 0.66);
+  ctx.stroke();
+}
+
+/** Red and blue are one idea: the same block, solid or a ghost. solid runs from 0 to 1 so that a swap materialises. */
+function drawSwapBlock(c, x, y, solid, now) {
+  const s = view.cell, l = px(x), t = py(y), color = c === 'R' ? '#ef6a55' : '#5b97ff', dark = c === 'R' ? '#8f2e22' : '#274f9e';
+  if (solid < 0.98) {
+    ctx.save();
+    ctx.globalAlpha = 0.55 * (1 - solid);
+    ctx.strokeStyle = color;
+    ctx.setLineDash([4, 4]);
+    ctx.lineDashOffset = -now / 80;
+    ctx.lineWidth = 1.5;
+    rrect(l + 3, t + 3, s - 6, s - 6, s * 0.12);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (solid <= 0.02) return;
+  const q = s * (0.5 - 0.5 * solid) * 0.5;
+  ctx.save();
+  ctx.globalAlpha = clamp01(solid * 1.4);
+  const g = ctx.createLinearGradient(0, t, 0, t + s);
+  g.addColorStop(0, color);
+  g.addColorStop(1, dark);
+  ctx.fillStyle = g;
+  rrect(l + 1 + q, t + 1 + q, s - 2 - q * 2, s - 2 - q * 2, s * 0.14);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = 2;
+  rrect(l + s * 0.2 + q, t + s * 0.2 + q, s * 0.6 - q * 2, s * 0.6 - q * 2, s * 0.08);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawEmitter(c, x, y, now) {
+  const s = view.cell, l = px(x), t = py(y), [dx, dy] = EMITTERS[c];
+  ctx.fillStyle = '#1b1f28';
+  ctx.fillRect(l, t, s, s);
+  const g = ctx.createLinearGradient(l, t, l + s, t + s);
+  g.addColorStop(0, '#515a6c');
+  g.addColorStop(1, '#2a303c');
+  ctx.fillStyle = g;
+  rrect(l + s * 0.1, t + s * 0.1, s * 0.8, s * 0.8, s * 0.12);
+  ctx.fill();
+  const cx = l + s * (0.5 + dx * 0.28), cy = t + s * (0.5 + dy * 0.28);
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(cx, cy, s * 0.5, '#ff3b4e', 0.75 + Math.sin(now / 90) * 0.2);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#ffd9dd';
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.1, 0, 7);
+  ctx.fill();
+}
+
+function drawSpikes(x, y, side) {
+  const s = view.cell, l = px(x), base = side > 0 ? py(y + 1) : py(y);
+  for (let k = 0; k < 3; k++) {
+    const bx = l + s * (0.2 + 0.3 * k);
+    const g = ctx.createLinearGradient(0, base, 0, base - side * s * 0.66);
+    g.addColorStop(0, '#6d7486');
+    g.addColorStop(0.55, '#c9cede');
+    g.addColorStop(1, '#ff5a5a');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(bx - s * 0.15, base);
+    ctx.lineTo(bx, base - side * s * 0.66);
+    ctx.lineTo(bx + s * 0.15, base);
+    ctx.fill();
+  }
+}
+
+function starPath(r) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(Math.cos(a) * q, Math.sin(a) * q);
+  }
+  ctx.closePath();
+}
+
+function drawStar(cx, cy, r, now) {
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(cx, cy, r * 2.4, '#f5c542', 0.45 + Math.sin(now / 400 + cx) * 0.12);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.translate(cx, cy + Math.sin(now / 360 + cx) * 2);
+  ctx.rotate(Math.sin(now / 900 + cy) * 0.25);
+  const g = ctx.createLinearGradient(0, -r, 0, r);
+  g.addColorStop(0, '#fff2a8');
+  g.addColorStop(1, '#f2b21c');
+  ctx.fillStyle = g;
+  starPath(r);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDoor(x, y) {
+  const s = view.cell, l = px(x), t = py(y), open = anim.door;
+  const h = s * (1 - open);
+  if (h < 1) { ctx.fillStyle = 'rgba(224,184,79,.14)'; ctx.fillRect(l + s * 0.28, t, s * 0.44, 3); return; }
+  const g = ctx.createLinearGradient(l, 0, l + s, 0);
+  g.addColorStop(0, '#a87f2c');
+  g.addColorStop(0.5, '#f0cf6c');
+  g.addColorStop(1, '#a87f2c');
+  ctx.fillStyle = g;
+  ctx.fillRect(l + s * 0.28, t, s * 0.44, h);
+  ctx.fillStyle = 'rgba(90,60,10,.6)';
+  for (let k = s / 4; k < h; k += s / 4) ctx.fillRect(l + s * 0.28, t + k, s * 0.44, 2);
+}
+
+function drawLever(x, y, side) {
+  const s = view.cell, l = px(x), t = py(y), by = side > 0 ? t + s : t;
+  ctx.fillStyle = '#5a6579';
+  rrect(l + s * 0.28, side > 0 ? by - 6 : by, s * 0.44, 6, 2);
+  ctx.fill();
+  const tip = mix(-0.28, 0.28, anim.lever);   // A spring, so the handle overshoots and settles.
+  ctx.strokeStyle = '#d46be0';
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(l + s / 2, by - side * 5);
+  ctx.lineTo(l + s / 2 + tip * s, by - side * s * 0.62);
+  ctx.stroke();
+  ctx.fillStyle = '#f2a5fb';
+  ctx.beginPath();
+  ctx.arc(l + s / 2 + tip * s, by - side * s * 0.64, s * 0.1, 0, 7);
+  ctx.fill();
+}
+
+function drawFlag(x, y, side, now) {
+  const s = view.cell, l = px(x), t = py(y), by = side > 0 ? t + s : t, dir = side > 0 ? -1 : 1;
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(l + s * 0.45, by + dir * s * 0.55, s * 0.7, '#5cc96b', 0.3);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#e8ecf2';
+  ctx.fillRect(l + s * 0.66, Math.min(by, by + dir * s * 0.98), 3, s * 0.98);
+  ctx.fillStyle = '#5cc96b';
+  ctx.beginPath();
+  const top = by + dir * s * 0.98;
+  ctx.moveTo(l + s * 0.66, top);
+  for (let i = 1; i <= 6; i++) ctx.lineTo(l + s * 0.66 - i * s * 0.09, top - dir * i * s * 0.035 + Math.sin(now / 150 + i) * s * 0.02);
+  for (let i = 6; i >= 0; i--) ctx.lineTo(l + s * 0.66 - i * s * 0.09, top - dir * (s * 0.42 - i * s * 0.035) + Math.sin(now / 150 + i) * s * 0.02);
+  ctx.fill();
+}
+
+function runnerStandsOn(x, y) {
+  const f = state.result && state.result.frames[state.frameIndex];
+  return !!f && f.x === x && f.y + f.g === y;
+}
+
+function drawCell(c, x, y, fr, now) {
+  const s = view.cell, l = px(x), t = py(y), side = floorSide(fr, x, y);
+  switch (c) {
+    case '#': drawStone(x, y, fr); break;
+    case '=': drawWoodTile(x, y); break;
+    case '%': drawBrittle(x, y, runnerStandsOn(x, y), now); break;
+    case 'x': drawCracked(x, y, fr, now); break;
+    case '(': case ')': case 'A': case 'V': drawEmitter(c, x, y, now); break;
+    case 'R': drawSwapBlock(c, x, y, 1 - clamp01(anim.lever), now); break;
+    case 'N': drawSwapBlock(c, x, y, clamp01(anim.lever), now); break;
+    case '^': drawSpikes(x, y, side); break;
+    case '&': drawLava(x, y, fr, now); break;
+    case 'o': drawCooled(x, y, fr, now); break;
+    case '*': drawStar(l + s / 2, t + s / 2, s * 0.28, now); break;
+    case '_': {
+      const h = s * mix(0.17, 0.06, anim.door);
+      ctx.fillStyle = '#7a6230';
+      ctx.fillRect(l + s * 0.06, side > 0 ? t + s - 3 : t, s * 0.88, 3);
+      ctx.fillStyle = '#ecc65a';
+      ctx.fillRect(l + s * 0.14, side > 0 ? t + s - h - 3 : t + 3, s * 0.72, h);
+      break;
+    }
+    case 'D': drawDoor(x, y); break;
+    case 'L': drawLever(x, y, side); break;
+    case 'F': drawFlag(x, y, side, now); break;
+  }
+}
+
+function drawCrate(l, t, s) {
+  const g = ctx.createLinearGradient(l, t, l, t + s);
+  g.addColorStop(0, '#d9a56b');
+  g.addColorStop(1, '#a9794a');
+  ctx.fillStyle = g;
+  rrect(l + 2, t + 2, s - 4, s - 4, 4);
+  ctx.fill();
+  ctx.strokeStyle = '#7d5730';
+  ctx.lineWidth = Math.max(2, s * 0.07);
+  ctx.beginPath();
+  ctx.rect(l + s * 0.16, t + s * 0.16, s * 0.68, s * 0.68);
+  ctx.moveTo(l + s * 0.16, t + s * 0.16);
+  ctx.lineTo(l + s * 0.84, t + s * 0.84);
+  ctx.moveTo(l + s * 0.84, t + s * 0.16);
+  ctx.lineTo(l + s * 0.16, t + s * 0.84);
+  ctx.stroke();
+}
+
+function drawBarrel(l, t, s, now) {
+  const g = ctx.createLinearGradient(l, 0, l + s, 0);
+  g.addColorStop(0, '#8c2f1e');
+  g.addColorStop(0.5, '#e8603f');
+  g.addColorStop(1, '#8c2f1e');
+  ctx.fillStyle = g;
+  rrect(l + s * 0.14, t + s * 0.08, s * 0.72, s * 0.86, s * 0.16);
+  ctx.fill();
+  ctx.fillStyle = '#3a2a22';
+  ctx.fillRect(l + s * 0.14, t + s * 0.24, s * 0.72, s * 0.06);
+  ctx.fillRect(l + s * 0.14, t + s * 0.72, s * 0.72, s * 0.06);
+  ctx.fillStyle = '#ffd34d';
+  ctx.beginPath();
+  ctx.moveTo(l + s / 2, t + s * 0.34);
+  ctx.lineTo(l + s * 0.67, t + s * 0.66);
+  ctx.lineTo(l + s * 0.33, t + s * 0.66);
+  ctx.fill();
+  ctx.fillStyle = '#3a2a22';
+  ctx.fillRect(l + s * 0.48, t + s * 0.44, s * 0.04, s * 0.12);
+  ctx.fillRect(l + s * 0.48, t + s * 0.59, s * 0.04, s * 0.04);
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(l + s * 0.5, t + s * 0.1, s * 0.16, '#ffb03a', 0.5 + Math.sin(now / 70 + l) * 0.4);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** A stone likeness of the runner: same build, eyes closed, with a little of the runner's own light still inside. */
+function drawDecoy(l, t, s, g, dir, now) {
+  const b = s * 0.72;
+  ctx.save();
+  ctx.translate(l + s / 2, t + s * (g > 0 ? 0.5 : 0.5));
+  ctx.scale(dir || 1, g > 0 ? 1 : -1);
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.47, b * 0.5, b * 0.075, 0, 0, 7);
+  ctx.fill();
+  ctx.fillStyle = '#5a6276';
+  rrect(-b * 0.4, b * 0.42, b * 0.34, b * 0.2, b * 0.08);
+  ctx.fill();
+  rrect(b * 0.06, b * 0.42, b * 0.34, b * 0.2, b * 0.08);
+  ctx.fill();
+  const stone = ctx.createLinearGradient(-b * 0.3, -b * 0.6, b * 0.25, b * 0.5);
+  stone.addColorStop(0, '#e6e9f0');
+  stone.addColorStop(0.45, '#b2b9c8');
+  stone.addColorStop(1, '#727b90');
+  ctx.fillStyle = stone;
+  rrect(-b / 2, -b * 0.58, b, b * 1.06, b * 0.3);
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  // Chisel marks and the wear of being stone.
+  ctx.fillStyle = 'rgba(62,70,90,.16)';
+  ctx.beginPath();
+  ctx.moveTo(-b * 0.5, b * 0.18);
+  ctx.lineTo(-b * 0.12, b * 0.5);
+  ctx.lineTo(-b * 0.5, b * 0.5);
+  ctx.moveTo(b * 0.5, -b * 0.14);
+  ctx.lineTo(b * 0.5, b * 0.5);
+  ctx.lineTo(b * 0.1, b * 0.5);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(40,46,60,.28)';
+  for (const [x, y, r] of [[-0.3, -0.2, 0.022], [-0.17, 0.12, 0.016], [0.28, 0.24, 0.02], [0.04, 0.3, 0.014], [-0.33, 0.3, 0.018], [0.34, -0.38, 0.014]]) {
+    ctx.beginPath();
+    ctx.arc(b * x, b * y, b * r, 0, 7);
+    ctx.fill();
+  }
+  // Moss at the foot, on the side the weather reaches.
+  ctx.fillStyle = 'rgba(112,158,92,.72)';
+  for (const [x, y, r] of [[-0.42, 0.42, 0.12], [-0.26, 0.47, 0.1], [-0.12, 0.5, 0.075], [-0.46, 0.28, 0.07]]) {
+    ctx.beginPath();
+    ctx.arc(b * x, b * y, b * r, 0, 7);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,.5)';
+  ctx.lineWidth = Math.max(1.2, b * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(-b * 0.34, -b * 0.47);
+  ctx.quadraticCurveTo(-b * 0.1, -b * 0.53, b * 0.16, -b * 0.5);
+  ctx.stroke();
+  ctx.strokeStyle = '#495166';
+  ctx.lineWidth = Math.max(1.4, b * 0.035);
+  rrect(-b / 2, -b * 0.58, b, b * 1.06, b * 0.3);
+  ctx.stroke();
+  // A crack running in from the edge, with the light behind it.
+  const glow = 0.72 + Math.sin(now / 520) * 0.18;
+  const crack = () => {
+    ctx.beginPath();
+    ctx.moveTo(-b * 0.5, -b * 0.02);
+    ctx.lineTo(-b * 0.33, b * 0.04);
+    ctx.lineTo(-b * 0.27, -b * 0.05);
+    ctx.lineTo(-b * 0.13, b * 0.03);
+    ctx.moveTo(-b * 0.33, b * 0.04);
+    ctx.lineTo(-b * 0.29, b * 0.17);
+  };
+  drawGlow(-b * 0.27, b * 0.03, b * 0.24, '#ffd76a', 0.34 * glow);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#4f5568';
+  ctx.lineWidth = Math.max(1.6, b * 0.038);
+  crack();
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(255,219,120,${glow * 0.8})`;
+  ctx.lineWidth = Math.max(0.8, b * 0.014);
+  crack();
+  ctx.stroke();
+  // A carved, sleeping face, where the runner's would be.
+  ctx.strokeStyle = '#3f4659';
+  ctx.lineWidth = Math.max(1.5, b * 0.045);
+  ctx.beginPath();
+  ctx.arc(b * 0.2, -b * 0.26, b * 0.12, Math.PI * 0.12, Math.PI * 0.88);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(b * 0.14, -b * 0.03);
+  ctx.quadraticCurveTo(b * 0.26, b * 0.04, b * 0.38, -b * 0.03);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSlime(l, t, s, g, now, x) {
+  const wob = Math.sin(now / 260 + x) * 0.05, cy = g > 0 ? 0.66 : 0.34;
+  ctx.save();
+  ctx.translate(l + s / 2, t + s * cy);
+  ctx.scale(1 + wob, 1 - wob);
+  const f = ctx.createRadialGradient(-s * 0.1, -s * 0.1, 2, 0, 0, s * 0.42);
+  f.addColorStop(0, '#b4f5a8');
+  f.addColorStop(1, '#49b54c');
+  ctx.fillStyle = f;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.4, s * 0.31, 0, 0, 7);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.14, -s * 0.14, s * 0.08, s * 0.05, -0.5, 0, 7);
+  ctx.fill();
+  ctx.fillStyle = '#1d232e';
+  ctx.beginPath();
+  ctx.arc(-s * 0.12, 0, s * 0.055, 0, 7);
+  ctx.arc(s * 0.12, 0, s * 0.055, 0, 7);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBull(o, l, t, s, g, now) {
+  const charging = state.mode === 'run' && anim.chargeId === o.id;
+  ctx.save();
+  ctx.translate(l + s / 2, t + s * 0.56);
+  ctx.scale(o.dir, g > 0 ? 1 : -1);
+  if (charging) ctx.rotate(0.12);
+  else if (o.dazed) ctx.rotate(Math.sin(now / 120) * 0.05);
+  const body = ctx.createLinearGradient(0, -s * 0.4, 0, s * 0.4);
+  body.addColorStop(0, '#b56a4c');
+  body.addColorStop(1, '#6e3626');
+  ctx.fillStyle = body;
+  rrect(-s * 0.46, -s * 0.24, s * 0.72, s * 0.56, s * 0.18);
+  ctx.fill();
+  ctx.fillStyle = '#5a2c1e';
+  ctx.fillRect(-s * 0.36, s * 0.26, s * 0.14, s * 0.16);
+  ctx.fillRect(-s * 0.02, s * 0.26, s * 0.14, s * 0.16);
+  ctx.fillStyle = '#c47a58';
+  rrect(s * 0.06, -s * 0.36, s * 0.4, s * 0.46, s * 0.14);
+  ctx.fill();
+  ctx.strokeStyle = '#f2e6c8';
+  ctx.lineWidth = s * 0.075;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.14, -s * 0.34);
+  ctx.quadraticCurveTo(s * 0.1, -s * 0.5, s * 0.26, -s * 0.5);
+  ctx.moveTo(s * 0.36, -s * 0.34);
+  ctx.quadraticCurveTo(s * 0.42, -s * 0.5, s * 0.52, -s * 0.44);
+  ctx.stroke();
+  if (o.dazed) {
+    ctx.strokeStyle = '#2a1a14';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(s * 0.2, -s * 0.2);
+    ctx.lineTo(s * 0.32, -s * 0.1);
+    ctx.moveTo(s * 0.32, -s * 0.2);
+    ctx.lineTo(s * 0.2, -s * 0.1);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s * 0.27, -s * 0.15, s * 0.075, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = '#1d232e';
+    ctx.beginPath();
+    ctx.arc(s * 0.3, -s * 0.14, s * 0.04, 0, 7);
+    ctx.fill();
+    ctx.strokeStyle = '#3a1a10';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(s * 0.17, -s * 0.27);
+    ctx.lineTo(s * 0.37, -s * 0.2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#e8a98d';
+  rrect(s * 0.24, -s * 0.06, s * 0.24, s * 0.14, s * 0.06);
+  ctx.fill();
+  ctx.restore();
+  if (o.dazed) {
+    ctx.fillStyle = '#ffe07a';
+    for (let i = 0; i < 3; i++) {
+      const a = now / 260 + i * 2.1;
+      ctx.save();
+      ctx.translate(l + s / 2 + Math.cos(a) * s * 0.3, t - s * 0.02 + Math.sin(a) * s * 0.09);
+      starPath(s * 0.08);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawObj(o, x, y, g, now) {
+  const s = view.cell, l = px(x), t = py(y);
+  if (o.t === 'B') drawCrate(l, t, s);
+  else if (o.t === 'X') drawBarrel(l, t, s, now);
+  else if (o.t === 'M') drawDecoy(l, t, s, g, o.dir, now);
+  else if (o.t === 'E') drawSlime(l, t, s, g, now, x);
+  else if (o.t === 'U') drawBull(o, l, t, s, g, now);
+}
+
+/** A row of chevrons showing what a bull can see, which is what it will charge. */
+function drawSights(fr, now) {
+  const s = view.cell;
+  for (const [x0, x1, y] of fr.sights) {
+    const dir = Math.sign(x1 - x0) || 1, n = Math.abs(x1 - x0);
+    ctx.strokeStyle = 'rgba(255,190,90,.34)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < n * 2; i++) {
+      const cx = px(x0 + 0.5 + dir * (0.7 + i / 2 + ((now / 900) % 0.5))), cy = py(y + 0.55);
+      if (dir > 0 ? cx > px(x1 + 0.15) : cx < px(x1 + 0.85)) continue;
+      ctx.beginPath();
+      ctx.moveTo(cx - dir * s * 0.07, cy - s * 0.1);
+      ctx.lineTo(cx + dir * s * 0.05, cy);
+      ctx.lineTo(cx - dir * s * 0.07, cy + s * 0.1);
+      ctx.stroke();
+    }
+  }
+}
+
+/** Water that arrives rises from the floor of its cell, deepest first; water that leaves sinks from the top, highest first. */
+function drawWater(fr, prev, k, now) {
+  const { w, h } = state.world, s = view.cell, fl = state.flood, g = fr.g;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    let on = fr.wet[i] === '1', was = prev.wet[i] === '1';
+    if (!on && (fr.wet[i - 1] === '1' || fr.wet[i + 1] === '1' || fr.wet[i - fr.g * w] === '1') && fr.objs.some(o => o.t === 'M' && o.y * w + o.x === i)) on = was = true;   // Sunk: the water closes round it.
+    if (!on && !(was && fl)) continue;
+    if (fluid.on && fluid.moving[i]) {
+      if (fluid.busy || !on) continue;
+      ctx.globalAlpha = fluid.fade;
+    } else ctx.globalAlpha = 1;
+    let fill = 1;
+    if (on !== was && fl) {
+      const depth = y * g;
+      if (on) fill = clamp01((k - (1 - (depth - fl.inMin) / fl.inSpan) * 0.62) / 0.38);
+      else fill = 1 - clamp01((k - ((depth - fl.outMin) / fl.outSpan) * 0.62) / 0.38);
+      if (fill <= 0) continue;
+    }
+    let depth = 0;
+    for (let d = 1; d < 6; d++) { const q = y - g * d; if (q >= 0 && q < h && fr.wet[q * w + x] === '1') depth = d; else break; }
+    const l = px(x), t = py(y), deep = depth / 5, height = s * fill, top = g > 0 ? t + s - height : t;
+    // Where water stops on open floor it ends in a rounded lip: only a wall can hold it square.
+    const over = y - g, surface = !(over >= 0 && over < h && (fr.wet[over * w + x] === '1'));
+    const free = q => surface && !(fr.wet[i + q] === '1') && waterOpen({ ...fr, w, h }, x + q, y);
+    const lipL = free(-1) ? s * 0.42 : 0, lipR = free(1) ? s * 0.42 : 0;
+    ctx.fillStyle = `rgba(${mix(70, 24, deep)},${mix(170, 84, deep)},${mix(240, 170, deep)},${0.64 + deep * 0.2})`;
+    if (lipL || lipR) {
+      ctx.beginPath();
+      ctx.roundRect(l, top, s, height, g > 0 ? [lipL, lipR, 0, 0] : [0, 0, lipR, lipL]);
+      ctx.fill();
+    } else ctx.fillRect(l, top, s, height);
+    ctx.fillStyle = 'rgba(200,235,255,.05)';
+    ctx.fillRect(l + ((now / 40 + x * 31 + y * 17) % s), top + height * 0.3, s * 0.3, 2);
+    if (fill >= 1 && !surface) continue;
+    const base = g > 0 ? top + 2 : top + height - 2;
+    ctx.strokeStyle = 'rgba(215,242,255,.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let q = 0; q <= 8; q++) {
+      const wx = l + lipL * 0.8 + (s - (lipL + lipR) * 0.8) * q / 8, wy = base + Math.sin(now / 300 + wx / 15) * 1.7;
+      if (q) ctx.lineTo(wx, wy); else ctx.moveTo(wx, wy);
+    }
+    ctx.stroke();
+  }
+}
+
+/** While a flood falls, a sheet of water hangs between where it left and where it lands. */
+/** Rays stop at the near face of whatever they hit, or at the centre of a portal they go into. */
+function rayEnd(seg) {
+  const [x0, y0, x1, y1] = seg, dx = Math.sign(x1 - x0), dy = Math.sign(y1 - y0);
+  const into = x1 >= 0 && y1 >= 0 && x1 < state.world.w && y1 < state.world.h && portalAt(state.plan, cellKey(x1, y1)) >= 0;
+  return into ? [px(x1 + 0.5), py(y1 + 0.5)] : [px(x1 + 0.5 - dx * 0.5), py(y1 + 0.5 - dy * 0.5)];
+}
+
+function drawBeams(fr, now, dt) {
+  const pulse = 0.8 + Math.sin(now / 70) * 0.2;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const seg of fr.beams) {
+    const [ex, ey] = rayEnd(seg), sx = px(seg[0] + 0.5), sy = py(seg[1] + 0.5);
+    for (const [width, color, alpha] of [[view.cell * 0.26, '#ff2a3d', 0.14], [view.cell * 0.12, '#ff3b4e', 0.4], [2, '#ffe3e6', 1]]) {
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = alpha * pulse;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    drawGlow(ex, ey, view.cell * 0.34, '#ff5a6a', pulse);
+    if (Math.random() < dt * 22) spawn({ x: ex, y: ey, vx: (Math.random() - 0.5) * 160, vy: (Math.random() - 0.5) * 160, size: 2, color: '#ffb0b8', add: true, decay: 3.2, g: 200 });
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/** Shows which plate works which door, since nothing else on the map says so. */
+function drawPlateLinks(fr) {
+  if (state.mode !== 'plan') return;
+  const { w } = state.world, plates = [], doors = [];
+  for (let i = 0; i < fr.cells.length; i++) {
+    if (fr.cells[i] === '_') plates.push(i);
+    if (fr.cells[i] === 'D') doors.push(i);
+  }
+  ctx.save();
+  ctx.strokeStyle = 'rgba(224,184,79,.3)';
+  ctx.setLineDash([2, 6]);
+  ctx.lineWidth = 2;
+  const at = i => [i % w, Math.floor(i / w)];
+  for (const a of plates) {
+    const [ax, ay] = at(a);
+    const near = doors.map(at).sort((p, q) => Math.hypot(p[0] - ax, p[1] - ay) - Math.hypot(q[0] - ax, q[1] - ay))[0];
+    if (!near) continue;
+    ctx.beginPath();
+    ctx.moveTo(px(ax + 0.5), py(ay + 0.5));
+    ctx.lineTo(px(near[0] + 0.5), py(near[1] + 0.5));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCard(skill, x, y, now, burnedAt, hovered, cold) {
+  if (burnedAt) return;
+  const s = view.cell, color = SKILLS[skill].color, bob = Math.sin(now / 420 + x * 1.3 + y) * 1.2;
+  const l = px(x) + s * 0.12, t = py(y) + s * 0.12 + bob, b = s * 0.76;
+  ctx.save();
+  ctx.globalAlpha = cold ? 0.5 : 0.96;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 12;
+  const g = ctx.createLinearGradient(0, t, 0, t + b);
+  g.addColorStop(0, hexAlpha(color, 1));
+  g.addColorStop(1, `rgba(0,0,0,.25)`);
+  ctx.fillStyle = color;
+  rrect(l, t, b, b, s * 0.15);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  rrect(l + 3, t + 2, b - 6, b * 0.3, s * 0.1);
+  ctx.fill();
+  drawIcon(skill, l + b / 2, t + b / 2, s * 0.54, '#fff');
+  ctx.restore();
+  if (hovered) {
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.beginPath();
+    ctx.arc(px(x) + s - 7, py(y) + 7, 7, 0, 7);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(px(x) + s - 10, py(y) + 4);
+    ctx.lineTo(px(x) + s - 4, py(y) + 10);
+    ctx.moveTo(px(x) + s - 4, py(y) + 4);
+    ctx.lineTo(px(x) + s - 10, py(y) + 10);
+    ctx.stroke();
+  }
+}
+
+function drawPortalEnd(k, color, now, lone) {
+  const [x, y] = parseKey(k), s = view.cell, cx = px(x + 0.5), cy = py(y + 0.5);
+  ctx.fillStyle = 'rgba(8,12,20,.72)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, s * 0.29, s * 0.41, 0, 0, 7);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(cx, cy, s * 0.7, color, 0.5);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.setLineDash(lone ? [6, 5] : []);
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.3, s * 0.42, 0, 0, 7);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 3; i++) {
+    const a = now / 240 + i * 2.09;
+    ctx.strokeStyle = hexAlpha(color, 0.75);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, s * 0.18, s * 0.28, 0, a, a + 1.2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCards(now) {
+  const planning = state.mode === 'plan';
+  for (const [k, skill] of Object.entries(state.plan.cards)) {
+    const [x, y] = parseKey(k);
+    const hovered = planning && !drag && state.hover && state.hover.x === x && state.hover.y === y;
+    if (drag && drag.moved && drag.from === k) continue;
+    drawCard(skill, x, y, now, state.burned[k], hovered, planning && !state.reached.has(k));
+    if (planning && chr(state.preview.frames[0], x, y) === '*') drawStar(px(x) + view.cell * 0.2, py(y + 1) - view.cell * 0.2, view.cell * 0.13, now);
+  }
+  state.plan.portals.forEach(([a, b], i) => {
+    const color = PORTAL_COLORS[i % PORTAL_COLORS.length];
+    drawPortalEnd(a, color, now, false);
+    drawPortalEnd(b, color, now, false);
+    if (planning) {
+      const [ax, ay] = parseKey(a), [bx, by] = parseKey(b);
+      ctx.save();
+      ctx.strokeStyle = hexAlpha(color, 0.35);
+      ctx.setLineDash([3, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px(ax + 0.5), py(ay + 0.5));
+      ctx.lineTo(px(bx + 0.5), py(by + 0.5));
+      ctx.stroke();
+      ctx.restore();
+    }
+  });
+  if (state.open) drawPortalEnd(state.open, PORTAL_COLORS[state.plan.portals.length % 2], now, true);
+}
+
+/** Where the runner's feet are during a step, k from 0 to 1, in cells. The run and the dotted preview share this curve. */
+function stepPoint(prev, f, k) {
+  const feet = q => q.y + (q.g > 0 ? 0.62 : 0.38);
+  if (f.teleported) return [f.x + 0.5, feet(f)];
+  const y0 = feet(prev), d = feet(f) - y0, x = prev.x + 0.5 + (f.x - prev.x) * k;
+  const half = (1 + k) / 2;
+  switch (f.arc) {
+    case 2: return [x, y0 + d * 2 * (1 - (1 - k / 2) ** 2)];            // A slime's throw is one parabola over four steps.
+    case 1: return [x, prev.arc === 2 ? y0 - d + d * 2 * (1 - (1 - half) ** 2) : y0 + d * (1 - (1 - k) ** 2)];
+    case -2: return [x, y0 + d * 2 * (k / 2) ** 2];
+    case -1: return [x, prev.arc === -2 ? y0 - d + d * 2 * half * half : y0 + d * k * k];
+  }
+  return [x, y0 + d * (f.how === 'fall' && prev.how !== 'fall' ? k * k : k)];
+}
+
+function drawPath() {
+  if (state.mode !== 'plan' || !state.showPath || !state.preview) return;
+  const frames = state.preview.frames, s = view.cell;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.38)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([2, 7]);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  frames.forEach((f, i) => {
+    if (i === 0) { const [x, y] = stepPoint(f, f, 1); ctx.moveTo(px(x), py(y)); return; }
+    const n = f.arc ? 6 : 1;
+    for (let q = 1; q <= n; q++) {
+      const [x, y] = stepPoint(frames[i - 1], f, q / n);
+      if (f.teleported) {
+        ctx.lineTo(px(f.via[0] + 0.5), py(f.via[1] + 0.62));
+        ctx.moveTo(px(x), py(y));
+      } else ctx.lineTo(px(x), py(y));
+    }
+  });
+  ctx.stroke();
+  ctx.restore();
+  const last = frames[frames.length - 1], [ex, ey] = stepPoint(last, last, 1);
+  const win = state.preview.outcome === 'win', color = win ? '#43d873' : '#ff5a5a';
+  const y = Math.max(py(0) + 8, Math.min(py(state.world.h) - 8, py(ey)));
+  ctx.globalCompositeOperation = 'lighter';
+  drawGlow(px(ex), y, s * 0.42, color, 0.8);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(px(ex), y, Math.max(6, s * 0.13), 0, 7);
+  ctx.fill();
+}
+
+/** Says what a gulp on this cell would do, as things stand when the runner gets there, and lights up what it would take. */
+function drawGulpHint(x, y) {
+  const frames = state.preview.frames, fr = frames.find(f => f.x === x && f.y === y) || frames[0], { w, h } = state.world, s = view.cell, ax = x + fr.dir, below = y + fr.g;
+  const wetCell = (cx, cy) => cx >= 0 && cy >= 0 && cx < w && cy < h && fr.wet[cy * w + cx] === '1';
+  const thing = fr.objs.find(o => o.x === ax && o.y === y), names = { B: '箱子', X: '炸药桶', M: '替身', E: '史莱姆' };
+  const touch = [[ax, y], [ax, below], [x, below], [x, y], [x - fr.dir, below], [x - fr.dir, y]].find(([cx, cy]) => wetCell(cx, cy));
+  const lit = [];
+  let text = '这里够不着东西';
+  if (fr.belly) text = '吐到正前方';
+  else if (thing) {
+    text = thing.t === 'U' ? '蛮牛太大，吞不下' : `吞下${names[thing.t]}`;
+    lit.push([ax, y]);
+  } else if (touch) {
+    text = '喝光这片水';
+    const open = [touch], seen = new Set();
+    while (open.length) {
+      const [cx, cy] = open.pop(), k = cy * w + cx;
+      if (seen.has(k) || !wetCell(cx, cy)) continue;
+      seen.add(k);
+      lit.push([cx, cy]);
+      open.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+    }
+  }
+  ctx.save();
+  ctx.fillStyle = 'rgba(240,160,48,.32)';
+  for (const [cx, cy] of lit) ctx.fillRect(px(cx), py(cy), s, s);
+  ctx.font = `600 ${Math.max(12, s * 0.26)}px -apple-system, "PingFang SC", sans-serif`;
+  ctx.textAlign = 'center';
+  const tw = ctx.measureText(text).width, tx = Math.max(view.ox + tw / 2 + 12, Math.min(view.ox + w * s - tw / 2 - 12, px(x + 0.5))), ty = py(y) - s * 0.3;
+  ctx.fillStyle = 'rgba(16,20,28,.88)';
+  rrect(tx - tw / 2 - 8, ty - s * 0.26, tw + 16, s * 0.42, 6);
+  ctx.fill();
+  ctx.fillStyle = lit.length || fr.belly ? '#ffd27a' : '#c9d2e0';
+  ctx.fillText(text, tx, ty + s * 0.03);
+  ctx.restore();
+}
+
+function drawDropTarget() {
+  const skill = drag && drag.moved ? drag.skill : state.selected;
+  if (!skill || !state.hover) return;
+  const { x, y } = state.hover, s = view.cell, color = SKILLS[skill].color;
+  const ok = canPlaceAt(state.level, state.world, x, y);
+  ctx.save();
+  ctx.strokeStyle = ok ? color : '#e05555';
+  ctx.lineWidth = 3;
+  rrect(px(x) + 3, py(y) + 3, s - 6, s - 6, 7);
+  ctx.stroke();
+  ctx.fillStyle = hexAlpha(ok ? color : '#e05555', 0.28);
+  ctx.fill();
+  ctx.restore();
+  if (skill === 'gulp' && ok) drawGulpHint(x, y);
+  if (skill === 'portal' && state.open) {
+    const [ox, oy] = parseKey(state.open);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(49,199,232,.5)';
+    ctx.setLineDash([4, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px(ox - PORTAL_RANGE), py(oy - PORTAL_RANGE), s * (PORTAL_RANGE * 2 + 1), s * (PORTAL_RANGE * 2 + 1));
+    ctx.restore();
+  }
+}
+
+const onWater = f => f.wet[(f.y + f.g) * state.world.w + f.x] === '1';
+
+/** While droplets are still filling a basin, the runner rises exactly as fast as the surface under it. */
+function rising(f, prev) {
+  if (f.how !== 'float' || state.mode !== 'run' || !fluid.busy) return null;
+  const foot = 0.38 * f.g, low = prev.y + 0.5 + f.g * 0.12, high = f.y + 0.5 + f.g * 0.12;
+  const top = poolTop(f.x + 0.5, prev.y + 0.5);
+  if (state.rise === null) state.rise = low;
+  if (top !== null) {
+    const most = 5 * state.lastSdt, y = state.rise + Math.max(-most, Math.min(most, top - foot - state.rise));
+    state.rise = (y - high) * f.g < 0 ? high : y;
+  }
+  return [f.x + 0.5, state.rise];
+}
+
+function runnerPose(now, kr) {
+  const start = state.preview.frames[0];
+  if (state.mode === 'plan') {
+    const [x, y] = stepPoint(start, start, 1);
+    return { x, y: y + (onWater(start) ? Math.sin(now / 300) * 0.03 : 0), dir: start.dir, color: '#ffe36e', alpha: 1, rot: 0, belly: null, sx: 1, sy: 1, scale: 1, walk: 0, f: start };
+  }
+  const frames = state.result.frames, f = frames[state.frameIndex], prev = frames[state.frameIndex - 1] || f;
+  const moving = state.mode === 'run' ? kr : 1;
+  const [x, y] = rising(f, prev) ?? stepPoint(prev, f, moving);
+  const sip = state.mode === 'run' && f.sip && state.frameT < state.holdSeconds ? Math.sign(f.sip[0] - prev.x) : 0;   // It turns to whichever side the water is.
+  const walking = state.mode === 'run' && !f.arc && f.how === 'walk';
+  const pose = { x, y, dir: sip || (moving > 0.5 ? f.dir : prev.dir), color: '#ffe36e', alpha: 1, rot: walking ? prev.dir * 0.06 : 0, belly: moving > 0.3 ? f.belly : prev.belly, sx: 1, sy: 1, scale: 1, walk: state.frameIndex + moving, f };
+  if (walking) pose.y -= Math.abs(Math.sin(moving * Math.PI)) * 0.05;
+  if (f.teleported && state.mode === 'run') {
+    const feet = q => q + (f.g > 0 ? 0.62 : 0.38);
+    if (moving < 0.42) {
+      const q = moving / 0.42;
+      pose.x = mix(prev.x + 0.5, f.via[0] + 0.5, q);
+      pose.y = mix(feet(prev.y), feet(f.via[1]), q);
+      pose.scale = 1 - q * q * 0.9;
+      pose.rot = q * 2.4 * prev.dir;
+    } else if (moving < 0.6) pose.alpha = 0;
+    else { const q = (moving - 0.6) / 0.4; pose.scale = 0.1 + q * 0.9; pose.rot = (1 - q) * -2.4 * f.dir; }
+  }
+  if (f.bumped && state.mode === 'run') { pose.x += prev.dir * 0.14 * Math.sin(moving * Math.PI); pose.sx = 1 - 0.18 * Math.sin(moving * Math.PI); }
+  if (f.arc > 0) { pose.sx = 0.86; pose.sy = 1.16; }
+  else if (f.arc < 0) { pose.sx = 0.94; pose.sy = 1.08; }
+  else if (f.how === 'fall') { pose.sy = 1 + Math.min(0.24, state.fallRun * 0.05); pose.sx = 1 - Math.min(0.14, state.fallRun * 0.03); }
+  pose.x -= anim.recoil * 0.12 * pose.dir;
+  if (onWater(f) || f.how === 'float') pose.y += Math.sin(now / 300 + f.x) * 0.03 + anim.dip * 0.16 * f.g;
+  const squash = anim.squash * 0.3;
+  pose.sx *= 1 + squash;
+  pose.sy *= 1 - squash;
+  if (state.mode === 'outcome' || state.mode === 'done') {
+    const o = state.mode === 'done' ? 1 : clamp01(state.outcomeT);
+    pose.walk = 0;
+    switch (state.result.outcome) {
+      case 'lava': pose.color = '#ff8a3a'; pose.y += 0.55 * o * f.g; pose.alpha = 1 - o * o; break;
+      case 'spike': case 'slime': pose.color = '#ff7a6a'; pose.rot = 1.4 * f.dir * o; break;
+      case 'laser': pose.color = o > 0.5 ? '#40302a' : '#ff7a6a'; pose.sy *= 1 - 0.3 * o; break;
+      case 'bull': pose.color = '#ff7a6a'; pose.rot = 8 * o * f.dir; pose.y -= 2.4 * Math.sin(o * Math.PI); break;
+      case 'blast': pose.alpha = 0; break;
+      case 'fell': pose.alpha = 1 - o; break;
+      case 'win': pose.y -= 0.5 * 4 * ((o * 2) % 1) * (1 - (o * 2) % 1); break;
+      default: pose.color = '#a8a690';
+    }
+  }
+  return pose;
+}
+
+function drawRunner(p, now, sdt) {
+  if (p.alpha <= 0) return;
+  anim.face += (p.dir - anim.face) * (1 - Math.exp(-sdt * 18));   // Turning round is a quick pivot, not a jump cut.
+  const dir = anim.face >= 0 ? 1 : -1, s = view.cell * (p.belly ? 0.74 : 0.66);
+  ctx.save();
+  ctx.globalAlpha = p.alpha;
+  ctx.translate(px(p.x), py(p.y));
+  ctx.rotate(p.rot);
+  ctx.scale(p.sx * p.scale * Math.max(0.35, Math.abs(anim.face)), p.sy * p.scale * anim.flip);
+  const step = Math.sin(p.walk * Math.PI);
+  ctx.fillStyle = '#c98f14';
+  rrect(-s * 0.34 + step * s * 0.08, s * 0.3, s * 0.26, s * 0.12, 3);
+  ctx.fill();
+  rrect(s * 0.08 - step * s * 0.08, s * 0.3, s * 0.26, s * 0.12, 3);
+  ctx.fill();
+  const body = ctx.createLinearGradient(0, -s * 0.6, 0, s * 0.4);
+  body.addColorStop(0, p.color);
+  body.addColorStop(1, p.color === '#ffe36e' ? '#efae19' : '#7a4a3a');
+  ctx.fillStyle = body;
+  rrect(-s / 2, -s * 0.62, s, s, s * 0.3);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  rrect(-s * 0.36, -s * 0.56, s * 0.6, s * 0.16, s * 0.08);
+  ctx.fill();
+  if (p.belly) {
+    ctx.fillStyle = { B: '#a8784a', M: '#8a93a8', E: '#4fae4a', X: '#d9502f', W: '#3a94e0' }[p.belly];
+    rrect(-s * 0.32, -s * 0.28, s * 0.46, s * 0.46, s * 0.12);
+    ctx.fill();
+  }
+  const blink = Math.sin(now / 1700 + 1) > 0.985;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(dir * s * 0.2, -s * 0.34, s * 0.14, 0, 7);
+  ctx.fill();
+  ctx.fillStyle = '#1d232e';
+  if (blink) ctx.fillRect(dir * s * 0.2 - s * 0.12, -s * 0.35, s * 0.24, 2);
+  else {
+    ctx.beginPath();
+    ctx.arc(dir * s * 0.25, -s * 0.33, s * 0.075, 0, 7);
+    ctx.fill();
+  }
+  const open = Math.max(anim.mouth, state.mode === 'run' ? Math.abs(Math.sin(p.walk * 1.6)) * 0.2 : 0);
+  const mw = s * 0.32, mh = s * (0.06 + 0.32 * open), mx = dir > 0 ? s * 0.18 : -s * 0.18 - mw;
+  ctx.fillStyle = '#6e2a12';
+  rrect(mx, -s * 0.09 - mh / 2, mw, mh, s * 0.05);
+  ctx.fill();
+  if (open > 0.4) {
+    ctx.fillStyle = '#ff7f6a';
+    rrect(mx + s * 0.04, -s * 0.09 + mh * 0.1, mw - s * 0.08, mh * 0.3, 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---------- Loose things: they follow the rules a moment behind, under gravity ----------
+
+function makeActor(o) {
+  return { id: o.id, o, x: o.x, y: o.y, vx: 0, vy: 0, queue: [], wait: 0, hop: 0, hopV: 0, dip: 0, dipV: 0, squash: 0, tilt: 0, grow: 1, dying: null };
+}
+
+function resetActors(fr) {
+  actors.clear();
+  for (const o of fr.objs) actors.set(o.id, makeActor(o));
+}
+
+function land(a, fr) {
+  const v = Math.abs(a.vy), s = view.cell, g = fr.g, under = (Math.round(a.y) + g) * state.world.w + Math.round(a.x);
+  a.vy = 0;
+  if (v < 1.5) return;
+  const power = clamp01(v / 16), footY = py(Math.round(a.y) + (g > 0 ? 1 : 0)), footX = px(a.x + 0.5);
+  if (fr.wet[under] === '1') {
+    a.dipV = v * 0.5;
+    splash(footX, footY, 10 + power * 14);
+    return;
+  }
+  a.squash = 0.35 + power * 0.65;
+  a.hopV = -v * 0.17;
+  a.hop = -0.001;
+  dust(footX, footY, 6 + power * 8);
+  if (a.o.t === 'M' || a.o.t === 'U' || power > 0.5) fx.shake = Math.max(fx.shake, 2 + power * 5);
+}
+
+function advanceLeg(a, dt, fr) {
+  const [tx, ty, kind] = a.queue[0];
+  if (kind === 'born') { a.queue.shift(); return dt; }
+  if (kind === 'portal') {
+    a.x = tx;
+    a.y = ty;
+    a.grow = 0.2;
+    a.queue.shift();
+    burst(px(tx + 0.5), py(ty + 0.5), '#7fe6ff', 14);
+    return dt;
+  }
+  let speed = 1 / WALK_SECONDS;
+  if (kind === 'fall') {
+    a.vy += GRAVITY * dt;
+    speed = a.vy;
+    a.tilt = Math.max(-0.18, Math.min(0.18, a.tilt + (a.id % 2 ? 1 : -1) * dt * 0.8));
+  } else if (kind === 'sink') {
+    a.vy += (3.2 - a.vy) * Math.min(1, dt * 12);   // Water brakes a falling stone hard.
+    speed = a.vy;
+    if (Math.random() < dt * 24) spawn({ x: px(a.x + 0.2 + Math.random() * 0.6), y: py(a.y + 0.3), vy: -40 - Math.random() * 40, vx: (Math.random() - 0.5) * 16, decay: 1.4, size: 3, color: '#cfeeff' });
+  } else if (kind === 'float') speed = 5;
+  else if (kind === 'spit') speed = 7;
+  else if (kind === 'charge') {
+    a.vx = Math.min(24, a.vx + 130 * dt);
+    speed = a.vx;
+    a.tilt = 0;
+    if (Math.random() < dt * 40) dust(px(a.x + 0.5), py(a.y + 1), 2);
+  }
+  const dx = tx - a.x, dy = ty - a.y, dist = Math.hypot(dx, dy), go = speed * dt;
+  if (go < dist) {
+    a.x += dx / dist * go;
+    a.y += dy / dist * go;
+    return 0;
+  }
+  a.x = tx;
+  a.y = ty;
+  a.queue.shift();
+  const next = a.queue[0] && a.queue[0][2];
+  if (kind === 'fall' && next !== 'fall') {
+    if (next === 'sink') splash(px(a.x + 0.5), py(a.y + (fr.g > 0 ? 1 : 0)), 16);
+    else land(a, fr);
+  }
+  if (kind === 'sink' && next !== 'sink') { a.vy = 0; dust(px(a.x + 0.5), py(a.y + 1), 3); }
+  if (kind === 'float' && !next) a.dipV = -2.4;
+  if (kind === 'charge' && next !== 'charge') {
+    a.vx = 0;
+    a.squash = 1;
+    fx.shake = Math.max(fx.shake, 9);
+    burst(px(a.x + 0.5 + a.o.dir / 2), py(a.y + 0.5), '#ffe07a', 12);
+  }
+  return speed > 0 ? dt - dist / speed : 0;
+}
+
+/** Crates rise with the surface around them, not ahead of it. */
+function rideWater(a, fr) {
+  const g = fr.g, end = a.queue.filter(q => q[2] === 'float').pop()[1], top = poolTop(a.x + 0.5, a.y + 0.5);
+  if (top === null) return;
+  const y = g > 0 ? top - 1 : top;
+  if ((y - a.y) * g < 0) a.y = (y - end) * g < 0 ? end : y;
+  while (a.queue.length && a.queue[0][2] === 'float' && (a.y - a.queue[0][1]) * g <= 0.001) a.queue.shift();
+}
+
+function updateActors(dt, fr) {
+  for (const a of [...actors.values()]) {
+    if (a.dying !== null) {
+      a.dying -= dt;
+      if (a.dying <= 0) { actors.delete(a.id); continue; }
+    }
+    if (!(a.wait > 0 && a.queue.length && a.queue[0][2] === 'spit')) a.grow = Math.min(1, a.grow + dt * 5);
+    a.squash = Math.max(0, a.squash - dt * 6);
+    if (!a.queue.length || a.queue[0][2] !== 'fall') a.tilt *= Math.exp(-dt * 16);
+    if (a.hop !== 0 || a.hopV !== 0) {
+      a.hopV += GRAVITY * dt;
+      a.hop += a.hopV * dt;
+      if (a.hop >= 0) { a.hop = 0; a.hopV = a.hopV > 4 ? -a.hopV * 0.3 : 0; if (a.hopV) a.hop = -0.001; }
+    }
+    a.dipV += (-a.dip * 80 - a.dipV * 5) * dt;   // Buoyancy: a floating thing dips, rises past the surface and settles.
+    a.dip += a.dipV * dt;
+    if (a.wait > 0) { a.wait -= dt; continue; }
+    if (fluid.busy && a.queue.length && a.queue[0][2] === 'float') { rideWater(a, fr); continue; }
+    let left = dt;
+    while (left > 1e-6 && a.queue.length) left = advanceLeg(a, left, fr);
+  }
+}
+
+function drawActors(fr, now) {
+  const g = anim.flip >= 0 ? 1 : -1, s = view.cell, sign = fr.g;
+  for (const a of actors.values()) {
+    const cellY = Math.round(a.y), under = (cellY + fr.g) * state.world.w + Math.round(a.x);
+    const floating = a.o.t !== 'M' && a.o.t !== 'U' && fr.wet[under] === '1' && !a.queue.length;
+    const bob = floating ? Math.sin(now / 320 + a.x) * 0.035 : 0;
+    const charging = a.queue.length && a.queue[0][2] === 'charge';
+    const rearing = charging && a.wait > 0 && a.wait < 0.3;
+    anim.chargeId = charging && a.wait <= 0 ? a.id : null;
+    const y = a.y + sign * a.hop + a.dip * 0.12 * sign + bob, x = a.x - (rearing ? a.o.dir * 0.14 : 0);
+    const footX = px(x + 0.5), footY = py(y + (sign > 0 ? 1 : 0));
+    const sq = a.squash * 0.3 * (a.o.t === 'E' ? 2 : 1);
+    ctx.save();
+    ctx.translate(footX, footY);
+    ctx.rotate(a.tilt + (rearing ? -a.o.dir * 0.22 : 0));
+    ctx.scale((1 + sq) * a.grow, (1 - sq) * a.grow);
+    ctx.translate(-footX, -footY);
+    drawObj(a.o, x, y, g, now);
+    ctx.restore();
+  }
+  anim.chargeId = null;
+}
+
+// ---------- Water on the move ----------
+
+/*
+ * The rules move water in one go. Here that move is acted out by a small particle fluid (double-density relaxation, Clavet
+ * et al. 2005), so that it can be seen: a block of water drops as one, breaks on the floor, runs along it, pours through a
+ * hole and finds its level. It is a sketch for the eye, not a second set of rules: particles stay in the cells the water has
+ * to cross, and fr.wet is where every run of them ends. Distances are in cells and times in seconds.
+ */
+const FLUID = { spacing: 0.25, reach: 0.75, stiff: 400, near: 200, drag: 0.1, gravity: 28, sub: 4, edge: 0.1, topSpeed: 30, max: 1500, tick: 1 / 60, cling: 1, film: 14 };   // cling is surface tension, film the floor's drag on thin water.
+const FLUID_TEX = 16, FLUID_RADIUS = 0.48, FLUID_INK = 1;   // Texels per cell, how far a particle's ink spreads, and how much ink counts as water.
+const FLUID_PER_CELL = Math.round(1 / FLUID.spacing) ** 2;
+const FLUID_REST = (() => {   // What the starting lattice already has, so that a still pool stays still.
+  let sum = 0;
+  for (let i = -5; i <= 5; i++) for (let j = -5; j <= 5; j++) {
+    const q = Math.hypot(i, j) * FLUID.spacing / FLUID.reach;
+    if ((i || j) && q < 1) sum += (1 - q) ** 2;
+  }
+  return sum * 0.88;   // Allows for the near-pressure and the weight of the pool, so that it settles at the height of its cells.
+})();
+const fluid = { on: false, busy: false, fade: 0, n: 0, w: 0, h: 0 };
+
+function fluidBuffers(w, h) {
+  if (fluid.w === w && fluid.h === h) return;
+  const m = FLUID.max, floats = () => new Float32Array(m), fw = w * FLUID_TEX, fh = h * FLUID_TEX, cols = Math.ceil(w / FLUID.reach) + 2, rows = Math.ceil(h / FLUID.reach) + 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = fw;
+  canvas.height = fh;
+  const ink = canvas.getContext('2d');
+  Object.assign(fluid, { w, h, fw, fh, cols, rows, canvas, ink, img: ink.createImageData(fw, fh), field: new Float32Array(fw * fh), head: new Int32Array(cols * rows), next: new Int32Array(m), x: floats(), y: floats(), vx: floats(), vy: floats(), ox: floats(), oy: floats(), rho: floats(), nearRho: floats(), pairI: new Int32Array(m * 40), pairJ: new Int32Array(m * 40), pairQ: new Float32Array(m * 40), pairX: new Float32Array(m * 40), pairY: new Float32Array(m * 40), rock: new Uint8Array(w * h), lean: new Float32Array(w * h), moving: new Uint8Array(w * h), hot: new Uint8Array(w * h), crust: new Float32Array(w * h), count: new Int16Array(w * h), dist: new Int16Array(w * h) });
+}
+
+/** Water that is in the wrong place leans towards the nearest cell that still needs water, or towards the mouth while it is being drunk. */
+function fluidLean() {
+  const { w, h, goal, rock, hot, lean, count, dist, x, y, mouth } = fluid, size = w * h, queue = [];
+  count.fill(0);
+  for (let i = 0; i < fluid.n; i++) count[Math.floor(y[i]) * w + Math.floor(x[i])]++;
+  dist.fill(-1);
+  const seed = i => { dist[i] = 0; queue.push(i); };
+  if (mouth >= 0) seed(mouth);
+  else for (let i = 0; i < size; i++) if ((goal[i] === '1' || hot[i]) && !rock[i] && count[i] < FLUID_PER_CELL * 0.6) seed(i);
+  if (!queue.length) { lean.fill(0); return; }
+  const open = i => i >= 0 && i < size && !rock[i];
+  for (let q = 0; q < queue.length; q++) {
+    const c = queue[q], left = c % w > 0 ? c - 1 : -1, right = c % w < w - 1 ? c + 1 : -1;
+    for (const n of [left, right, c - w, c + w]) if (open(n) && dist[n] < 0) { dist[n] = dist[c] + 1; queue.push(n); }
+  }
+  const strength = hot.includes(1) ? 24 : 16;
+  for (let i = 0; i < size; i++) {
+    lean[i] = 0;
+    if (dist[i] <= 0 || (mouth < 0 && goal[i] === '1')) continue;
+    const l = i % w > 0 && dist[i - 1] >= 0 ? dist[i - 1] : 1e4, r = i % w < w - 1 && dist[i + 1] >= 0 ? dist[i + 1] : 1e4;
+    if (l < dist[i] || r < dist[i]) lean[i] = (l < r ? -1 : l > r ? 1 : 0) * strength * (1 + dist[i] * 0.2);
+  }
+}
+
+/** Every body of water this step touches: the ones nothing happens to just stay as they are. */
+function fluidBodies(f, prev) {
+  const { w, h } = state.world, size = w * h, mark = new Int32Array(size).fill(-1), moving = fluid.moving;
+  moving.fill(0);
+  const wet = i => f.wet[i] === '1' || prev.wet[i] === '1';
+  let id = 0;
+  for (let i = 0; i < size; i++) {
+    if (mark[i] >= 0 || !wet(i)) continue;
+    const body = [i];
+    let changed = false;
+    mark[i] = id;
+    for (let q = 0; q < body.length; q++) {
+      const c = body[q];
+      if (f.wet[c] !== prev.wet[c]) changed = true;
+      for (const n of [c % w > 0 ? c - 1 : -1, c % w < w - 1 ? c + 1 : -1, c - w, c + w]) if (n >= 0 && n < size && mark[n] < 0 && wet(n)) { mark[n] = id; body.push(n); }
+    }
+    if (changed) for (const c of body) moving[c] = 1;
+    id++;
+  }
+}
+
+function addDrop(x, y, vx, vy) {
+  if (fluid.n >= FLUID.max) return;
+  const i = fluid.n++;
+  fluid.x[i] = x;
+  fluid.y[i] = y;
+  fluid.vx[i] = vx;
+  fluid.vy[i] = vy;
+}
+
+function startFluid(f, prev, opens, hold, drinking) {
+  const { w, h } = state.world;
+  fluidBuffers(w, h);
+  fluidBodies(f, prev);
+  const here = { ...f, w, h }, before = { ...prev, w, h }, spat = f.mouth === 'spit' && prev.belly === 'W', spacing = FLUID.spacing, per = Math.round(1 / spacing);
+  fluid.crust.fill(-1);
+  for (let i = 0; i < w * h; i++) {
+    fluid.hot[i] = prev.cells[i] === '&' && f.cells[i] === 'o' ? 1 : 0;
+    if (fluid.hot[i]) fluid.crust[i] = 0;
+  }
+  fluid.n = 0;
+  fluid.opens = [];
+  let added = 0;
+  for (let i = 0; i < w * h; i++) {
+    const cx = i % w, cy = (i - cx) / w, open = (waterOpen(here, cx, cy) && f.cells[i] !== '&') || fluid.hot[i] === 1, was = waterOpen(before, cx, cy);
+    if (fluid.hot[i]) added++;
+    if (open && !was) fluid.opens.push({ i, at: opens.has(i) ? opens.get(i) : hold });
+    if (f.wet[i] === '1' && prev.wet[i] !== '1') added++;
+    fluid.rock[i] = open && was ? 0 : 1;
+    if (prev.wet[i] === '1' && open && was && fluid.moving[i]) {
+      for (let a = 0; a < per; a++) for (let b = 0; b < per; b++) addDrop(cx + (a + 0.5) * spacing, cy + (b + 0.5) * spacing, 0, 0);
+    }
+  }
+  const last = fluid.opens.reduce((t, o) => Math.max(t, o.at), hold), drops = added * FLUID_PER_CELL;
+  const walled = !waterOpen(here, prev.x + prev.dir, prev.y);   // With a wall in front of its mouth, the water wells up where the runner stands.
+  fluid.jet = spat ? { x: prev.x + 0.5 + (walled ? 0 : prev.dir * 0.6), y: prev.y + 0.5, dir: walled ? -prev.dir : prev.dir, left: drops, rate: drops * FLUID.tick / Math.min(1.6, Math.max(0.5, added * 0.12)), owed: 0, at: hold * 0.7 } : null;
+  fluid.sink = drinking ? { x: prev.x + 0.5 + (f.sip && f.sip[0] !== prev.x ? Math.sign(f.sip[0] - prev.x) : prev.dir) * 0.3, y: prev.y + 0.5, at: hold * 0.2 } : null;
+  Object.assign(fluid, { on: true, busy: true, fade: 0, t: 0, acc: 0, g: f.g, goal: f.wet, mouth: drinking ? prev.y * w + prev.x : -1, leanIn: 0, calm: 0, wakes: f.g !== prev.g ? hold : 0, settle: last + 0.3, limit: drinking ? hold : last + 4 });
+}
+
+function fluidJet() {
+  const j = fluid.jet;
+  if (!j || fluid.t < j.at || j.left <= 0) return;
+  j.owed += j.rate;
+  for (; j.owed >= 1 && j.left > 0; j.owed--, j.left--) {
+    const k = fluid.n, side = (k * 0.618) % 1;   // Spaced out across the mouth: drops born on top of each other would burst apart.
+    addDrop(j.x + j.dir * Math.random() * 0.12, j.y + (side - 0.5) * 0.5, j.dir * (3 + Math.random()), -fluid.g * Math.random());
+  }
+}
+
+/** Keeps a particle out of the walls; (ox, oy) is where it came from, which is always clear. */
+function fluidCollide(i) {
+  const { x, y, ox, oy, rock, w, h } = fluid, m = FLUID.edge;
+  const shut = (cx, cy) => cx < 0 || cy < 0 || cx >= w || cy >= h || rock[cy * w + cx] === 1;
+  let px0 = Math.floor(ox[i]), py0 = Math.floor(oy[i]), nx = Math.floor(x[i]), ny = Math.floor(y[i]);
+  if (nx !== px0 && shut(nx, py0)) { x[i] = nx > px0 ? nx - m : nx + 1 + m; nx = Math.floor(x[i]); }
+  if (ny !== py0 && shut(nx, ny)) { y[i] = ny > py0 ? ny - m : ny + 1 + m; ny = Math.floor(y[i]); }
+  if (shut(nx, ny)) { x[i] = ox[i]; y[i] = oy[i]; return; }
+  if (x[i] - nx < m && shut(nx - 1, ny)) x[i] = nx + m;
+  else if (nx + 1 - x[i] < m && shut(nx + 1, ny)) x[i] = nx + 1 - m;
+  if (y[i] - ny < m && shut(nx, ny - 1)) y[i] = ny + m;
+  else if (ny + 1 - y[i] < m && shut(nx, ny + 1)) y[i] = ny + 1 - m;
+}
+
+function fluidStep(dt) {
+  const { x, y, vx, vy, ox, oy, rho, nearRho, head, next, cols, rows, pairI, pairJ, pairQ, pairX, pairY, lean, rock, g, w, h } = fluid, { reach, stiff, near, drag, gravity, topSpeed } = FLUID, sink = fluid.sink && fluid.t >= fluid.sink.at ? fluid.sink : null;
+  for (let i = 0; i < fluid.n; i++) {
+    const dx = sink ? sink.x - x[i] : 0, dy = sink ? sink.y - y[i] : 0, r = Math.hypot(dx, dy) || 1;
+    if (sink && r < 2.7) {
+      vx[i] += (dx / r * 15 - vx[i]) * 14 * dt;   // Close to the mouth the suction beats gravity; further off, water just runs towards it.
+      vy[i] += (dy / r * 15 - vy[i]) * 14 * dt;
+    } else {
+      vy[i] += g * gravity * dt;
+      const cy = Math.floor(y[i]), cx = Math.floor(x[i]);
+      if (cy >= 0 && cy < h && cx >= 0 && cx < w) vx[i] += lean[cy * w + cx] * (sink ? 3 : 1) * dt;
+    }
+    ox[i] = x[i];
+    oy[i] = y[i];
+    x[i] += vx[i] * dt;
+    y[i] += vy[i] * dt;
+  }
+  head.fill(-1);
+  for (let i = 0; i < fluid.n; i++) {
+    const c = (Math.floor(y[i] / reach) + 1) * cols + Math.floor(x[i] / reach) + 1;
+    next[i] = head[c];
+    head[c] = i;
+    rho[i] = nearRho[i] = 0;
+  }
+  let pairs = 0;
+  for (let i = 0; i < fluid.n; i++) {
+    const gx = Math.floor(x[i] / reach) + 1, gy = Math.floor(y[i] / reach) + 1;
+    for (let cy = gy - 1; cy <= gy + 1; cy++) for (let cx = gx - 1; cx <= gx + 1; cx++) {
+      if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
+      for (let j = head[cy * cols + cx]; j >= 0; j = next[j]) {
+        if (j <= i) continue;
+        const dx = x[j] - x[i], dy = y[j] - y[i], r = Math.hypot(dx, dy);
+        if (r >= reach || r < 1e-5 || pairs >= pairI.length) continue;
+        const q = 1 - r / reach;
+        rho[i] += q * q;
+        rho[j] += q * q;
+        nearRho[i] += q * q * q;
+        nearRho[j] += q * q * q;
+        pairI[pairs] = i;
+        pairJ[pairs] = j;
+        pairQ[pairs] = q;
+        pairX[pairs] = dx / r;
+        pairY[pairs] = dy / r;
+        pairs++;
+      }
+    }
+  }
+  for (let e = 0; e < pairs; e++) {
+    const i = pairI[e], j = pairJ[e], q = pairQ[e], ux = pairX[e], uy = pairY[e];
+    const crowd = stiff * (rho[i] + rho[j] - 2 * FLUID_REST), push = dt * dt * q * 0.5 * ((crowd < 0 ? crowd * FLUID.cling : crowd) + near * (nearRho[i] + nearRho[j]) * q);
+    const closing = ((vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy) * drag * q * dt;
+    const d = push + Math.max(0, closing);
+    x[i] -= ux * d;
+    y[i] -= uy * d;
+    x[j] += ux * d;
+    y[j] += uy * d;
+  }
+  for (let i = fluid.n - 1; i >= 0; i--) {
+    fluidCollide(i);
+    const cell = Math.floor(y[i]) * w + Math.floor(x[i]);
+    if (fluid.hot[cell]) {   // It reaches the lava: gone in a hiss of steam, and a little more of the cell has turned to rock.
+      fluid.crust[cell] = Math.min(1, fluid.crust[cell] + 1.12 / FLUID_PER_CELL);
+      if (fluid.crust[cell] >= 1) { fluid.hot[cell] = 0; rock[cell] = 1; }
+      steam(x[i], y[i]);
+      const l = --fluid.n;
+      x[i] = x[l];
+      y[i] = y[l];
+      vx[i] = vx[l];
+      vy[i] = vy[l];
+      continue;
+    }
+    vx[i] = (x[i] - ox[i]) / dt;
+    vy[i] = (y[i] - oy[i]) / dt;
+    // A thin sheet of water drags on the floor under it, which is why it drops into a hole instead of leaping across.
+    const cx = Math.floor(x[i]), under = Math.floor(y[i] + g * 0.3);
+    if (rho[i] < FLUID_REST && under >= 0 && under < h && rock[under * w + cx]) vx[i] *= 1 - FLUID.film * dt;
+    const v = Math.hypot(vx[i], vy[i]);
+    if (v > topSpeed) { vx[i] *= topSpeed / v; vy[i] *= topSpeed / v; }
+    if (sink && Math.hypot(x[i] - sink.x, y[i] - sink.y) < 0.42) {
+      const l = --fluid.n;
+      x[i] = x[l];
+      y[i] = y[l];
+      vx[i] = vx[l];
+      vy[i] = vy[l];
+    }
+  }
+}
+
+function steam(cx, cy) {
+  if (Math.random() > 0.3) return;
+  spawn({ x: px(cx), y: py(cy), vx: (Math.random() - 0.5) * 60, vy: -70 - Math.random() * 110, g: -30, decay: 0.75, size: 7 + Math.random() * 9, color: '#e4ebf2', puff: true });
+}
+
+function fluidSettled(sdt) {
+  if (fluid.t < fluid.settle || fluid.opens.length || (fluid.jet && fluid.jet.left > 0)) return false;
+  if (fluid.sink || !fluid.n) return fluid.n === 0;
+  if (fluid.crust.some(c => c >= 0) && !fluid.hot.includes(1) && !fluid.goal.includes('1')) return true;   // All the lava has set and the rules say no water is left.
+  const { x, y, vx, vy, w, h, g } = fluid;
+  let speed = 0, stray = 0;
+  for (let i = 0; i < fluid.n; i++) {
+    speed += Math.abs(vx[i]) + Math.abs(vy[i]);
+    const cx = Math.floor(x[i]), low = Math.floor(y[i] + g * 0.35), cy = Math.floor(y[i]);   // A pool stands a little proud of its cells while it calms down.
+    if (cx < 0 || cx >= w || cy < 0 || cy >= h || (fluid.goal[cy * w + cx] !== '1' && (low < 0 || low >= h || fluid.goal[low * w + cx] !== '1'))) stray++;
+  }
+  const slow = speed / Math.max(1, fluid.n);
+  fluid.calm = slow < 1 ? fluid.calm + sdt : 0;
+  return (slow < 1.1 && stray <= Math.max(4, fluid.n * 0.015)) || (fluid.calm > 0.5 && stray <= fluid.n * 0.25);   // Still is still, even if a thin sheet never quite reached its cell.
+}
+
+function updateFluid(sdt) {
+  if (!fluid.on) return;
+  if (!fluid.busy) {
+    fluid.fade += sdt / 0.2;
+    if (fluid.fade >= 1) fluid.on = false;
+    return;
+  }
+  fluid.t += sdt;
+  fluid.opens = fluid.opens.filter(o => {
+    if (o.at > fluid.t) return true;
+    fluid.rock[o.i] = 0;
+    return false;
+  });
+  fluid.acc += sdt;
+  for (let ticks = 0; fluid.acc >= FLUID.tick && ticks < 10; ticks++) {
+    fluid.acc -= FLUID.tick;
+    if (fluid.t < fluid.wakes) continue;
+    if (--fluid.leanIn <= 0) { fluidLean(); fluid.leanIn = 10; }
+    fluidJet();
+    for (let k = 0; k < FLUID.sub; k++) fluidStep(FLUID.tick / FLUID.sub);
+  }
+  if (fluidSettled(sdt) || fluid.t > fluid.limit) fluid.busy = false;
+}
+
+/** The surface of the water standing on the floor below (cx, cy), or null. Water still falling is not standing on anything. */
+function poolTop(cx, cy) {
+  const { fw, fh, field, rock, w, g } = fluid, F = FLUID_TEX, tops = [];
+  const inside = y => y >= 0 && y < fh, solid = (x, y) => rock[Math.floor(y / F) * w + Math.floor(x / F)] === 1;
+  for (const off of [-0.28, 0, 0.28]) {
+    const x = Math.max(0, Math.min(fw - 1, Math.floor((cx + off) * F)));
+    let y = Math.floor(cy * F);
+    while (inside(y + g) && !solid(x, y + g)) y += g;
+    y -= g * 2;
+    if (!inside(y) || field[y * fw + x] < FLUID_INK) continue;
+    while (inside(y - g) && field[(y - g) * fw + x] >= FLUID_INK) y -= g;
+    tops.push(g > 0 ? y / F : (y + 1) / F);
+  }
+  if (!tops.length) return null;
+  tops.sort((a, b) => a - b);
+  return tops[tops.length >> 1];
+}
+
+/** Each particle leaves a soft blot of ink; where the blots add up past a threshold, that is water. */
+function drawFluid(alpha) {
+  const { x, y, field, fw, fh, img, ink, canvas, rock, w, g } = fluid, F = FLUID_TEX, d = img.data, r = FLUID_RADIUS * F, r2 = r * r;
+  field.fill(0);
+  const blot = (cx, cy) => {
+    const x0 = Math.max(0, Math.ceil(cx - r)), x1 = Math.min(fw - 1, Math.floor(cx + r)), y0 = Math.max(0, Math.ceil(cy - r)), y1 = Math.min(fh - 1, Math.floor(cy + r));
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const dq = (tx + 0.5 - cx) ** 2 + (ty + 0.5 - cy) ** 2;
+      if (dq < r2) { const q = 1 - dq / r2; field[ty * fw + tx] += q * q * q; }
+    }
+  };
+  for (let i = 0; i < fluid.n; i++) {
+    const cx = Math.floor(x[i]), row = Math.floor(y[i]) * w + cx;
+    blot(x[i] * F, y[i] * F);
+    // Reflected in the wall beside it, or the surface would curl away from every wall it meets.
+    if (x[i] - cx < FLUID_RADIUS && rock[row - 1]) blot((2 * cx - x[i]) * F, y[i] * F);
+    else if (cx + 1 - x[i] < FLUID_RADIUS && rock[row + 1]) blot((2 * cx + 2 - x[i]) * F, y[i] * F);
+  }
+  const soft = 0.22;
+  for (let tx = 0; tx < fw; tx++) {
+    let depth = 0;
+    const col = Math.floor(tx / F);
+    for (let k = 0; k < fh; k++) {
+      const ty = g > 0 ? k : fh - 1 - k, i = ty * fw + tx, p = i * 4, v = field[i];
+      if (v < FLUID_INK - soft || rock[Math.floor(ty / F) * w + col]) { depth = 0; d[p + 3] = 0; continue; }
+      depth++;
+      const edge = clamp01((v - FLUID_INK + soft) / (soft * 2));
+      if (depth === 1) { d[p] = 215; d[p + 1] = 242; d[p + 2] = 255; d[p + 3] = 245 * edge; continue; }
+      const deep = Math.min(1, depth / (5 * F));
+      d[p] = mix(70, 24, deep);
+      d[p + 1] = mix(170, 84, deep);
+      d[p + 2] = mix(240, 170, deep);
+      d[p + 3] = (0.72 + deep * 0.18) * 255 * edge;
+    }
+  }
+  ink.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, px(0), py(0), view.cell * w, view.cell * state.world.h);
+  ctx.restore();
+}
+
+// ---------- Particles and timed effects ----------
+
+function spawn(p) {
+  if (fx.particles.length > 900) return;
+  fx.particles.push(Object.assign({ life: 1, decay: 1.6, vx: 0, vy: 0, g: 0, size: 3, color: '#fff', add: false, spin: 0, rot: 0 }, p));
+}
+
+function burst(x, y, color, n, power = 1) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (50 + Math.random() * 130) * power;
+    spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50, color, size: 2 + Math.random() * 3, g: 260 });
+  }
+}
+
+/** Solid pieces of a broken cell: they fall under the same gravity as everything else and tumble. */
+function chunks(cx, cy, colors, n) {
+  const s = view.cell;
+  for (let i = 0; i < n; i++) {
+    spawn({ x: px(cx + Math.random()), y: py(cy + Math.random()), vx: (Math.random() - 0.5) * 150, vy: -Math.random() * 90, g: GRAVITY * s * 0.55, decay: 1.05, size: s * (0.12 + Math.random() * 0.2), color: colors[i % colors.length], spin: (Math.random() - 0.5) * 14 });
+  }
+}
+
+function dust(x, y, n = 6) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n - 0.5) * 2.4;
+    spawn({ x, y, vx: Math.sin(a) * (30 + Math.random() * 50), vy: -Math.random() * 28, color: '#9aa3b2', size: 3 + Math.random() * 3, decay: 2.6, puff: true });
+  }
+}
+
+const later = (seconds, fn) => fx.timers.push({ t: seconds, fn });
+
+function flameColor(life) {
+  if (life > 0.72) return '#fff4c2';
+  if (life > 0.5) return '#ffd25a';
+  if (life > 0.28) return '#ff8a2a';
+  return '#e0401e';
+}
+
+/** One flame particle along a line: it dies right where the line ends. */
+function flameDrop(x0, y0, x1, y1, speed, power = 1) {
+  const len = Math.hypot(x1 - x0, y1 - y0) || 1, dx = (x1 - x0) / len, dy = (y1 - y0) / len;
+  const v = speed * (0.75 + Math.random() * 0.5), wob = (Math.random() - 0.5) * 70;
+  spawn({ x: x0, y: y0, vx: dx * v - dy * wob, vy: dy * v + dx * wob - 12, decay: v / len * 0.92, size: (view.cell * 0.16 + Math.random() * view.cell * 0.14) * power, flame: true });
+}
+
+function startFlame(segs, duration) {
+  fx.flame = { segs: segs.map(seg => { const [ex, ey] = rayEnd(seg); return [px(seg[0] + 0.5), py(seg[1] + 0.5), ex, ey]; }), age: 0, duration };
+}
+
+function updateFlame(dt, sdt) {
+  const f = fx.flame;
+  if (!f) return;
+  f.age += sdt;
+  const length = f.segs.reduce((t, q) => t + Math.hypot(q[2] - q[0], q[3] - q[1]), 0);
+  const speed = Math.max(620, length / (f.duration * 0.5)) * state.speed;
+  const each = Math.ceil(dt * 420);
+  let delay = 0;
+  for (const seg of f.segs) {
+    if (f.age > delay) for (let i = 0; i < each; i++) flameDrop(seg[0] + Math.sign(seg[2] - seg[0]) * view.cell * 0.34, seg[1] - view.cell * 0.04, seg[2], seg[3], speed);
+    delay += f.duration * 0.25;
+  }
+  const [x, y] = [f.segs[0][0], f.segs[0][1]];
+  anim.mouth = 1;
+  anim.recoil = Math.max(anim.recoil, 0.8);
+  if (f.age > f.duration) fx.flame = null;
+  else if (Math.random() < dt * 40) spawn({ x, y: y - 6, vy: -40, vx: (Math.random() - 0.5) * 30, size: 5, color: '#5a5f6a', decay: 1.5, puff: true });
+}
+
+function explosion(cx, cy) {
+  const x = px(cx + 0.5), y = py(cy + 0.5), s = view.cell;
+  fx.shake = Math.max(fx.shake, 16);
+  fx.flash = { color: '255,236,190', life: 1, power: 0.55 };
+  fx.rings.push({ x, y, r0: s * 0.3, r1: s * 2.3, life: 1, color: '#ffe7a8', width: 7, decay: 3 });
+  for (let i = 0; i < 70; i++) {
+    const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 430;
+    spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, decay: 1.5 + Math.random() * 1.6, size: s * (0.14 + Math.random() * 0.3), flame: true });
+  }
+  for (let i = 0; i < 20; i++) {
+    const a = Math.random() * Math.PI * 2, v = 20 + Math.random() * 90;
+    spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, decay: 0.8 + Math.random() * 0.6, size: s * 0.2 + Math.random() * s * 0.2, color: '#4a4d57', puff: true });
+  }
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * Math.PI * 2, v = 140 + Math.random() * 420;
+    spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, g: GRAVITY * s * 0.5, decay: 0.8, size: 3 + Math.random() * 7, color: ['#6d4a2c', '#5a6579', '#8a93a8', '#a9764a'][i % 4], spin: (Math.random() - 0.5) * 16 });
+  }
+}
+
+function splash(x, y, n = 14) {
+  fx.ripples.push({ x, y, life: 1 });
+  for (let i = 0; i < n; i++) spawn({ x, y, vx: (Math.random() - 0.5) * 200, vy: -80 - Math.random() * 240, g: GRAVITY * view.cell * 0.5, color: '#9fdcff', size: 2 + Math.random() * 3, decay: 1.2 });
+}
+
+function confetti(x, y) {
+  for (let i = 0; i < 90; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.8, v = 180 + Math.random() * 420;
+    spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 520, decay: 0.55, size: 4 + Math.random() * 4, color: ['#f5c542', '#4c8dff', '#2fbfa5', '#e05fb0', '#ff6b3d', '#9ad44a'][i % 6], spin: (Math.random() - 0.5) * 18 });
+  }
+}
+
+function updateBurns(dt) {
+  for (const b of fx.burns) {
+    b.t += dt;
+    if (b.t < 0) { drawWoodTile(b.x, b.y); continue; }
+    const k = b.t / b.dur, l = px(b.x), t = py(b.y), s = view.cell;
+    ctx.globalAlpha = 1 - clamp01((k - 0.65) / 0.35);
+    drawWoodTile(b.x, b.y, clamp01(k * 1.5));
+    ctx.globalAlpha = 1;
+    if (k < 0.8) for (let i = 0; i < 2; i++) {
+      spawn({ x: l + Math.random() * s, y: t + s * (0.3 + Math.random() * 0.7), vx: (Math.random() - 0.5) * 34, vy: -90 - Math.random() * 130, decay: 2 + Math.random() * 1.6, size: s * (0.1 + Math.random() * 0.17), flame: true });
+    }
+    if (Math.random() < dt * 14) spawn({ x: l + Math.random() * s, y: t + Math.random() * s, vx: (Math.random() - 0.5) * 60, vy: -120 - Math.random() * 120, decay: 0.9, size: 2, color: '#ffb35c', add: true });
+    if (!b.ashed && k > 0.8) {
+      b.ashed = true;
+      for (let i = 0; i < 7; i++) spawn({ x: l + Math.random() * s, y: t + Math.random() * s, vy: 30 + Math.random() * 30, vx: (Math.random() - 0.5) * 30, g: 120, decay: 1.1, size: 2 + Math.random() * 3, color: '#3a3430' });
+    }
+  }
+  fx.burns = fx.burns.filter(b => b.t < b.dur);
+}
+
+/** A brittle tile that has already gone in the rules hangs on until the runner's foot has left it, then drops as pieces. */
+function updateGhosts(dt, now) {
+  for (const g of fx.ghosts) {
+    g.t -= dt;
+    if (g.t <= 0) chunks(g.x, g.y, g.color, 9);
+    else if (g.wood) drawWoodTile(g.x, g.y);
+    else drawBrittle(g.x, g.y, true, now);
+  }
+  fx.ghosts = fx.ghosts.filter(g => g.t > 0);
+}
+
+function drawSucks(dt) {
+  for (const q of fx.sucks) {
+    q.life -= dt * q.rate;
+    const k = 1 - clamp01(q.life), e = k * k, scale = 1 - e * 0.85;
+    ctx.save();
+    ctx.translate(px(mix(q.x, q.tx, e) + 0.5), py(mix(q.y, q.ty, e) + 0.5));
+    ctx.rotate(e * 2.4 * q.dir);
+    ctx.scale(scale * (1 - e * 0.3), scale * (1 + e * 0.4));   // Stretched as it goes down the throat.
+    ctx.translate(-px(0.5), -py(0.5));
+    drawObj({ t: q.t, dir: 1, dazed: false }, 0, 0, 1, performance.now());
+    ctx.restore();
+  }
+  fx.sucks = fx.sucks.filter(q => q.life > 0);
+}
+
+function drawEffects(dt, sdt) {
+  updateFlame(dt, sdt);
+  for (const r of fx.rings) {
+    r.life -= dt * r.decay;
+    const k = 1 - clamp01(r.life);
+    ctx.globalAlpha = clamp01(r.life);
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = Math.max(1, r.width * clamp01(r.life));
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, mix(r.r0, r.r1, 1 - (1 - k) * (1 - k)), 0, 7);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  fx.rings = fx.rings.filter(r => r.life > 0);
+  for (const r of fx.ripples) {
+    r.life -= dt * 1.8;
+    ctx.globalAlpha = clamp01(r.life) * 0.7;
+    ctx.strokeStyle = '#d7f2ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, (1 - r.life) * view.cell * 1.1 + 4, (1 - r.life) * view.cell * 0.18 + 1, 0, 0, 7);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  fx.ripples = fx.ripples.filter(r => r.life > 0);
+  for (const p of fx.particles) {
+    p.life -= dt * p.decay;
+    p.vy += p.g * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.rot += p.spin * dt;
+  }
+  fx.particles = fx.particles.filter(p => p.life > 0);
+  for (const p of fx.particles) {
+    if (p.flame || p.add) continue;
+    ctx.globalAlpha = clamp01(p.life * (p.puff ? 0.6 : 1.4));
+    ctx.fillStyle = p.color;
+    if (p.puff) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1.6 - p.life * 0.6), 0, 7);
+      ctx.fill();
+    } else if (p.spin) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.7);
+      ctx.restore();
+    } else ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of fx.particles) {
+    if (!p.flame && !p.add) continue;
+    if (p.flame) drawGlow(p.x, p.y, p.size * (0.7 + (1 - p.life) * 1.5), flameColor(p.life), clamp01(p.life * 1.5) * 0.85);
+    else drawGlow(p.x, p.y, p.size * 2, p.color, clamp01(p.life));
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.textAlign = 'center';
+  ctx.font = '700 15px -apple-system, "PingFang SC", sans-serif';
+  for (const f of fx.floats) {
+    f.life -= dt / 0.95;
+    f.y -= 30 * dt;
+    ctx.globalAlpha = clamp01(f.life * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(10,12,18,.8)';
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  fx.floats = fx.floats.filter(f => f.life > 0);
+}
+
+function drawOverlay(dt) {
+  const v = ctx.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * 0.45, view.w / 2, view.h / 2, Math.max(view.w, view.h) * 0.72);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,.42)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, view.w, view.h);
+  if (fx.flash) {
+    fx.flash.life -= dt * 3.4;
+    ctx.fillStyle = `rgba(${fx.flash.color},${clamp01(fx.flash.life) * fx.flash.power})`;
+    ctx.fillRect(0, 0, view.w, view.h);
+    if (fx.flash.life <= 0) fx.flash = null;
+  }
+}
+
+/** Dims the map except for what is new, so that the card can point without saying what to do. */
+const spotMask = document.createElement('canvas');
+function drawSpot(now) {
+  const s = view.cell, dpr = window.devicePixelRatio || 1;
+  if (spotMask.width !== canvas.width || spotMask.height !== canvas.height) { spotMask.width = canvas.width; spotMask.height = canvas.height; }
+  const m = spotMask.getContext('2d');
+  m.setTransform(dpr, 0, 0, dpr, 0, 0);
+  m.globalCompositeOperation = 'source-over';
+  m.clearRect(0, 0, view.w, view.h);
+  m.fillStyle = 'rgba(6,8,13,.66)';
+  m.fillRect(0, 0, view.w, view.h);
+  m.globalCompositeOperation = 'destination-out';
+  const hole = glowSprite('#ffffff'), r = s * 1.15;
+  for (const [x, y] of state.spots) for (let i = 0; i < 2; i++) m.drawImage(hole, px(x + 0.5) - r, py(y + 0.5) - r, r * 2, r * 2);
+  ctx.drawImage(spotMask, 0, 0, view.w, view.h);
+  const pulse = 0.5 + Math.sin(now / 260) * 0.3;
+  ctx.strokeStyle = `rgba(245,197,66,${pulse})`;
+  ctx.lineWidth = 2;
+  for (const [x, y] of state.spots) { rrect(px(x) + 1, py(y) + 1, s - 2, s - 2, 8); ctx.stroke(); }
+}
+
+/** One map element on a little canvas of its own, drawn with the game's own art. */
+function thumb(c) {
+  const out = document.createElement('canvas'), dpr = window.devicePixelRatio || 1, main = ctx, kept = { ...view }, size = 44;
+  out.width = out.height = size * dpr;
+  ctx = out.getContext('2d');
+  ctx.scale(dpr, dpr);
+  view.cell = 36;
+  view.ox = view.oy = 4;
+  const empty = ' '.repeat(state.world.w * state.world.h), fr = { cells: empty, wet: empty, lever: false, held: false, g: 1 };
+  const now = performance.now();
+  if ('BXE'.includes(c)) drawObj({ t: c, dir: 1, dazed: false }, 0, 0, 1, now);
+  else if (c === '}') drawObj({ t: 'U', dir: 1, dazed: false }, 0, 0, 1, now);
+  else if (c === '~') {
+    ctx.fillStyle = 'rgba(58,148,224,.9)';
+    ctx.fillRect(4, 14, 36, 26);
+    ctx.fillStyle = '#d7f2ff';
+    ctx.fillRect(4, 13, 36, 2);
+  } else if (c === 'N') drawSwapBlock(c, 0, 0, 1, now);
+  else if (c === 'R') drawSwapBlock(c, 0, 0, 1, now);
+  else if (c === '_') { ctx.translate(0, 12); drawCell(c, 0, 0, fr, now); }
+  else drawCell(c, 0, 0, fr, now);
+  ctx = main;
+  Object.assign(view, kept);
+  return out;
+}
+
+// ---------- The frame loop ----------
+
+function spring(key, target, dt, stiff = 170, damp = 15) {
+  const v = key + 'V';
+  anim[v] = (anim[v] || 0) + ((target - anim[key]) * stiff - anim[v] * damp) * dt;
+  anim[key] += anim[v] * dt;
+}
+
+function updateAnim(fr, shown, dt) {
+  const rate = 1 - Math.exp(-dt * 12);
+  anim.door += ((fr.held ? 1 : 0) - anim.door) * rate;
+  spring('lever', fr.lever ? 1 : 0, dt);
+  anim.flip += (shown.g - anim.flip) * (1 - Math.exp(-dt * 10));
+  anim.squash = Math.max(0, anim.squash - dt * 5);
+  anim.mouth = Math.max(fluid.busy && (fluid.sink || (fluid.jet && fluid.jet.left > 0)) ? 0.8 : 0, anim.mouth - dt * 3.4);
+  anim.recoil = Math.max(0, anim.recoil - dt * 5);
+  spring('dip', 0, dt, 70, 5);
+  fx.shake = Math.max(0, fx.shake - dt * 42);
+}
+
+let lastFrame = performance.now();
+function tick(now) {
+  requestAnimationFrame(tick);   // First, so that one bad frame cannot stop the game for good.
+  const dt = Math.min(0.05, (now - lastFrame) / 1000), sdt = dt * state.speed;
+  lastFrame = now;
+  state.lastSdt = sdt;
+  if (state.mode === 'run') {
+    state.frameT += sdt;
+    state.phase = state.frameT / state.stepSeconds;
+    if (state.frameT >= state.stepSeconds && !fluid.busy) endFrame();
+  } else if (state.mode === 'outcome') {
+    state.outcomeT += dt / 0.7;
+    if (state.outcomeT >= 1) finishRun();
+  }
+  for (const t of fx.timers) { t.t -= sdt; if (t.t <= 0) t.fn(); }
+  fx.timers = fx.timers.filter(t => t.t > 0);
+
+  const fr = state.mode === 'plan' ? state.preview.frames[0] : state.result.frames[state.frameIndex];
+  const prev = state.mode === 'plan' ? fr : state.result.frames[Math.max(0, state.frameIndex - 1)];
+  const inRun = state.mode === 'run', hold = state.holdSeconds, t = state.frameT;
+  const kw = inRun ? clamp01((t - hold) / Math.max(0.001, state.stepSeconds - hold)) : 1;
+  const kr = inRun ? clamp01((t - hold) / state.moveSeconds) : 1;
+  const shown = inRun && t < state.swapAt ? prev : fr;     // The world only changes once the card's own moment has passed.
+  updateFluid(sdt);
+  updateActors(sdt, fr);
+  const landed = ![...actors.values()].some(a => a.queue.length || a.wait > 0);
+  updateAnim(landed && kw >= 0.6 ? fr : prev, shown, sdt);
+
+  ctx.save();
+  if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake);
+  drawBackdrop();
+  const { w, h } = state.world;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = shown.cells[y * w + x];
+    if (c !== '.') drawCell(c, x, y, shown, now);
+  }
+  if (state.keepStar) drawStar(px(state.keepStar[0] + 0.5), py(state.keepStar[1] + 0.5), view.cell * 0.28, now);
+  updateBurns(sdt);
+  updateGhosts(sdt, now);
+  if (landed || !inRun || !state.rayFrame) state.rayFrame = shown;   // A beam is only cut once what cuts it has arrived.
+  drawPlateLinks(shown);
+  drawSights(state.rayFrame, now);
+  drawActors(fr, now);
+  drawSucks(sdt);
+  if (fluid.on) drawFluid(fluid.busy ? 1 : 1 - fluid.fade);
+  drawWater(fr, prev, kw, now);
+  ctx.globalAlpha = 1;
+  drawBeams(state.rayFrame, now, dt);
+  drawPath();
+  drawCards(now);
+  drawDropTarget();
+  drawRunner(runnerPose(now, kr), now, sdt);
+  drawEffects(dt, sdt);
+  ctx.restore();
+  drawOverlay(dt);
+  if (state.intro) drawSpot(now);
+}
+
+new ResizeObserver(() => { if (state.world) layout(); }).observe($('#wrap'));
+loadLevel(0);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
