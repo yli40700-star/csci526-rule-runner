@@ -11,13 +11,13 @@ using UnityEngine.UI;
 namespace RuleRunner.App
 {
     /// <summary>
-    /// The tutorial (T1-T5), a direct port of docs/proto/tutorial.html: same layout, stages, card reading,
+    /// The tutorial (T1-T4), a direct port of docs/proto/tutorial.html: same layout, stages, card reading,
     /// empty cards, picker, ghost loop, blinking, hints, intros and Next button. The AND guide (2-0) plays here too,
     /// a port of the guide in docs/proto/chapter2.html: AND cards get a second IF row (Ground 2 ahead) and cost 1 more.
     /// It is laid out in the chapter screen's frame (see Layout): same header, map scale, loadout and card design as the
     /// chapters, with Next and the list of lessons where the chapters have RUN and the run log. Coordinates are canvas units
     /// (top-left origin, y down). Only the Energy costs differ from the prototype: Big Jump costs 3 here, as in the
-    /// chapters, so T5 gives 4 Energy instead of 3.
+    /// chapters, so T4 gives 4 Energy instead of 3.
     /// It is also the title screen (docs/proto title.html): in title mode the header and the bottom are hidden, the map
     /// moves down under RULE RUNNER, and T1's demo (a title-only stage) loops at chapter speed. START slides the tutorial back
     /// in and goes on with T1, which starts with the card breaking; Skip tutorial starts chapter 1.
@@ -42,7 +42,9 @@ namespace RuleRunner.App
             public string Id, Map, Hint, NewAction, PulseOpt;
             public CardData[] Cards, BreakFrom;
             public string[] Ifs, If2s, Thens, Blink, Hints;
-            public bool Watch, NotIntro, NotChip, LockIf, Locked, Reorder, NewOrder, NewEnergy, NoBlink, NewAnd, AndChip;
+            public bool Watch, NotIntro, NotChip, LockIf, Locked, Reorder, NewOrder, NewEnergy, NoBlink, NewAnd, AndChip, NewTiles;
+            /// <summary>The tutorial lessons (T1, T2, T3, T4): quicker steps and a quicker card check (see Ms). Not the title demo or 2-0.</summary>
+            public bool Fast;
             /// <summary>Plays only as the title screen's demo; the tutorial itself skips it (no dot, never opened by T1).</summary>
             public bool TitleOnly;
             public int? Energy;
@@ -53,10 +55,10 @@ namespace RuleRunner.App
         static readonly string[] BaseIfs = { "ground", "pit", "spike" };
 
         /// <summary>Tutorial level id per stage: stage 0 is T1's watch part, stage 1 its fix part; the last two are 2-0's.</summary>
-        static readonly string[] StageLevel = { "T1", "T1", "T2", "T3", "T4", "T5", "2-0", "2-0" };
+        static readonly string[] StageLevel = { "T1", "T1", "T2", "T3", "T4", "2-0", "2-0" };
         const int TitleStage = 0;   // the T1 demo the title screen loops
 
-        /// <summary>Stages that play as one lesson (dots, Next): the tutorial T1-T5, and the AND guide on its own.</summary>
+        /// <summary>Stages that play as one lesson (dots, Next): the tutorial (T1, T2, T3, T4), and the AND guide on its own.</summary>
         static string Group(int i) => StageLevel[i].StartsWith("T") ? "T" : StageLevel[i];
 
         static readonly Stage[] Stages =
@@ -64,18 +66,22 @@ namespace RuleRunner.App
             // T1's demo now lives on the title screen, which loops it; T1 itself starts with the card breaking.
             new Stage { Id = "T1", Map = "gggpgggpggf", Cards = new[] { Cd("pit", "jump") }, Watch = true, TitleOnly = true },
             new Stage { Id = "T1", Map = "gggpggpggf", Cards = new[] { Cd(null, null) }, BreakFrom = new[] { Cd("pit", "jump") },
-                Ifs = new[] { "ground", "pit" }, Thens = new[] { "jump" } },
-            new Stage { Id = "T2", Map = "ggpggsggpggf", Cards = new[] { Cd("pit", "jump") }, Ifs = BaseIfs.Concat(new[] { "notground" }).ToArray(),
-                Thens = new[] { "jump" }, NotIntro = true, PulseOpt = "notground", Blink = new[] { "if" },
-                Hint = "Sometimes there is more than one kind of danger. Maybe we need a different way of thinking." },
-            new Stage { Id = "T3", Map = "ggssgggppggf", Cards = new[] { Cd(null, null) }, Ifs = BaseIfs, Thens = new[] { "jump", "bigjump" },
-                NotChip = true, NewAction = "bigjump",
-                Hints = new[] { "Spikes and pits are both \"not ground\".", "Both dangers are two tiles wide.", "Try: IF NOT Ground ahead, THEN Big Jump." } },
-            new Stage { Id = "T4", Map = "ggsgsggppggf", Cards = new[] { Cd("ground", "jump", true), Cd("pit", "jump") }, LockIf = true, Reorder = true,
+                Ifs = new[] { "ground", "pit" }, Thens = new[] { "jump" }, NewTiles = true, Fast = true },
+            // T2 has the NOT button from the start, as every later level does (no "NOT Ground ahead" option that turns into a
+            // button later). The NOT intro opens with the lesson; after the first fall a "These are NOT Ground!" label points
+            // at each danger.
+            new Stage { Id = "T2", Map = "ggpggsggpggf", Cards = new[] { Cd("pit", "jump") }, Ifs = BaseIfs, Thens = new[] { "jump" },
+                NotChip = true, NotIntro = true, Fast = true, PulseOpt = "ground", Blink = new[] { "if", "not" },
+                Hint = "Sometimes there is more than one kind of danger. Maybe we need a different way of thinking.",
+                Hints = new[] { "Pits and spikes are both NOT Ground.", "Pick Ground ahead for the IF, then tap NOT on the card.",
+                    "IF NOT Ground ahead THEN Jump." } },
+            // The old T3 (Big Jump) is gone and the later lessons moved up: Big Jump first shows up here as a ready-made card, and T3 only teaches the order.
+            // Both cards are locked; the one thing to do is move the Pit card to the front. T4 then teaches its cost.
+            new Stage { Id = "T3", Map = "ggsgsggppggf", Cards = new[] { Cd("ground", "jump", true), Cd("pit", "bigjump") }, Locked = true, Reorder = true, Fast = true,
                 NotChip = true, NewOrder = true, Thens = new[] { "jump", "bigjump" }, Hint = "Order matters.",
-                Hints = new[] { "At the pit, watch the pointer: which card does it stop at?", "Move the Pit card to the front, so it is read first.",
-                    "A normal Jump is too short for a two-tile pit: use Big Jump." } },
-            new Stage { Id = "T5", Map = "ggsgggppggf", Energy = 4, NewEnergy = true, NotChip = true, Reorder = true, NoBlink = true, Ifs = BaseIfs,
+                Hints = new[] { "At the pit, watch the pointer: which card does it stop at?", "The Pit card is never read: card 1 acts first.",
+                    "Move the Pit card to the front, so it is read first." } },
+            new Stage { Id = "T4", Map = "ggsgggppggf", Energy = 4, NewEnergy = true, Fast = true, NotChip = true, Reorder = true, NoBlink = true, Ifs = BaseIfs,
                 Thens = new[] { "jump", "bigjump" }, Cards = new[] { Cd("ground", "bigjump", true), Cd(null, null) },
                 Hint = "One card for every danger costs too much Energy. Does every danger need a Big Jump?",
                 Hints = new[] { "Watch the Energy bar: how much is left when you reach the pit?", "The spike only needs a normal Jump (1 Energy).",
@@ -118,7 +124,7 @@ namespace RuleRunner.App
         static Color ActColor(string a) => a == "jump" ? CJump : a == "bigjump" ? CBigJump : CLine;
 
         // ---------- layout ----------
-        // The tutorial uses the chapter screen's frame (GameScreen), in canvas units and unscaled, so going on from T5 to
+        // The tutorial uses the chapter screen's frame (GameScreen), in canvas units and unscaled, so going on from T4 to
         // 1-1 changes nothing on screen but the level: header 64 high; the map area under it; at the bottom (300 high) the
         // loadout on the left and, where the chapters have RUN and the run log, a tutorial panel with Next and the lessons.
         // The map canvas keeps the prototype's units (a tile is T = 52) and is scaled (S) so that a tile is exactly as big
@@ -139,7 +145,7 @@ namespace RuleRunner.App
         // ---------- state (S and R in the prototype) ----------
 
         public event Action Back;
-        /// <summary>The Next button after a lesson's last stage (the level id of that stage: "T5" or "2-0").</summary>
+        /// <summary>The Next button after a lesson's last stage (the level id of that stage: "T4" or "2-0").</summary>
         public event Action<string> Finished;
         /// <summary>The player cleared a tutorial level (its id, e.g. "T2").</summary>
         public event Action<string> Cleared;
@@ -185,9 +191,12 @@ namespace RuleRunner.App
         RectTransform introLeft, introRight;
         Text introEq;
         RectTransform introArrow;
-        RectTransform niOpt, niCardHolder, finger;
+        RectTransform niCardHolder, finger;
         bool panelOff;
         Coroutine niCycle;
+        Action niDone;
+        // T2: the map marks the dangers (after the first fall); any stage: the banner shows the Energy warning.
+        bool groundTags, starveShown;
 
         // Title mode: the header and the bottom fade out, the map area moves down under RULE RUNNER, START and Skip tutorial
         // sit under it. titleT is how far the layout is in title mode (1) or in the tutorial (0).
@@ -199,7 +208,7 @@ namespace RuleRunner.App
         Action introOk;
 
         sealed class Particle { public RectTransform Rt; public Image Img; public float X, Y, Vx, Vy, Life; }
-        sealed class Float { public Text Txt; public float X, Y, Life; }
+        sealed class Float { public Text Txt; public float X, Y, Life, W, Vy; public Color C; }
         readonly List<Particle> parts = new List<Particle>();
         readonly List<Float> floats = new List<Float>();
 
@@ -451,7 +460,7 @@ namespace RuleRunner.App
             Box(runnerPanel, "Eye", w / 2 + 10 - 4, 62 - 6, 8, 12, CEye, 2f);
             Box(runnerPanel, "Divider", 14, 121, w - 28, 1, CLine);
 
-            // The Energy block (from T5 on): what is left, one pip per Energy; it lights up when Energy is spent.
+            // The Energy block (from T4 on): what is left, one pip per Energy; it lights up when Energy is spent.
             const float bw = w - 12, bh = 102;
             energyBox = N(runnerPanel, "Energy", 6, 124, bw, bh);
             energyBox.pivot = new Vector2(0.5f, 0.75f);
@@ -1100,18 +1109,33 @@ namespace RuleRunner.App
         /// <summary>A card fired without enough Energy: the Energy block flashes red.</summary>
         IEnumerator FlashEnergy()
         {
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < 4; k++)
             {
                 for (float t = 0; t < 0.3f; t += Time.deltaTime)
                 {
                     float p = Mathf.Sin(t / 0.3f * Mathf.PI);
-                    energyGlow.color = CRed.WithAlpha(0.55f * p);
+                    energyGlow.color = CRed.WithAlpha(0.7f * p);
                     energyLabel.color = Color.Lerp(CDim, Color.white, p);
+                    energyBox.localScale = Vector3.one * (1f + 0.15f * p);
                     yield return null;
                 }
             }
             energyGlow.color = CRed.WithAlpha(0f);
             energyLabel.color = CDim;
+            energyBox.localScale = Vector3.one;
+        }
+
+        /// <summary>
+        /// The first true card cannot pay: the Energy block pulses red and the banner says what was missing. The banner stays
+        /// until the cards change. An open hint keeps the banner: the ghost runs again with the same cards, and the warning
+        /// must not push the hint away.
+        /// </summary>
+        void ShowStarve(CardData card)
+        {
+            StartCoroutine(FlashEnergy());
+            if (hintsShown > 0) return;
+            ShowBanner("Not enough Energy: " + Name[card.Then] + " needs " + CostOf(card) + ", only " + energy.GetValueOrDefault() + " left.", CRed);
+            starveShown = true;
         }
 
         // ---------- the run (runOnce / readInOrder / loop) ----------
@@ -1134,6 +1158,9 @@ namespace RuleRunner.App
 
         static IEnumerator Wait(float ms) { yield return new WaitForSeconds(ms / 1000f); }
 
+        /// <summary>A step's time in ms: the normal one, or the quicker one in a Fast stage (T1, T2, T3, T4).</summary>
+        float Ms(float normal, float fast) => St.Fast ? fast : normal;
+
         IEnumerator Tween(float ms, Action<float> f)
         {
             for (float t = 0; t < ms / 1000f; t += Time.deltaTime)
@@ -1152,7 +1179,7 @@ namespace RuleRunner.App
             energy = St.Energy;
             RenderEnergy();
             int x = 0;
-            yield return Wait(title ? 250 : 500);
+            yield return Wait(title ? 250 : Ms(500, 300));
             while (true)
             {
                 if (map[x] == 'f') { runResult = "win"; yield break; }
@@ -1170,12 +1197,12 @@ namespace RuleRunner.App
                     hl = x + 1;
                     if (cards[fire].And) { hl2 = x + 2; SecState(headViews[fire], "if2", "lit"); }
                     SecState(headViews[fire], "if", "lit");
-                    yield return Wait(slow ? 700 : 260);
-                    if (starved) { SecState(headViews[fire], "then", "starve"); StartCoroutine(FlashEnergy()); }
+                    yield return Wait(slow ? 700 : Ms(260, 180));
+                    if (starved) { SecState(headViews[fire], "then", "starve"); ShowStarve(cards[fire]); }
                     else SecState(headViews[fire], "then", "lit");
-                    yield return Wait(starved ? 1000 : slow ? 450 : 160);
+                    yield return Wait(starved ? 1600 : slow ? 450 : Ms(160, 120));
                 }
-                else yield return Wait(slow ? 120 : 40);
+                else yield return Wait(slow ? 120 : Ms(40, 20));
 
                 string act = fire >= 0 && !starved ? cards[fire].Then : "walk";
                 if (energy.HasValue && act != "walk")
@@ -1190,7 +1217,7 @@ namespace RuleRunner.App
                     energyGlow.color = CQi.WithAlpha(0.22f);
                     var cardCost = fire >= 0 && fire < headViews.Count ? headViews[fire].BandCost : null;
                     if (cardCost) foreach (Transform pip in cardCost) pip.localScale = Vector3.one * 1.5f;
-                    yield return Wait(900);
+                    yield return Wait(Ms(900, 550));
                     energyBox.localScale = Vector3.one;
                     energyGlow.color = CQi.WithAlpha(0f);
                     energySpent.text = "";
@@ -1199,7 +1226,7 @@ namespace RuleRunner.App
                 int to = x + Dist[act];
                 float from = rx, dest = Px(to);
                 float hgt = act == "jump" ? 78 : act == "bigjump" ? 92 : 0;
-                float ms = act == "walk" ? (title ? 190 : 280) : slow ? 800 : act == "jump" ? 520 : 620;
+                float ms = act == "walk" ? (title ? 190 : Ms(280, 190)) : slow ? 800 : act == "jump" ? Ms(520, 420) : Ms(620, 500);
                 yield return Tween(ms, k =>
                 {
                     rx = from + (dest - from) * k;
@@ -1241,7 +1268,7 @@ namespace RuleRunner.App
             {
                 reader.anchoredPosition = new Vector2(i * HeadStep + CardW / 2, reader.anchoredPosition.y);
                 CardState(headViews[i], "reading");
-                yield return Wait(fire >= 0 ? 320 : 150);
+                yield return Wait(fire >= 0 ? Ms(320, 220) : Ms(150, 100));
                 CardState(headViews[i], "");
                 if (i == fire)
                 {
@@ -1249,22 +1276,22 @@ namespace RuleRunner.App
                     hl = beam?.tile;
                     if (cards[i].And) { hl2 = beam?.tile + 1; SecState(headViews[i], "if2", "lit"); }
                     SecState(headViews[i], "if", "lit");
-                    yield return Wait(260);
+                    yield return Wait(Ms(260, 180));
                     if (starved)
                     {
                         SecState(headViews[i], "then", "starve");
-                        StartCoroutine(FlashEnergy());
-                        yield return Wait(1000);
+                        ShowStarve(cards[i]);
+                        yield return Wait(1600);
                         yield break;
                     }
                     SecState(headViews[i], "then", "lit");
                     if (shadowed) for (int j = i + 1; j < headViews.Count; j++) CardState(headViews[j], "never");
-                    yield return Wait(shadowed ? 1400 : 220);
+                    yield return Wait(shadowed ? Ms(1400, 900) : Ms(220, 150));
                     yield break;
                 }
                 SetBadge(headViews[i], false);
                 // Hold the cross a moment so the miss is seen before the pointer moves on.
-                yield return Wait(900);
+                yield return Wait(Ms(900, 500));
                 CardState(headViews[i], "unread");
             }
         }
@@ -1279,8 +1306,14 @@ namespace RuleRunner.App
                 if (runResult == "win") { Celebrate(); yield break; }
                 deaths++;
                 HintPanel();
+                if (St.NotIntro && !groundTags)
+                {
+                    // T2, first fall: a label on the map points at every pit and spike.
+                    groundTags = true;
+                    BuildMap();
+                }
                 if (deaths >= 2) OfferHint();
-                yield return Wait(700);
+                yield return Wait(Ms(700, 400));
             }
         }
 
@@ -1314,7 +1347,16 @@ namespace RuleRunner.App
         {
             var s = St;
             nudge.gameObject.SetActive(false);
-            bannerText.text = s.Hints[hintsShown++];
+            ShowBanner(s.Hints[hintsShown++], CGold);
+            starveShown = false;
+            if (hintsShown >= s.Hints.Length) hintBtn.gameObject.SetActive(false);
+            else hintBtnText.text = "Hint " + (hintsShown + 1) + "/" + s.Hints.Length;
+        }
+
+        void ShowBanner(string text, Color c)
+        {
+            bannerText.text = text;
+            bannerText.color = c;
             bannerText.horizontalOverflow = HorizontalWrapMode.Overflow;
             float bw = Mathf.Min(bannerText.preferredWidth + 28, StageW * 0.7f);
             bannerText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1323,8 +1365,6 @@ namespace RuleRunner.App
             bannerText.rectTransform.sizeDelta = new Vector2(bw - 28, bh);
             banner.sizeDelta = new Vector2(bw, bh);
             banner.gameObject.SetActive(true);
-            if (hintsShown >= s.Hints.Length) hintBtn.gameObject.SetActive(false);
-            else hintBtnText.text = "Hint " + (hintsShown + 1) + "/" + s.Hints.Length;
         }
 
         // After a fall, every part of a card the player has not touched yet blinks: IF, THEN and the NOT button
@@ -1390,8 +1430,7 @@ namespace RuleRunner.App
             for (int i = 0; i < 4; i++) StartCoroutine(DelayedBurst(i));
             RenderDots(true);
             if (!St.Watch) Cleared?.Invoke(StageLevel[stage]);
-            if (St.NotIntro) StartCoroutine(After(1300, ShowNotIntro));
-            else ShowNext();
+            ShowNext();
         }
 
         IEnumerator DelayedBurst(int i)
@@ -1420,10 +1459,12 @@ namespace RuleRunner.App
             }
         }
 
-        void AddFloat(float x, float y, string text)
+        void AddFloat(float x, float y, string text) => AddFloat(x, y, text, CQi, 80, 22, 1f, 0.8f);
+
+        void AddFloat(float x, float y, string text, Color c, float w, int size, float life, float vy)
         {
-            var t = Txt(fx, "F", 0, 0, 80, 26, text, 22, CQi, TextAnchor.MiddleCenter, true);
-            floats.Add(new Float { Txt = t, X = x, Y = y, Life = 1 });
+            var t = Txt(fx, "F", 0, 0, w, 26, text, size, c, TextAnchor.MiddleCenter, true);
+            floats.Add(new Float { Txt = t, X = x, Y = y, Life = life, W = w, C = c, Vy = vy });
         }
 
         // ---------- the lessons (where the chapters have the run log) ----------
@@ -1640,6 +1681,12 @@ namespace RuleRunner.App
             flying.Clear();
             shakeX = 0;
             energyBox.localScale = Vector3.one;
+            // The cards changed: the Energy warning no longer applies. (It is only shown while no hint is open.)
+            if (starveShown)
+            {
+                starveShown = false;
+                banner.gameObject.SetActive(false);
+            }
         }
 
         void StopAll()
@@ -1698,6 +1745,8 @@ namespace RuleRunner.App
             slow = s.Watch;
             won = false;
             panelOff = false;
+            groundTags = false;
+            starveShown = false;
             pulse.Clear();
             done.Clear();
             hintsShown = 0;
@@ -1708,7 +1757,14 @@ namespace RuleRunner.App
             // The header reads like a chapter level's: id, title, and the hint line under the title.
             lvlText.text = s.Id;
             titleText.text = LevelDatabase.Get(s.Id)?.Title ?? "";
-            hintText.text = s.Hint ?? "";
+            // The tutorial's header is just the chip and the lesson's one-word title (Cards, NOT, Order, Energy), centred:
+            // no line under it. The AND guide keeps its line.
+            bool noLine = Group(i) == "T";
+            hintText.text = noLine ? "" : s.Hint ?? "";
+            var titleRt = (RectTransform)titleText.transform.parent;
+            titleRt.anchorMin = new Vector2(0, noLine ? 0f : 0.5f);
+            titleRt.offsetMin = new Vector2(222, noLine ? 6f : -2f);
+            titleText.alignment = noLine ? TextAnchor.MiddleLeft : TextAnchor.LowerLeft;
             SetNext(false);
             RenderDots(false);
             Layout(true);   // the map's scale depends on its length; this also builds the map
@@ -1734,12 +1790,14 @@ namespace RuleRunner.App
             RenderCards();
             energy = s.Energy;
             RenderEnergy();
-            if (s.NewAction != null || s.NewEnergy || s.NewOrder || s.NewAnd)
+            if (s.NewAction != null || s.NewEnergy || s.NewOrder || s.NewAnd || s.NewTiles || s.NotIntro)
             {
                 bool closed = false;
                 if (s.NewAnd) ShowAndIntro(() => closed = true);
+                else if (s.NotIntro) ShowNotIntro(() => closed = true);
                 else if (s.NewAction != null) ShowNewAction(() => closed = true);
                 else if (s.NewEnergy) ShowEnergyIntro(() => closed = true);
+                else if (s.NewTiles) ShowTilesIntro(() => closed = true);
                 else ShowOrderIntro(() => closed = true);
                 while (!closed) yield return null;
             }
@@ -1775,6 +1833,38 @@ namespace RuleRunner.App
                     Box(mapLayer, "Flag", x0 + T / 2 - 15, GY - 66, 21, 20, CFinish);
                 }
             }
+            if (!groundTags) return;
+            // T2 after the first fall: one "These are NOT Ground!" label over the middle of the dangers, with an arrow from it
+            // to every pit and spike, so it is plain that one NOT Ground ahead card finds them all.
+            var danger = Enumerable.Range(0, map.Length).Where(k => map[k] == 'p' || map[k] == 's').ToList();
+            if (danger.Count == 0) return;
+            // The label sits a little over the spikes, inside the map area (whose top is y = 0) and below the hint banner;
+            // the arrow tips stop just over the spikes' points (a pit gets the same height, so the arrows line up).
+            const float tw = 180f, th = 26f;
+            float tipY = GY - 32f;
+            float ly = Mathf.Max(GY - 64f, th + 30f);   // the label's bottom edge
+            float lx = ox + (danger.Min() + danger.Max() + 1) * T / 2f;
+            var tag = N(mapLayer, "NotGroundTag", lx - tw / 2, ly - th, tw, th);
+            Img(tag, CNot, 10f);
+            Txt(tag, "T", 0, 0, tw, th, "These are NOT Ground!", 14, Color.white, TextAnchor.MiddleCenter, true);
+            var from = new Vector2(lx, -ly);
+            foreach (int k in danger)
+            {
+                var to = new Vector2(ox + k * T + T / 2, -tipY);
+                var d = (to - from).normalized;
+                float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+                var line = N(mapLayer, "Pointer", 0, 0, Vector2.Distance(from, to) - 12, 3);
+                line.pivot = new Vector2(0f, 0.5f);
+                line.anchoredPosition = from;
+                line.localRotation = Quaternion.Euler(0, 0, angle);
+                Img(line, CNot);
+                var head = N(mapLayer, "PointerHead", 0, 0, 16, 14);
+                head.pivot = new Vector2(0.5f, 0.5f);
+                head.anchoredPosition = to - d * 7;
+                head.localRotation = Quaternion.Euler(0, 0, angle - 90);
+                Img(head, CNot, 0, UISprites.Triangle);
+            }
+            tag.SetAsLastSibling();
         }
 
         // ---------- intro cards (showIntro / showNotIntro) ----------
@@ -1849,13 +1939,33 @@ namespace RuleRunner.App
             h => Opt(h, "then", "jump", Name["jump"], 0, false), h => Opt(h, "then", "bigjump", Name["bigjump"], 0, true), "->",
             "Jump clears one tile. <b><color=#b89bff>Big Jump</color></b> clears two tiles in a row.", onOk);
 
+        // T1, after the card breaks: what Ground and Pit are, before the player picks one for the IF.
+        void ShowTilesIntro(Action onOk) => ShowIntro("GROUND AND PIT",
+            h => TileIntro(h, 'g', "Ground: you can walk on it."), h => TileIntro(h, 'p', "Pit: you fall in."), "", "", onOk);
+
+        /// <summary>One tile of T1's intro: the runner and the tile in front of it, with one line under them.</summary>
+        static void TileIntro(RectTransform holder, char kind, string line)
+        {
+            UIKit.DestroyChildren(holder);
+            holder.sizeDelta = new Vector2(150, 132);
+            Img(N(holder, "Bg", 0, 0, 150, 132), CSurface2, 12f);
+            var d = N(holder, "Svg", 0, 0, 46, 44);
+            d.localScale = Vector3.one * 2.3f;
+            d.anchoredPosition = new Vector2((150 - 46 * 2.3f) / 2f, -2f);
+            DiaCell(d, 0, 'g', false);
+            DiaCell(d, 1, kind, false);
+            DiaRunner(d);
+            var t = Txt(holder, "Line", 6, 100, 138, 26, line, 13, CText, TextAnchor.MiddleCenter, true);
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+        }
+
         void ShowOrderIntro(Action onOk) => ShowIntro("NEW: MORE THAN ONE CARD",
             h => MiniCard(h, 1, CJump, "spike", "jump", false), h => MiniCard(h, 2, CBigJump, "pit", "bigjump", true), "->",
-            "Cards are checked <b><color=#eef1f5>from left to right</color></b>.\nThe first card whose IF matches is the one that acts; the cards after it are not checked.", onOk);
+            "Cards are checked <b><color=#eef1f5>from left to right</color></b>.\nNew card: <b><color=#b89bff>Big Jump</color></b>", onOk);
 
         void ShowEnergyIntro(Action onOk) => ShowIntro("NEW: ENERGY",
-            h => Opt(h, "then", "jump", Name["jump"], Cost["jump"], false), h => Opt(h, "then", "bigjump", Name["bigjump"], Cost["bigjump"], true), "->",
-            "Every jump costs <b><color=#4fd6e8>Energy</color></b>: Jump 1, Big Jump 3. You get 4 per run.\nA card without enough Energy does nothing.", onOk);
+            h => Opt(h, "then", "jump", Name["jump"], Cost["jump"], false), h => Opt(h, "then", "bigjump", Name["bigjump"], Cost["bigjump"], false), "",
+            "Every action costs <b><color=#4fd6e8>Energy</color></b>.", onOk);
 
         void ShowAndIntro(Action onOk) => ShowIntro("NEW: AND",
             h => IntroCardOf(h, Cd("pit", "bigjump")), h => IntroCardOf(h, CdAnd("pit", "ground2", true, "bigjump")), "->",
@@ -1893,11 +2003,10 @@ namespace RuleRunner.App
             var box = N(notIntroRoot, "Box", 0, 0, 440, 350);
             box.anchorMin = box.anchorMax = box.pivot = new Vector2(0.5f, 0.5f);
             Img(box, CSurface, 16f);
-            Txt(box, "Title", 20, 18, 400, 20, "NOT", 16, CGold, TextAnchor.MiddleLeft, true);
-            niOpt = N(box, "Opt", 60, 100, 110, 84);
-            Txt(box, "Eq", 186, 50, 40, 200, "=", 26, CDim, TextAnchor.MiddleCenter, true);
-            niCardHolder = N(box, "Card", 242, 50, 132, 210);
-            var p = Txt(box, "Text", 20, 270, 400, 20, "From now on, tap <b><color=#ff6b4a>NOT</color></b> on a card to flip what it looks for.", 13, CDim,
+            Txt(box, "Title", 20, 18, 400, 20, "NEW: THE NOT BUTTON", 16, CGold, TextAnchor.MiddleLeft, true);
+            // Only the card: a finger taps its NOT button and the IF turns into NOT Ground ahead.
+            niCardHolder = N(box, "Card", (440 - 132) / 2f, 50, 132, 210);
+            var p = Txt(box, "Text", 20, 270, 400, 20, "Tap <b><color=#ff6b4a>NOT</color></b> on a card to flip what it looks for.", 13, CDim,
                 TextAnchor.MiddleCenter);
             p.horizontalOverflow = HorizontalWrapMode.Wrap;
             var ok = N(box, "Ok", (440 - 72) / 2f, 302, 72, 31);
@@ -1907,14 +2016,16 @@ namespace RuleRunner.App
             {
                 if (niCycle != null) StopCoroutine(niCycle);
                 notIntroRoot.gameObject.SetActive(false);
-                ShowNext();
+                var cb = niDone;
+                niDone = null;
+                cb?.Invoke();
             });
             notIntroRoot.gameObject.SetActive(false);
         }
 
-        void ShowNotIntro()
+        void ShowNotIntro(Action onOk)
         {
-            Opt(niOpt, "if", "notground", Name["notground"], 0, true);
+            niDone = onOk;
             notIntroRoot.gameObject.SetActive(true);
             notIntroRoot.SetAsLastSibling();
             niCycle = StartCoroutine(NotIntroCycle());
@@ -2033,10 +2144,10 @@ namespace RuleRunner.App
             for (int i = floats.Count - 1; i >= 0; i--)
             {
                 var f = floats[i];
-                f.Y -= 0.8f; f.Life -= 0.015f;
+                f.Y -= f.Vy; f.Life -= 0.015f;
                 if (f.Life <= 0) { Destroy(f.Txt.gameObject); floats.RemoveAt(i); continue; }
-                f.Txt.rectTransform.anchoredPosition = new Vector2(f.X - 40, -(f.Y - 20));
-                f.Txt.color = CQi.WithAlpha(f.Life);
+                f.Txt.rectTransform.anchoredPosition = new Vector2(f.X - f.W / 2, -(f.Y - 20));
+                f.Txt.color = f.C.WithAlpha(Mathf.Min(1f, f.Life));
             }
 
             // The cards ride just above the runner's head (the chapters' tile size leaves no room above a jump, so a jump

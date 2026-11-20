@@ -7,7 +7,7 @@ using RuleRunner.Levels;
 namespace RuleRunner.Tests
 {
     /// <summary>
-    /// The tutorial: T1 cards, T2 NOT, T3 Big Jump (and the NOT button), T4 card order, T5 Energy.
+    /// The tutorial: T1 cards, T2 NOT (the NOT button from the start), T3 card order (Big Jump shows up as a ready-made card), T4 Energy. The old T3 (Big Jump) was cut and the later lessons moved up.
     /// Each lesson starts with a run that fails, and the cards the player starts with cannot win by themselves.
     /// </summary>
     public class TutorialLevelTests
@@ -18,11 +18,11 @@ namespace RuleRunner.Tests
         static readonly string[] KnownBlinkParts = { "slot", "if", "not", "then", "move" };
 
         [Test]
-        public void TutorialComesFirstAndHasFiveLessons()
+        public void TutorialComesFirstAndHasFourLessons()
         {
-            CollectionAssert.AreEqual(new[] { "T1", "T2", "T3", "T4", "T5" }, TutorialIds().ToArray());
+            CollectionAssert.AreEqual(new[] { "T1", "T2", "T3", "T4" }, TutorialIds().ToArray());
             Assert.IsTrue(LevelDatabase.All.First().Tutorial, "a new player starts in the tutorial");
-            Assert.AreEqual("1-1", LevelDatabase.Next(LevelDatabase.Get("T5")).Id, "chapter 1 comes right after the tutorial");
+            Assert.AreEqual("1-1", LevelDatabase.Next(LevelDatabase.Get("T4")).Id, "chapter 1 comes right after the tutorial");
         }
 
         [TestCaseSource(nameof(TutorialIds))]
@@ -65,65 +65,44 @@ namespace RuleRunner.Tests
         }
 
         [Test]
-        public void T2OffersNotGroundAsAnOptionBeforeTheNotButton()
+        public void T2UsesTheNotButton()
         {
             var t2 = LevelDatabase.Get("T2");
-            Assert.IsFalse(t2.AllowNot);
-            CollectionAssert.AreEqual(new[] { Condition.Ground }, t2.NotOptions);
-            Assert.IsTrue(LevelAnalyzer.CardPool(t2).Any(r => r.Negate && r.Condition == Condition.Ground));
+            Assert.IsTrue(t2.AllowNot, "T2 has the NOT button, as every later level does");
+            Assert.IsEmpty(t2.NotOptions, "no NOT Ground ahead option that turns into a button later");
+            CollectionAssert.AreEqual(new[] { "if", "not" }, t2.Blink);
             var report = LevelAnalyzer.Analyze(t2);
             Assert.AreEqual(1, report.WinningCombinations);
             CollectionAssert.AreEqual(t2.Solution, report.BestSolution);
         }
 
         [Test]
-        public void T3NeedsNotGroundAndBigJump()
+        public void T3OnlyNeedsTheSwap()
         {
             var t3 = LevelDatabase.Get("T3");
-            Assert.IsTrue(t3.AllowNot);
-            Assert.IsEmpty(t3.StartCards);
-            var report = LevelAnalyzer.Analyze(t3);
-            Assert.AreEqual(1, report.WinningCombinations);
-            CollectionAssert.AreEqual(Rule.ParseList(new[] { "IF NOT ground THEN bigjump" }), report.BestSolution);
-            CollectionAssert.AreEqual(new[] { "NEW ACTION: Big Jump", "NOT is now a button" }, t3.Guide.NewItems.Select(n => n.Title).ToArray());
+            Assert.IsTrue(t3.LockConditions);
+            // Both cards are ready-made (the Pit card already has Big Jump): the player only changes their order.
+            Assert.IsTrue(t3.StartCards.Any(r => r.Action == ActionType.BigJump), "Big Jump first shows up in T3's cards");
+            Assert.AreEqual(Outcome.Pit, Simulator.Run(t3, t3.StartCards).Outcome, "the Pit card is never read, so the runner falls");
+            var winners = Permutations(t3.StartCards).Where(order => Simulator.Run(t3, order).Won).ToList();
+            Assert.AreEqual(1, winners.Count, "exactly one order works");
+            CollectionAssert.AreEqual(t3.Solution, winners[0]);
+            CollectionAssert.AreEqual(new[] { "NEW ACTION: Big Jump", "NEW RULE: card order" }, t3.Guide.NewItems.Select(n => n.Title).ToArray());
         }
 
         [Test]
-        public void T4NeedsBothTheSwapAndTheBigJump()
-        {
-            var t4 = LevelDatabase.Get("T4");
-            Assert.IsTrue(t4.LockConditions);
-            // IF and NOT are fixed: the player can only reorder the cards and change their THEN.
-            var winners = new List<List<Rule>>();
-            foreach (var order in Permutations(t4.StartCards))
-                foreach (var a0 in t4.Actions)
-                    foreach (var a1 in t4.Actions)
-                    {
-                        var cards = new List<Rule> { WithAction(order[0], a0), WithAction(order[1], a1) };
-                        if (Simulator.Run(t4, cards).Won) winners.Add(cards);
-                    }
-            Assert.AreEqual(1, winners.Count, "exactly one way through");
-            CollectionAssert.AreEqual(t4.Solution, winners[0]);
-
-            var swapped = new List<Rule> { t4.StartCards[1], t4.StartCards[0] };
-            Assert.IsFalse(Simulator.Run(t4, swapped).Won, "swapping alone is not enough");
-            var bigJumpOnly = new List<Rule> { t4.StartCards[0], WithAction(t4.StartCards[1], ActionType.BigJump) };
-            Assert.IsFalse(Simulator.Run(t4, bigJumpOnly).Won, "Big Jump alone is not enough: that card is never read");
-        }
-
-        [Test]
-        public void EnergyIsHiddenUntilT5AndOneCardCannotDoItAll()
+        public void EnergyIsHiddenUntilT4AndOneCardCannotDoItAll()
         {
             foreach (var l in LevelDatabase.All.Where(l => l.Tutorial && l.Chapter == 0))
-                Assert.AreEqual(l.Id != "T5", l.HideQi, l.Id);
-            var t5 = LevelDatabase.Get("T5");
-            var r = Simulator.Run(t5, t5.StartCards);
-            Assert.IsTrue(r.RanOutOfQi, "T5's first run fails because Energy runs out");
+                Assert.AreEqual(l.Id != "T4", l.HideQi, l.Id);
+            var t4 = LevelDatabase.Get("T4");
+            var r = Simulator.Run(t4, t4.StartCards);
+            Assert.IsTrue(r.RanOutOfQi, "T4's first run fails because Energy runs out");
             Assert.AreEqual(Outcome.Pit, r.Outcome);
-            var report = LevelAnalyzer.Analyze(t5);
+            var report = LevelAnalyzer.Analyze(t4);
             Assert.Greater(report.WinningCombinations, 0);
-            Assert.AreEqual(2, report.MinRules, "no single card clears T5");
-            Assert.IsEmpty(t5.Blink, "T5 leaves the player to work it out");
+            Assert.AreEqual(2, report.MinRules, "no single card clears T4");
+            Assert.IsEmpty(t4.Blink, "T4 leaves the player to work it out");
         }
 
         [Test]

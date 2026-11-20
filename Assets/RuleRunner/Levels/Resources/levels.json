@@ -52,17 +52,14 @@
       "actions": [
         "jump"
       ],
-      "noNot": true,
-      "notOptions": [
-        "ground"
-      ],
       "hideQi": true,
       "map": "ggpggsggpggf",
       "startCards": [
         "IF pit THEN jump"
       ],
       "blink": [
-        "if"
+        "if",
+        "not"
       ],
       "solution": [
         "IF NOT ground THEN jump"
@@ -71,64 +68,16 @@
       "previousSolution": [
         "IF pit THEN jump"
       ],
-      "previousExpected": "spike"
-    },
-    {
-      "chapter": 0,
-      "tutorial": true,
-      "start": 0,
-      "dir": 1,
-      "id": "T3",
-      "title": "Big Jump",
-      "qi": 9,
-      "slots": 1,
-      "conditions": [
-        "ground",
-        "pit",
-        "spike"
-      ],
-      "actions": [
-        "jump",
-        "bigjump"
-      ],
-      "hideQi": true,
-      "map": "ggssgggppggf",
-      "startCards": [],
-      "blink": [
-        "slot",
-        "if",
-        "not",
-        "then"
-      ],
-      "solution": [
-        "IF NOT ground THEN bigjump"
-      ],
-      "solutionQiLeft": 3,
-      "previousSolution": [
-        "IF NOT ground THEN jump"
-      ],
       "previousExpected": "spike",
       "hints": [
-        "Spikes and pits are both \"not ground\".",
-        "Both dangers are two tiles wide.",
-        "Try: IF NOT Ground ahead, THEN Big Jump."
+        "Pits and spikes are both NOT Ground.",
+        "Pick Ground ahead for the IF, then tap NOT on the card.",
+        "IF NOT Ground ahead THEN Jump."
       ],
       "newItems": [
         {
-          "title": "NEW ACTION: Big Jump",
-          "line": "Jump clears one tile. Big Jump clears two tiles in a row.",
-          "map": "gppggg",
-          "start": 0,
-          "dir": 1,
-          "qi": 5,
-          "rules": [
-            "IF pit THEN bigjump"
-          ],
-          "steps": 3
-        },
-        {
-          "title": "NOT is now a button",
-          "line": "Tap +NOT on a card to flip its condition. NOT Ground ahead is true before a pit and before a spike.",
+          "title": "NEW: the NOT button",
+          "line": "Tap NOT on a card to flip what it looks for. NOT Ground ahead is true before a pit and before a spike.",
           "map": "gpgsggg",
           "start": 0,
           "dir": 1,
@@ -145,7 +94,7 @@
       "tutorial": true,
       "start": 0,
       "dir": 1,
-      "id": "T4",
+      "id": "T3",
       "title": "Order",
       "hint": "Order matters.",
       "qi": 12,
@@ -164,11 +113,10 @@
       "map": "ggsgsggppggf",
       "startCards": [
         "IF NOT ground THEN jump",
-        "IF pit THEN jump"
+        "IF pit THEN bigjump"
       ],
       "blink": [
-        "move",
-        "then"
+        "move"
       ],
       "blinkOneByOne": true,
       "solution": [
@@ -177,16 +125,27 @@
       ],
       "solutionQiLeft": 7,
       "previousSolution": [
-        "IF NOT ground THEN jump",
-        "IF pit THEN jump"
+        "IF NOT ground THEN jump"
       ],
       "previousExpected": "pit",
       "hints": [
         "At the pit, watch the pointer: which card does it stop at?",
-        "Move the Pit card to the front, so it is read first.",
-        "A normal Jump is too short for a two-tile pit: use Big Jump."
+        "The Pit card is never read: card 1 acts first.",
+        "Move the Pit card to the front, so it is read first."
       ],
       "newItems": [
+        {
+          "title": "NEW ACTION: Big Jump",
+          "line": "Jump clears one tile. Big Jump clears two tiles in a row.",
+          "map": "gppggg",
+          "start": 0,
+          "dir": 1,
+          "qi": 5,
+          "rules": [
+            "IF pit THEN bigjump"
+          ],
+          "steps": 3
+        },
         {
           "title": "NEW RULE: card order",
           "line": "Cards are checked from left to right. The first card whose IF is true acts; the cards after it are not checked.",
@@ -207,7 +166,7 @@
       "tutorial": true,
       "start": 0,
       "dir": 1,
-      "id": "T5",
+      "id": "T4",
       "title": "Energy",
       "hint": "One card for every danger costs too much Energy. Does every danger need a Big Jump?",
       "qi": 4,

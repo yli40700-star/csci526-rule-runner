@@ -13,6 +13,8 @@ namespace RuleRunner.UI
     public class LevelSelectScreen : MonoBehaviour
     {
         public event Action<LevelDef> LevelChosen;
+        /// <summary>The Back button: back to the title screen (START / Skip tutorial).</summary>
+        public event Action BackRequested;
 
         RectTransform chapters;
         ScrollRect scroll;
@@ -41,6 +43,13 @@ namespace RuleRunner.UI
             for (int i = 0; i < 4; i++)
                 UIKit.Shape(deco, "Dot", UISprites.Circle, new Color(1, 1, 1, 0.5f),
                     new Vector2(-38 + i * 9, -16 + 28 * Mathf.Sin(i / 4f * Mathf.PI * 0.8f)), new Vector2(4, 4));
+
+            // Top left, as "< Levels" sits in a level's header: back to the title screen.
+            var back = UIKit.Button(root.transform, "Back", "<  Back", 17, Theme.Raised, () => screen.BackRequested?.Invoke(), 10f);
+            var backRt = (RectTransform)back.transform;
+            backRt.anchorMin = backRt.anchorMax = backRt.pivot = new Vector2(0, 1);
+            backRt.sizeDelta = new Vector2(112, 40);
+            backRt.anchoredPosition = new Vector2(20, -20);
 
             // Two chapters fit as before; from chapter 3 on the list scrolls, with a hint under it.
             var view = UIKit.Rect(root.transform, "Chapters", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(-540, -660), new Vector2(540, -240));

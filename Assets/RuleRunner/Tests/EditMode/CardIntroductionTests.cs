@@ -46,9 +46,9 @@ namespace RuleRunner.Tests
         [Test]
         public void NotIsTaughtInTheTutorialBeforeChapter1()
         {
-            // T2 offers "NOT Ground ahead" as an option; from T3 on it is the NOT button, as in the chapters.
+            // T2 has the NOT button from the start, as in the chapters.
             Assert.AreEqual("T2", LevelDatabase.All.First(l => l.NotOptions.Count > 0 || l.AllowNot).Id);
-            Assert.AreEqual("T3", LevelDatabase.All.First(l => l.AllowNot).Id);
+            Assert.AreEqual("T2", LevelDatabase.All.First(l => l.AllowNot).Id);
             Assert.AreEqual("1-1", FirstLevelWith(l => l.AllowNot));
         }
 

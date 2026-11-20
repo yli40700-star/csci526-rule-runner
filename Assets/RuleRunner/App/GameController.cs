@@ -161,12 +161,12 @@ namespace RuleRunner.App
             tapHint = TapHint.Create(canvasRect);
             picker.transform.SetAsLastSibling();
             tutorial = new Tutorial(tapHint, gameScreen, loadout);
-            // The tutorial levels (T1-T5) play in their own screen, a port of docs/proto/tutorial.html.
+            // The tutorial levels (T1-T4; the old Big Jump lesson was cut and the later ones moved up) play in their own screen, a port of docs/proto/tutorial.html.
             tutorialScreen = TutorialScreen.Create(canvasRect);
             tutorialScreen.Back += ShowLevelSelect;
             // "Skip tutorial" on the title screen starts chapter 1 right away.
             tutorialScreen.SkipRequested += () => LoadLevel(FirstChapterLevel());
-            // Next after a lesson goes straight on: T5 into 1-1 (its intro says the tutorial is done), the AND guide into 2-1.
+            // Next after a lesson goes straight on: T4 into 1-1 (its intro says the tutorial is done), the AND guide into 2-1.
             tutorialScreen.Finished += id =>
             {
                 var def = LevelDatabase.Get(id);
@@ -185,6 +185,7 @@ namespace RuleRunner.App
             };
 
             levelSelect.LevelChosen += LoadLevel;
+            levelSelect.BackRequested += ShowTitle;
             gameScreen.Back += ShowLevelSelect;
             gameScreen.Run += StartRun;
             gameScreen.Reset += ResetRun;
