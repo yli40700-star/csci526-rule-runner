@@ -18,8 +18,14 @@ var COLUMNS = [
   'eventType', 'endX', 'endFloor', 'playerId'
 ];
 
-/** buildSummary only uses rows whose build tag starts with this prefix. */
-var SUMMARY_BUILD_PREFIX = 'beta';
+/** buildSummary only uses rows whose build tag starts with this prefix ('gold' = gold-playtest and its -internal rows). */
+var SUMMARY_BUILD_PREFIX = 'gold';
+
+/**
+ * buildSummary only uses rows received at or after this moment; '' uses every row of the build.
+ * Set it to when a build whose level ids changed went live, e.g. '2026-11-20T12:00:00-08:00' (ISO with the offset).
+ */
+var SUMMARY_SINCE = '';
 
 /**
  * Team testing is tagged "<build>-internal" by the game (Editor, localhost, or a URL with ?internal=1).
@@ -90,14 +96,16 @@ function getSheet_() {
 function buildSummary() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var values = getSheet_().getDataRange().getValues();
-  var m = computeMetrics_(values, SUMMARY_BUILD_PREFIX, ss.getSpreadsheetTimeZone(), INCLUDE_INTERNAL);
+  var since = SUMMARY_SINCE ? new Date(SUMMARY_SINCE) : null;
+  var m = computeMetrics_(values, SUMMARY_BUILD_PREFIX, ss.getSpreadsheetTimeZone(), INCLUDE_INTERNAL, since);
 
   var summary = ss.getSheetByName('summary') || ss.insertSheet('summary');
   summary.clear();
   summary.getCharts().forEach(function (c) { summary.removeChart(c); });
 
-  summary.getRange(1, 1).setValue('Rule Runner Beta metrics: builds starting with "' + SUMMARY_BUILD_PREFIX +
-    '", internal (team) runs ' + (INCLUDE_INTERNAL ? 'included' : 'excluded') + '. ' + m.sessions + ' sessions, ' + m.runs + ' runs. Updated ' + new Date());
+  summary.getRange(1, 1).setValue('Rule Runner metrics: builds starting with "' + SUMMARY_BUILD_PREFIX + '"' +
+    (since ? ', received since ' + since : '') + ', internal (team) runs ' + (INCLUDE_INTERNAL ? 'included' : 'excluded') +
+    '. ' + m.sessions + ' sessions, ' + m.runs + ' runs. Updated ' + new Date());
 
   // Full tables side by side on row 3 (every level, with its sample size).
   writeTable_(summary, 3, 1, m.funnel);
@@ -163,7 +171,7 @@ function writeTable_(sheet, row, col, table) {
  * Pure computation (no Sheets calls), so it can be tested outside Apps Script.
  * values: the runs tab as a 2-D array, header row first. Returns the four metric tables, header row first.
  */
-function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
+function computeMetrics_(values, buildPrefix, timeZone, includeInternal, since) {
   var header = values[0];
   var col = {};
   header.forEach(function (h, i) { col[h] = i; });
@@ -177,14 +185,21 @@ function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
   var rows = values.slice(1).filter(function (r) {
     var build = String(get(r, 'build'));
     var used = get(r, 'sessionId') !== '' && get(r, 'levelId') !== '' &&
-      build.indexOf(buildPrefix) === 0 && (includeInternal || !/-internal$/.test(build));
-    var b = buildRows[build] || (buildRows[build] = { rows: 0, used: used });
+      build.indexOf(buildPrefix) === 0 && (includeInternal || !/-internal$/.test(build)) && receivedSince_(r);
+    var b = buildRows[build] || (buildRows[build] = { rows: 0, used: 0 });
     b.rows++;
+    if (used) b.used++;
     return used;
   });
-  var builds = [['build', 'rows', 'used in charts']];
+  function receivedSince_(r) {
+    if (!since) return true;
+    var v = get(r, 'receivedAt');
+    var t = Object.prototype.toString.call(v) === '[object Date]' ? v : new Date(v);
+    return !isNaN(t.getTime()) && t.getTime() >= since.getTime();
+  }
+  var builds = [['build', 'rows', 'rows used in charts']];
   Object.keys(buildRows).sort().forEach(function (b) {
-    builds.push([b || '(empty)', buildRows[b].rows, buildRows[b].used ? 'yes' : 'no']);
+    builds.push([b || '(empty)', buildRows[b].rows, buildRows[b].used]);
   });
 
   var sessions = {};

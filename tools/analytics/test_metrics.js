@@ -35,8 +35,8 @@ const m = g.computeMetrics_(base, 'beta');
 test('build filter and counts', () => {
   assert.strictEqual(m.sessions, 3);
   assert.strictEqual(m.runs, 10);
-  assert.deepStrictEqual(m.builds, [['build', 'rows', 'used in charts'], ['alpha-playtest', 1, 'no'],
-    ['beta-playtest', 16, 'yes'], ['beta-playtest-internal', 2, 'no']]);
+  assert.deepStrictEqual(m.builds, [['build', 'rows', 'rows used in charts'], ['alpha-playtest', 1, 0],
+    ['beta-playtest', 16, 16], ['beta-playtest-internal', 2, 0]]);
 });
 
 test('M1 funnel', () => {
@@ -74,8 +74,20 @@ test('empty-hand runs are never compared in M3; an empty-hand win still counts i
 
 test('internal rows counted when includeInternal is true', () => {
   const mi = g.computeMetrics_(base, 'beta', undefined, true);
-  assert.deepStrictEqual(mi.builds.find(b => b[0] === 'beta-playtest-internal'), ['beta-playtest-internal', 2, 'yes']);
+  assert.deepStrictEqual(mi.builds.find(b => b[0] === 'beta-playtest-internal'), ['beta-playtest-internal', 2, 2]);
   assert.strictEqual(mi.sessions, 4);
+});
+
+test('SUMMARY_SINCE keeps only rows received from that moment on', () => {
+  const t = table([
+    Object.assign(run('a', 'T3', 1, 'win', 9, 'old T3'), { receivedAt: '2026-11-20T03:00:00-08:00' }),
+    Object.assign(run('b', 'T3', 1, 'win', 9, 'new T3'), { receivedAt: '2026-11-20T13:00:00-08:00' }),
+    Object.assign(run('c', 'T3', 1, 'win', 9, 'no time'), { receivedAt: '' }),
+  ]);
+  const ms = g.computeMetrics_(t, 'beta', undefined, false, new Date('2026-11-20T12:00:00-08:00'));
+  assert.strictEqual(ms.runs, 1);
+  assert.deepStrictEqual(ms.builds[1], ['beta-playtest', 3, 1]);
+  assert.strictEqual(g.computeMetrics_(t, 'beta').runs, 3);   // no cutoff: every row
 });
 
 test('rows from older builds (no eventType) count as runs', () => {

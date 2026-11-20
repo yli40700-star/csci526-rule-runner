@@ -42,8 +42,14 @@ With an empty `endpoint` the game only prints each record to the browser console
 ## Charts
 
 After some play-testing, open the Apps Script editor and run `buildSummary`. It rebuilds the `summary` tab
-(tables and charts) from rows whose build starts with `SUMMARY_BUILD_PREFIX` (`beta`). `-internal` rows (team testing)
-are counted while `INCLUDE_INTERNAL` is `true`; set it to `false` to see outside players only:
+(tables and charts) from the rows picked by three settings at the top of `Code.gs`:
+
+- `SUMMARY_BUILD_PREFIX` (`gold`): only builds whose tag starts with it.
+- `SUMMARY_SINCE` (`''` = no cutoff): only rows received from that moment on, e.g. `'2026-11-20T12:00:00-08:00'`.
+  Set it when a new build renames levels (the Gold tutorial went from T1-T5 to T1-T4, so T3 and T4 changed meaning).
+- `INCLUDE_INTERNAL` (`true`): whether `-internal` rows (team testing) count; `false` = outside players only.
+
+The `build` table on the summary tab shows, per build tag, how many rows exist and how many were used.
 
 - **M1 Level completion funnel**: per level, % of sessions that opened it and % of openers that cleared it.
 - **M2 Runs to clear**: runs until the first win, per player (candlestick of min / Q1 / Q3 / max; median in the table).
