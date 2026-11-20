@@ -899,7 +899,7 @@
       "previousLine": "Your 3-3 cards never jump a pit, and that hole is over the spikes."
     },
     {
-      "id": "3-4b",
+      "id": "3-5",
       "chapter": 3,
       "title": "Leave One Standing",
       "hint": "Two cracked tiles, and you need both: one to land on coming back, one to fall through.",
@@ -950,7 +950,7 @@
       "previousLine": "Your 3-4 cards walk over both cracks, so nothing is left to land on coming back."
     },
     {
-      "id": "3-5",
+      "id": "3-6",
       "chapter": 3,
       "title": "Bridge for Later",
       "hint": "A cracked tile, a spike, then two more cracks stand between you and the Energy. The flag is downstairs.",
@@ -1056,7 +1056,7 @@
         "It's been walking into the same wall for a while now."
       ],
       "qiLine": "Out of Energy. Every Jump and every Turn costs 1.",
-      "previousLine": "Your 3-5 cards have no Big Jump here, so nothing fires at the spike.",
+      "previousLine": "Your 3-6 cards have no Big Jump here, so nothing fires at the spike.",
       "newItems": [
         {
           "title": "Elevator",
