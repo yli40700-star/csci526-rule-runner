@@ -9,8 +9,6 @@ namespace RuleRunner.Core
     /// Chapter 3 adds two things after a move, both no-ops on maps without them:
     /// a cracked tile ('c') the runner just left becomes a pit, and on a two-floor level a pit entered on the
     /// upper floor drops the runner onto the lower floor (same x, same direction, same step) before the cell is resolved.
-    /// Chapter 4 adds the elevator: walking or jumping onto it on the lower floor lifts the runner to the upper floor
-    /// (same x, same direction, same step, no Energy); from then on both tiles of that column are plain ground.
     /// </summary>
     public static class Simulator
     {
@@ -79,7 +77,7 @@ namespace RuleRunner.Core
 
                 // 2. Perform it.
                 var outcome = Outcome.Running;
-                bool blocked = false, orb = false, fell = false, rode = false, gold = false;
+                bool blocked = false, orb = false, fell = false;
                 int from = x, crumbled = -1;
                 switch (action)
                 {
@@ -125,18 +123,7 @@ namespace RuleRunner.Core
                         cells = floors[1];
                         fell = true;
                     }
-                    // The elevator lifts a runner that steps onto it on the lower floor, then stays up as a bridge.
-                    // A runner that just fell onto it is not lifted.
-                    else if (floor == 1 && cells[x] == Vocabulary.Elevator)
-                    {
-                        floors[1][x] = Vocabulary.Ground;
-                        floors[0][x] = Vocabulary.Ground;
-                        floor = 0;
-                        cells = floors[0];
-                        rode = true;
-                    }
-                    outcome = Resolve(cells, x, t, ref qi, out orb, out gold);
-                    if (gold) result.Gold = true;
+                    outcome = Resolve(cells, x, t, ref qi, out orb);
                 }
 
                 if (frame != null)
@@ -147,7 +134,6 @@ namespace RuleRunner.Core
                     frame.Qi = qi;
                     frame.Floor = floor;
                     frame.Fell = fell;
-                    frame.Rode = rode;
                     frame.Crumbled = crumbled;
                     frame.Blocked = blocked;
                     frame.CollectedOrb = orb;
@@ -195,19 +181,15 @@ namespace RuleRunner.Core
         }
 
         /// <summary>What happens when the runner enters a cell at step t (before t is incremented).</summary>
-        static Outcome Resolve(char[] cells, int x, int t, ref int qi, out bool collectedOrb, out bool gold)
+        static Outcome Resolve(char[] cells, int x, int t, ref int qi, out bool collectedOrb)
         {
             collectedOrb = false;
-            gold = false;
             switch (Cell(cells, x))
             {
                 case Vocabulary.Pit: return Outcome.Pit;
                 case Vocabulary.Spike: return Outcome.Spike;
                 case Vocabulary.Trap: return Vocabulary.TrapUp(t) ? Outcome.Trap : Outcome.Running;
                 case Vocabulary.Finish: return Outcome.Win;
-                case Vocabulary.GoldFinish:
-                    gold = true;
-                    return Outcome.Win;
                 // Only reachable by dropping through a hole onto a wall below it: counts as a fall.
                 case Vocabulary.LowWall:
                 case Vocabulary.HighWall: return Outcome.Pit;

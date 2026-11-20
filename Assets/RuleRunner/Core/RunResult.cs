@@ -22,9 +22,6 @@ namespace RuleRunner.Core
         /// <summary>True when the runner dropped through a pit in the upper floor onto the lower floor this step.</summary>
         public bool Fell;
 
-        /// <summary>True when the elevator lifted the runner from the lower floor to the upper floor this step.</summary>
-        public bool Rode;
-
         /// <summary>Index of the cracked tile (on FloorBefore) that broke because the runner left it this step, or -1.</summary>
         public int Crumbled = -1;
 
@@ -66,18 +63,5 @@ namespace RuleRunner.Core
         public List<StepFrame> Frames = new List<StepFrame>();
 
         public bool Won => Outcome == Outcome.Win;
-
-        /// <summary>True when the run ended on the gold flag.</summary>
-        public bool Gold;
-
-        /// <summary>
-        /// The three stars of a level with a gold flag: reached a flag, finished with enough Energy left, reached the
-        /// gold flag. All false for a failed run or on a level without stars.
-        /// </summary>
-        public bool[] Stars(LevelDef level)
-        {
-            bool on = Won && level != null && level.HasStars;
-            return new[] { on, on && QiLeft >= level.Star2Qi, on && Gold };
-        }
     }
 }

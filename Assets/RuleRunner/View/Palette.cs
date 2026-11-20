@@ -19,9 +19,6 @@ namespace RuleRunner.View
         /// <summary>Cracked ground (chapter 3) and the cracks drawn on it.</summary>
         public static readonly Color Crumble = new Color32(0xa3, 0x92, 0x7a, 0xff);
         public static readonly Color CrumbleCrack = new Color32(0x3a, 0x31, 0x28, 0xff);
-        /// <summary>The elevator platform and the gold flag (chapter 4).</summary>
-        public static readonly Color Elevator = new Color32(0x3f, 0xb5, 0xc4, 0xff);
-        public static readonly Color GoldFlag = new Color32(0xf5, 0xc4, 0x42, 0xff);
         public static readonly Color Runner = new Color32(0xf5, 0xd0, 0x3b, 0xff);
         public static readonly Color RunnerEye = new Color32(0x1d, 0x23, 0x2e, 0xff);
         public static readonly Color Dead = new Color32(0xe0, 0x4f, 0x4f, 0xff);

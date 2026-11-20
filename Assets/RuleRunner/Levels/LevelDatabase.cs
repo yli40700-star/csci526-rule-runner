@@ -29,7 +29,6 @@ namespace RuleRunner.Levels
             public bool introUntilCleared;  // the intro card opens each time until the level is cleared
             public string map;
             public string lower;        // two-floor levels: the floor under map (see LevelDef.Lower)
-            public int star2Qi;         // levels with a gold flag: Energy left needed for the second star
             public int start;
             public int dir = 1;
             public int qi;
@@ -137,7 +136,6 @@ namespace RuleRunner.Levels
             IntroUntilCleared = j.introUntilCleared,
             Map = j.map,
             Lower = string.IsNullOrEmpty(j.lower) ? null : j.lower,
-            Star2Qi = j.star2Qi,
             Start = j.start,
             Dir = j.dir == 0 ? 1 : j.dir,
             Qi = j.qi,

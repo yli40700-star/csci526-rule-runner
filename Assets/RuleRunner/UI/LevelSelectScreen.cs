@@ -19,19 +19,16 @@ namespace RuleRunner.UI
         Text moreHint;
         readonly Dictionary<int, RectTransform> chapterHeads = new Dictionary<int, RectTransform>();
         Func<string, bool> isCleared;
-        Func<string, int> starsOf;   // best stars of a level so far, one bit per star
 
         static readonly Vector2 TileSize = new Vector2(196, 132);
 
         const int TilesPerRow = 5;
 
-        /// <param name="starsOf">Best stars earned on a level so far, as bits 1, 2 and 4 (levels with a gold flag).</param>
-        public static LevelSelectScreen Create(Transform canvas, Func<string, bool> isCleared, Func<string, int> starsOf = null)
+        public static LevelSelectScreen Create(Transform canvas, Func<string, bool> isCleared)
         {
             var root = UIKit.Panel(canvas, "LevelSelect", Theme.Background, Vector2.zero, Vector2.one);
             var screen = root.gameObject.AddComponent<LevelSelectScreen>();
             screen.isCleared = isCleared;
-            screen.starsOf = starsOf ?? (id => 0);
 
             // Title with a little runner jumping over a spike, made of the same shapes as the game.
             var logo = UIKit.TopStrip(root.transform, "Logo", 40f, 120f);
@@ -131,19 +128,7 @@ namespace RuleRunner.UI
 
             var chip = UIKit.Box(t, "Id", playable ? Theme.Gold : Theme.Raised, 8f, new Vector2(0, 1), new Vector2(0, 1), new Vector2(12, -38), new Vector2(64, -12));
             UIKit.Label(chip.transform, "Text", level.Id, 16, TextAnchor.MiddleCenter, playable ? Theme.Background : Theme.Dim, FontStyle.Bold);
-            if (playable && level.HasStars)
-            {
-                // New levels with a gold flag show three stars; the others only say CLEAR.
-                int best = starsOf(level.Id);
-                for (int i = 0; i < 3; i++)
-                {
-                    var star = UIKit.Shape(t, "Star " + i, UISprites.Star, (best & (1 << i)) != 0 ? Theme.Gold : Theme.Raised,
-                        Vector2.zero, new Vector2(20f, 20f)).rectTransform;
-                    star.anchorMin = star.anchorMax = new Vector2(1, 1);
-                    star.anchoredPosition = new Vector2(-70f + i * 23f, -25f);
-                }
-            }
-            else if (cleared)
+            if (cleared)
             {
                 var badge = UIKit.Box(t, "Clear", Theme.Accent, 8f, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-72, -38), new Vector2(-12, -12));
                 UIKit.Label(badge.transform, "Text", "CLEAR", 13, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
@@ -180,7 +165,6 @@ namespace RuleRunner.UI
                     case Vocabulary.Orb: color = Palette.Orb; h = 7f; break;
                     case Vocabulary.Finish: color = Palette.Finish; h = 12f; break;
                     case Vocabulary.Crumble: color = Palette.Crumble; break;
-                    case Vocabulary.GoldFinish: color = Palette.GoldFlag; h = 12f; break;
                     default: color = Palette.Ground; break;
                 }
                 var cell = UIKit.Panel(rt, "C", color, new Vector2(0, 0), new Vector2(0, 0));

@@ -10,8 +10,6 @@ namespace RuleRunner.View
     /// The map edges are drawn as high walls, matching the simulator, except next to a floor that already ends in one.
     /// Two-floor levels (chapter 3): the level's Map is the upper floor, a thin floor at y = FloorGap, and its pits
     /// are open holes; Lower is drawn at y = 0 like a one-row map. Floor 0 is always the Map, floor 1 the Lower.
-    /// The elevator (chapter 4) is a platform resting on the lower floor; when the runner rides it, it rises into the
-    /// hole in the upper floor and stays there.
     /// </summary>
     public class MapView : MonoBehaviour
     {
@@ -34,9 +32,6 @@ namespace RuleRunner.View
 
         readonly Dictionary<int, SpriteRenderer> orbs = new Dictionary<int, SpriteRenderer>();
         readonly Dictionary<int, Crack> cracks = new Dictionary<int, Crack>();
-        /// <summary>Elevator platforms by column: the moving part, where it rests, and the arrow shown while it is down.</summary>
-        readonly Dictionary<int, (Transform platform, Vector3 home, SpriteRenderer arrow)> elevators =
-            new Dictionary<int, (Transform, Vector3, SpriteRenderer)>();
         readonly List<(SpriteRenderer slab, SpriteRenderer spikes)> traps = new List<(SpriteRenderer, SpriteRenderer)>();
         Transform root;
         Transform marks;
@@ -59,7 +54,6 @@ namespace RuleRunner.View
             root.SetParent(transform, false);
             orbs.Clear();
             cracks.Clear();
-            elevators.Clear();
             traps.Clear();
             marks = new GameObject("Marks").transform;
             marks.SetParent(root, false);
@@ -126,52 +120,7 @@ namespace RuleRunner.View
                     Shapes.Create(root, "FlagPole " + i, sq, Color.white, new Vector2(i + 0.25f, y), new Vector2(0.06f, 1.3f), 1);
                     Shapes.Create(root, "Flag " + i, sq, Palette.Finish, new Vector2(i + 0.02f, y + 0.85f), new Vector2(0.42f, 0.42f), 1);
                     break;
-                case Vocabulary.GoldFinish:
-                    // The gold flag: a taller pole and a bigger gold flag with a dark dot, so it reads apart from the green one.
-                    Shapes.Create(root, "GoldPole " + i, sq, Color.white, new Vector2(i + 0.25f, y), new Vector2(0.06f, 1.5f), 1);
-                    Shapes.Create(root, "GoldFlag " + i, sq, Palette.GoldFlag, new Vector2(i - 0.03f, y + 0.95f), new Vector2(0.52f, 0.52f), 1);
-                    Shapes.Create(root, "GoldDot " + i, Shapes.Circle, Palette.Background, new Vector2(i - 0.03f, y + 1.11f), new Vector2(0.2f, 0.2f), 2);
-                    break;
-                case Vocabulary.Elevator:
-                    DrawElevator(i, y);
-                    break;
             }
-        }
-
-        /// <summary>
-        /// The elevator platform: a teal slab as thick as the upper floor, resting on the lower floor's ground with an
-        /// up arrow over it, and two faint guide lines up to the hole it fits into.
-        /// </summary>
-        void DrawElevator(int i, float y)
-        {
-            float top = FloorY(0);
-            var guide = new Color(Palette.Elevator.r, Palette.Elevator.g, Palette.Elevator.b, 0.22f);
-            foreach (float dx in new[] { -0.47f, 0.47f })
-                Shapes.Create(root, "Shaft " + i, Shapes.Square, guide, new Vector2(i + dx, y), new Vector2(0.03f, top - UpperSlab - y), 0);
-            var platform = new GameObject("Elevator " + i).transform;
-            platform.SetParent(root, false);
-            platform.localPosition = new Vector3(i, y, 0f);
-            Shapes.Create(platform, "Platform", Shapes.Square, Palette.Elevator, new Vector2(0f, -UpperSlab), new Vector2(0.98f, UpperSlab), 2);
-            var arrow = Shapes.Create(platform, "Arrow", Shapes.Triangle, Palette.Elevator, new Vector2(0f, 0.12f), new Vector2(0.3f, 0.22f), 2);
-            elevators[i] = (platform, platform.localPosition, arrow);
-        }
-
-        /// <summary>The elevator at x rises from the lower floor into the hole in the upper floor, and stays there.</summary>
-        public void RaiseElevator(int x, float duration)
-        {
-            if (elevators.TryGetValue(x, out var e)) StartCoroutine(Rise(e.platform, e.home, e.arrow, duration));
-        }
-
-        IEnumerator Rise(Transform platform, Vector3 home, SpriteRenderer arrow, float duration)
-        {
-            arrow.enabled = false;
-            var up = new Vector3(home.x, FloorY(0), 0f);
-            for (float t = 0f; t < duration; t += Time.deltaTime)
-            {
-                platform.localPosition = Vector3.Lerp(home, up, Mathf.SmoothStep(0f, 1f, t / duration));
-                yield return null;
-            }
-            platform.localPosition = up;
         }
 
         /// <summary>
@@ -280,11 +229,6 @@ namespace RuleRunner.View
                 crack.Root.localPosition = crack.Home;
                 for (int i = 0; i < crack.Parts.Length; i++) crack.Parts[i].color = crack.Colors[i];
                 if (crack.Hole) crack.Hole.enabled = false;
-            }
-            foreach (var e in elevators.Values)
-            {
-                e.platform.localPosition = e.home;
-                e.arrow.enabled = true;
             }
             SetTime(0);
             ClearMarks();

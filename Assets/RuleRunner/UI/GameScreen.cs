@@ -103,8 +103,7 @@ namespace RuleRunner.UI
             {
                 ("Ground", Palette.Ground), ("Cracked ground", Palette.Crumble), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
                 ("Low wall (jump over)", Palette.LowWall), ("High wall / edge", Palette.HighWall),
-                ("Energy orb +2", Palette.Orb), ("Elevator (up once)", Palette.Elevator),
-                ("Finish", Palette.Finish), ("Gold flag", Palette.GoldFlag),
+                ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
             };
             foreach (var (name, color) in items)
             {
@@ -115,16 +114,11 @@ namespace RuleRunner.UI
                 label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 UIKit.Layout(label, label.preferredWidth + 14, 20);
                 if (color == Palette.Orb) orbLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
-                if (color == Palette.Elevator) elevatorLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
-                if (color == Palette.GoldFlag) goldLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
             }
         }
 
         /// <summary>Legend entry for the Energy orb: hidden on levels without one.</summary>
         readonly System.Collections.Generic.List<GameObject> orbLegend = new System.Collections.Generic.List<GameObject>();
-        /// <summary>Legend entries for the elevator and the gold flag: hidden on levels without them.</summary>
-        readonly System.Collections.Generic.List<GameObject> elevatorLegend = new System.Collections.Generic.List<GameObject>();
-        readonly System.Collections.Generic.List<GameObject> goldLegend = new System.Collections.Generic.List<GameObject>();
 
         void BuildControls(Transform root)
         {
@@ -203,8 +197,6 @@ namespace RuleRunner.UI
             // The tutorial shows only the map, the cards and RUN: no tile legend, run log, speed or Reset.
             legendRect.gameObject.SetActive(!level.Tutorial);
             foreach (var go in orbLegend) go.SetActive(level.Map.IndexOf('o') >= 0);
-            foreach (var go in elevatorLegend) go.SetActive(level.TwoFloors && level.Lower.IndexOf(Vocabulary.Elevator) >= 0);
-            foreach (var go in goldLegend) go.SetActive(level.HasStars);
             logRect.gameObject.SetActive(!level.Tutorial);
             controlRow.gameObject.SetActive(!level.Tutorial);
             var runRt = (RectTransform)runButton.transform;

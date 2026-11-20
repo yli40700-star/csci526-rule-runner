@@ -18,9 +18,6 @@ namespace RuleRunner.View
         /// <summary>World y of each floor (0 = the level's Map, 1 = Lower); set from MapView.FloorY when a level loads.</summary>
         public System.Func<int, float> FloorY = floor => 0f;
 
-        /// <summary>Called when the elevator starts lifting the runner: the column and how long the ride takes.</summary>
-        public System.Action<int, float> Lifting;
-
         void Awake()
         {
             visual = new GameObject("Visual").transform;
@@ -110,23 +107,7 @@ namespace RuleRunner.View
                     break;
             }
             if (f.Fell) yield return Drop(f.X, y, FloorY(f.Floor), duration * 0.6f);
-            if (f.Rode)
-            {
-                Lifting?.Invoke(f.X, duration);
-                yield return Lift(f.X, y, FloorY(f.Floor), duration);
-            }
             SetDir(f.Dir);
-        }
-
-        /// <summary>Rides the elevator straight up to the upper floor.</summary>
-        IEnumerator Lift(int x, float fromY, float toY, float duration)
-        {
-            for (float t = 0f; t < duration; t += Time.deltaTime)
-            {
-                transform.position = new Vector3(x, Mathf.Lerp(fromY, toY, Mathf.SmoothStep(0f, 1f, t / duration)), 0f);
-                yield return null;
-            }
-            transform.position = new Vector3(x, toY, 0f);
         }
 
         /// <summary>Falls straight down through a hole in the upper floor onto the floor below.</summary>

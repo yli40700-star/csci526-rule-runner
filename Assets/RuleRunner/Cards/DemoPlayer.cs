@@ -11,7 +11,7 @@ namespace RuleRunner.Cards
     /// <summary>
     /// Tiny looping animation for the intro card: runs a DemoSpec through the real Simulator and plays
     /// the frames with UI shapes (walk, jump arcs, turn, wait, traps, orbs, cracked ground, drops to a
-    /// lower floor, elevator rides, the gold flag), then restarts.
+    /// lower floor), then restarts.
     /// </summary>
     public class DemoPlayer : MonoBehaviour
     {
@@ -26,8 +26,6 @@ namespace RuleRunner.Cards
         readonly List<Image> trapSpikes = new List<Image>();
         readonly Dictionary<int, Image> orbs = new Dictionary<int, Image>();
         readonly Dictionary<int, Image> cracks = new Dictionary<int, Image>();
-        // Elevator platforms by column, and where each rests on the lower floor.
-        readonly Dictionary<int, (RectTransform platform, Vector2 home)> elevators = new Dictionary<int, (RectTransform, Vector2)>();
         float cell, baseY, upperY, x0;
         bool twoFloors, built;
 
@@ -121,18 +119,6 @@ namespace RuleRunner.Cards
                 case Vocabulary.Finish:
                     UIKit.Shape(board, "Flag", UISprites.Rounded, Palette.Finish, new Vector2(X(i), top + cell * 0.55f), new Vector2(cell * 0.4f, cell * 0.4f));
                     break;
-                case Vocabulary.GoldFinish:
-                    UIKit.Shape(board, "GoldFlag", UISprites.Rounded, Palette.GoldFlag, new Vector2(X(i), top + cell * 0.6f), new Vector2(cell * 0.5f, cell * 0.5f));
-                    break;
-                case Vocabulary.Elevator:
-                {
-                    // A teal slab as thick as the upper floor, lying on the lower floor until it is ridden.
-                    float h = cell * 0.3f;
-                    var home = new Vector2(X(i), top - h / 2f);
-                    var platform = UIKit.Shape(board, "Elevator", UISprites.Rounded, Palette.Elevator, home, new Vector2(cell * 0.94f, h)).rectTransform;
-                    elevators[i] = (platform, home);
-                    break;
-                }
             }
         }
 
@@ -159,7 +145,6 @@ namespace RuleRunner.Cards
             {
                 foreach (var o in orbs.Values) o.enabled = true;
                 foreach (var c in cracks.Values) { c.enabled = true; c.color = Palette.Crumble; }
-                foreach (var e in elevators.Values) e.platform.anchoredPosition = e.home;
                 runner.GetComponent<Image>().color = Palette.Runner;
                 Place(X(spec.Start), 0f, spec.Dir, FloorY(0));
                 SetTraps(0);
@@ -205,19 +190,6 @@ namespace RuleRunner.Cards
                             Place(X(f.X), 0f, f.Dir, Mathf.Lerp(from, to, k * k));
                             yield return null;
                         }
-                    }
-                    if (f.Rode)
-                    {
-                        // The platform carries the runner up into the hole in the upper floor, and stays there.
-                        elevators.TryGetValue(f.X, out var lift);
-                        for (float t = 0; t < 1f; t += Time.unscaledDeltaTime / StepSeconds)
-                        {
-                            float y = Mathf.Lerp(from, to, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t)));
-                            Place(X(f.X), 0f, f.Dir, y);
-                            if (lift.platform) lift.platform.anchoredPosition = new Vector2(lift.home.x, lift.home.y + (y - from));
-                            yield return null;
-                        }
-                        if (lift.platform) lift.platform.anchoredPosition = new Vector2(lift.home.x, lift.home.y + (to - from));
                     }
                     Place(X(f.X), 0f, f.Dir, to);
                     qiText.text = "Energy " + f.Qi;
