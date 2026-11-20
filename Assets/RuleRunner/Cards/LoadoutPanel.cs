@@ -35,6 +35,7 @@ namespace RuleRunner.Cards
 
         Text loadoutText, qiText, defaultText;
         RectTransform cardRow, pipGrid, qiBlock;
+        GridLayoutGroup pipLayout;
         OptionPicker picker;
         readonly List<RuleCardView> cards = new List<RuleCardView>();
         readonly List<EmptySlotView> emptySlots = new List<EmptySlotView>();
@@ -95,6 +96,23 @@ namespace RuleRunner.Cards
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 8;
             grid.childAlignment = TextAnchor.UpperCenter;
+            pipLayout = grid;
+        }
+
+        /// <summary>Width the Energy pips have inside the runner panel.</summary>
+        const float PipRowWidth = 114f;
+        /// <summary>Up to this many pips share one row; the pips shrink a little so they fit.</summary>
+        public const int PipsPerRow = 12;
+
+        /// <summary>
+        /// Pip size and gap for a row of <paramref name="count"/> pips: full size (11) up to 8, then smaller, so the
+        /// pool reads as one row instead of a row and a stray pip.
+        /// </summary>
+        public static void PipLayout(int count, out float size, out float gap)
+        {
+            int perRow = Mathf.Clamp(count, 1, PipsPerRow);
+            gap = perRow > 8 ? 2f : 3f;
+            size = Mathf.Clamp(Mathf.Floor((PipRowWidth - (perRow - 1) * gap) / perRow), 6f, 11f);
         }
 
         static void Top(RectTransform rt, float centerFromTop, float x = 0f)
@@ -301,6 +319,10 @@ namespace RuleRunner.Cards
         {
             qiText.text = qi + " / " + max;
             int total = Mathf.Min(Mathf.Max(max, qi), MaxPips);
+            PipLayout(total, out float pipSize, out float pipGap);
+            pipLayout.cellSize = new Vector2(pipSize, pipSize);
+            pipLayout.spacing = new Vector2(pipGap, pipGap);
+            pipLayout.constraintCount = Mathf.Clamp(total, 1, PipsPerRow);
             while (pipImages.Count < total)
             {
                 var pip = UIKit.Rect(pipGrid, "Pip", Vector2.zero, Vector2.one);

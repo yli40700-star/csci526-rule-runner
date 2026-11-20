@@ -14,8 +14,9 @@ namespace RuleRunner.Cards
     ///   THEN section: action diagram + name                  (click to change the action)
     ///   footer: move left / remove / move right
     /// Every level uses this one card, the tutorial's too (TutorialScreen draws the same layout). In AND levels a "+AND"
-    /// chip sits on the divider; an AND card shows an AND line (with "AND x" to undo it) and the second condition (its own
-    /// NOT chip, diagram and name) under the first, so it grows downward by AndExtra and the THEN part moves down with it.
+    /// chip sits at the right end of the divider, clear of the condition's name and the THEN label; an AND card shows an
+    /// AND line (with "AND x" to undo it) and the second condition (its own NOT chip, diagram and name) under the first,
+    /// so it grows downward by AndExtra and the THEN part moves down with it.
     /// The owner (GameScreen) holds the rule list; the card only raises events.
     /// </summary>
     public class RuleCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
@@ -93,13 +94,15 @@ namespace RuleRunner.Cards
 
             BuildSections(card);
 
-            // Footer: < remove >
-            var footer = UIKit.Rect(card.body, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(8, 6), new Vector2(-8, 26));
-            card.leftButton = UIKit.Button(footer, "Left", "<", 14, Theme.Raised, () => card.MoveLeft?.Invoke(card), 8f);
-            SetH(card.leftButton.transform, 0f, 28f);
-            card.rightButton = UIKit.Button(footer, "Right", ">", 14, Theme.Raised, () => card.MoveRight?.Invoke(card), 8f);
-            SetH(card.rightButton.transform, 1f, 28f);
-            card.removeButton = UIKit.Button(footer, "Remove", "remove", 12, Theme.Raised, () => card.Remove?.Invoke(card), 8f, FontStyle.Normal);
+            // Footer: < remove >. The row is big enough to hit easily, and the arrows say what they do on hover.
+            var footer = UIKit.Rect(card.body, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(8, 5), new Vector2(-8, 29));
+            card.leftButton = UIKit.Button(footer, "Left", "<", 17, Theme.Raised, () => card.MoveLeft?.Invoke(card), 8f);
+            SetH(card.leftButton.transform, 0f, 34f);
+            HoverTip.Attach((RectTransform)card.leftButton.transform, "Check this card earlier", 0f);
+            card.rightButton = UIKit.Button(footer, "Right", ">", 17, Theme.Raised, () => card.MoveRight?.Invoke(card), 8f);
+            SetH(card.rightButton.transform, 1f, 34f);
+            HoverTip.Attach((RectTransform)card.rightButton.transform, "Check this card later", 1f);
+            card.removeButton = UIKit.Button(footer, "Remove", "remove", 13, Theme.Raised, () => card.Remove?.Invoke(card), 8f, FontStyle.Normal);
             var removeRt = (RectTransform)card.removeButton.transform;
             removeRt.anchorMin = new Vector2(0.5f, 0f);
             removeRt.anchorMax = new Vector2(0.5f, 1f);
@@ -116,11 +119,12 @@ namespace RuleRunner.Cards
             // IF section.
             var ifRt = UIKit.TopStrip(root, "If", 40f, 80f, 6f, 6f);
             card.condArea = UIKit.HitArea(ifRt, () => card.PickCondition?.Invoke(card), new Color(1, 1, 1, 0.07f));
-            var ifLabel = UIKit.TopStrip(ifRt, "IfLabel", 4f, 18f, 8f, 8f);
+            var ifLabel = UIKit.TopStrip(ifRt, "IfLabel", 2f, NotChipHeight, 8f, 8f);
             UIKit.Label(ifLabel, "Text", "IF", 14, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
             card.notChip = BuildNotChip(ifLabel, () => card.ToggleNot?.Invoke(card), out card.notButton, out card.notRing, out card.notText, out card.notStrike);
             card.condIcon = UIKit.Centered(ifRt, "Icon", new Vector2(0, 2f), Icons.Size);
-            var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20));
+            // The name sits a little above the section's bottom edge, so "+AND" on the divider never touches it.
+            var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 5), new Vector2(-4, 23));
             card.condText = UIKit.Label(condLabel, "Text", "", 14, TextAnchor.MiddleCenter);
 
             // AND line, then the second condition (shown on an AND card).
@@ -129,7 +133,7 @@ namespace RuleRunner.Cards
             UIKit.Panel(card.andRow, "LineR", Theme.Qi.WithAlpha(0.6f), new Vector2(0.5f, 0.5f), new Vector2(1, 0.5f), new Vector2(32, -0.5f), new Vector2(-10, 0.5f));
             var if2Rt = UIKit.TopStrip(root, "If2", 136f, 80f, 6f, 6f);
             card.cond2Area = UIKit.HitArea(if2Rt, () => card.PickCondition2?.Invoke(card), new Color(1, 1, 1, 0.07f));
-            var if2Label = UIKit.TopStrip(if2Rt, "If2Label", 4f, 18f, 8f, 8f);
+            var if2Label = UIKit.TopStrip(if2Rt, "If2Label", 2f, NotChipHeight, 8f, 8f);
             UIKit.Label(if2Label, "Text", "AND", 14, TextAnchor.MiddleLeft, Theme.Qi, FontStyle.Bold);
             card.not2Chip = BuildNotChip(if2Label, () => card.ToggleNot2?.Invoke(card), out card.not2Button, out card.not2Ring, out card.not2Text, out card.not2Strike);
             card.cond2Icon = UIKit.Centered(if2Rt, "Icon", new Vector2(0, 2f), Icons.Size);
@@ -147,26 +151,32 @@ namespace RuleRunner.Cards
             card.actionNameRt = UIKit.TopStrip(root, "ActionName", 180f, 18f, 6f, 6f);
             card.actionText = UIKit.Label(card.actionNameRt, "Text", "", 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
 
-            // AND levels: "+AND" sits on the divider, where a second condition would go; on an AND card it is the
-            // "AND x" in the AND line and turns the card back. Built last so it is on top of the IF and THEN click areas.
-            card.andChipImage = UIKit.Box(root, "AndChip", Theme.Raised, 9f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
-            card.andChipImage.rectTransform.sizeDelta = new Vector2(50, 18);
+            // AND levels: "+AND" sits at the right end of the divider, where a second condition would go; on an AND card
+            // it is the "AND x" in the AND line and turns the card back. Built last so it is on top of the IF and THEN
+            // click areas.
+            card.andChipImage = UIKit.Box(root, "AndChip", Theme.Raised, 10f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
+            card.andChipImage.rectTransform.sizeDelta = AndChipSize;
             card.addAndButton = card.andChipImage.gameObject.AddComponent<Button>();
             card.addAndButton.targetGraphic = card.andChipImage;
             card.addAndButton.onClick.AddListener(() => card.ToggleAnd?.Invoke(card));
-            card.andChipText = UIKit.Label(card.andChipImage.transform, "Text", "+AND", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            card.andChipText = UIKit.Label(card.andChipImage.transform, "Text", "+AND", 13, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
         }
 
-        /// <summary>A NOT switch at the right end of a section's label row (46 x 18).</summary>
+        /// <summary>Height of the NOT switch and of the label row it sits in.</summary>
+        const float NotChipHeight = 22f;
+        /// <summary>"+AND" on the divider (the "AND x" in the AND line is a little lower, to fit that line).</summary>
+        static readonly Vector2 AndChipSize = new Vector2(54, 20);
+
+        /// <summary>A NOT switch at the right end of a section's label row (48 x NotChipHeight).</summary>
         static Image BuildNotChip(RectTransform labelRow, Action toggle, out Button button, out Image ring, out Text text, out Image strike)
         {
-            var chip = UIKit.Box(labelRow, "Not", Theme.Raised, 9f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-46, 0), Vector2.zero);
+            var chip = UIKit.Box(labelRow, "Not", Theme.Raised, NotChipHeight / 2f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-48, 0), Vector2.zero);
             button = chip.gameObject.AddComponent<Button>();
             button.targetGraphic = chip;
             button.onClick.AddListener(() => toggle());
-            ring = NotSwitchRing(chip, 9f);
-            text = UIKit.Label(chip.transform, "Text", "NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
-            strike = NotSwitchStrike(chip, 32f);
+            ring = NotSwitchRing(chip, NotChipHeight / 2f);
+            text = UIKit.Label(chip.transform, "Text", "NOT", 13, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            strike = NotSwitchStrike(chip, 34f);
             NotTooltip.Attach(chip.rectTransform);
             return chip;
         }
@@ -233,8 +243,12 @@ namespace RuleRunner.Cards
             addAndButton.interactable = editable && !lockConditions;
             andChipImage.color = and ? Theme.Qi : Theme.Raised;
             andChipText.text = and ? "AND x" : "+AND";
-            andChipText.color = and ? Theme.Background : Theme.Dim;
-            andChipImage.rectTransform.anchoredPosition = new Vector2(0f, and ? -128f : -122.5f);
+            andChipText.color = and ? Theme.Background : Theme.Text;
+            // "+AND": right end of the divider (y 114 to 134), under the NOT switch and beside the THEN label.
+            // "AND x": centered in the AND line.
+            var chipRt = andChipImage.rectTransform;
+            chipRt.sizeDelta = and ? new Vector2(AndChipSize.x, 18f) : AndChipSize;
+            chipRt.anchoredPosition = and ? new Vector2(0f, -128f) : new Vector2(CardSize.x / 2f - 8f - AndChipSize.x / 2f, -124f);
             andRow.gameObject.SetActive(and);
             cond2Area.gameObject.SetActive(and);
             if (and)
@@ -355,6 +369,43 @@ namespace RuleRunner.Cards
             int cost = Vocabulary.Cost(a);
             return Vocabulary.Display(a) + (cost == 0 ? "  (free)" : "  (-" + cost + " Energy)");
         }
+    }
+
+    /// <summary>
+    /// A short label that appears above a card control while the pointer is on it (the move arrows). It stays inside
+    /// the card's width: <c>side</c> 0 grows to the right from the control's left edge, 1 to the left from its right edge.
+    /// </summary>
+    public class HoverTip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        GameObject tip;
+        Button button;
+
+        public static void Attach(RectTransform target, string text, float side)
+        {
+            var t = target.gameObject.AddComponent<HoverTip>();
+            t.button = target.GetComponent<Button>();
+            var box = UIKit.Box(target, "Tip", Theme.Background.WithAlpha(0.96f), 8f, new Vector2(side, 1), new Vector2(side, 1));
+            box.raycastTarget = false;
+            box.gameObject.AddComponent<Outline>().effectColor = Theme.Gold.WithAlpha(0.6f);
+            var label = UIKit.Label(UIKit.Fill(box.rectTransform, "Text", 4f), "Text", text, 12, TextAnchor.MiddleCenter, Theme.Text);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var rt = box.rectTransform;
+            rt.pivot = new Vector2(side, 0);
+            rt.sizeDelta = new Vector2(label.preferredWidth + 18f, 24f);
+            rt.anchoredPosition = new Vector2(0, 5);
+            t.tip = box.gameObject;
+            t.tip.SetActive(false);
+        }
+
+        public void OnPointerEnter(PointerEventData e)
+        {
+            // An arrow that cannot be used (the first card's "<", any arrow during a run) has nothing to explain.
+            if (button != null && !button.interactable) return;
+            tip.SetActive(true);
+        }
+
+        public void OnPointerExit(PointerEventData e) => tip.SetActive(false);
+        void OnDisable() { if (tip) tip.SetActive(false); }
     }
 
     /// <summary>Hover tooltip on the NOT chip explaining what it does.</summary>
