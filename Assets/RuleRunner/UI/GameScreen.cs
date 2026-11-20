@@ -26,6 +26,8 @@ namespace RuleRunner.UI
         public const float HeaderFraction = HeaderPx / 720f;
         public static float BottomFraction(bool tall) => (tall ? TallBottomPx : BottomPx) / 720f;
         const int MaxLogLines = 250;
+        /// <summary>Height of the box with RUN, Reset and the speed buttons.</summary>
+        const float ControlsHeight = 112f;
 
         public LevelDef Level { get; private set; }
         public RectTransform CanvasRect { get; private set; }
@@ -48,6 +50,7 @@ namespace RuleRunner.UI
         readonly Queue<GameObject> logLines = new Queue<GameObject>();
         float speed = 1f;
         float floatTimer;
+        float bottomPx = BottomPx;
 
         public static GameScreen Create(RectTransform canvas)
         {
@@ -117,15 +120,15 @@ namespace RuleRunner.UI
                 var swatch = UIKit.Rect(legend, "Swatch", Vector2.zero, Vector2.one);
                 UIKit.Round(swatch.gameObject.AddComponent<Image>(), 3f).color = color;
                 UIKit.Layout(swatch, 12, 12);
-                var label = UIKit.Label(legend, "Label", name, 14, TextAnchor.MiddleLeft, Theme.Dim);
-                label.horizontalOverflow = HorizontalWrapMode.Overflow;
-                UIKit.Layout(label, label.preferredWidth + 14, 20);
                 if (color == Palette.PitHole)
                 {
                     // The pit is as dark as the screen: its swatch gets the same rim as the pits on the map.
                     var rim = UIKit.RoundOutline(UIKit.Panel(swatch, "Rim", Palette.PitRim, Vector2.zero, Vector2.one), 3f, 1.5f);
                     rim.raycastTarget = false;
                 }
+                var label = UIKit.Label(legend, "Label", name, 14, TextAnchor.MiddleLeft, Theme.Dim);
+                label.horizontalOverflow = HorizontalWrapMode.Overflow;
+                UIKit.Layout(label, label.preferredWidth + 14, 20);
                 legendEntries.Add((tiles, swatch.gameObject, label.gameObject));
             }
         }
@@ -139,7 +142,7 @@ namespace RuleRunner.UI
         void BuildControls(Transform root)
         {
             var controls = UIKit.Box(root, "Controls", Theme.Surface, 16f, new Vector2(1, 0), new Vector2(1, 0),
-                new Vector2(-364, BottomPx - 8 - 112), new Vector2(-12, BottomPx - 8));
+                new Vector2(-364, BottomPx - 8 - ControlsHeight), new Vector2(-12, BottomPx - 8));
             controlsRect = controls.rectTransform;
             UIKit.DropShadow(controls, 4f, 0.35f);
 
@@ -168,7 +171,7 @@ namespace RuleRunner.UI
             SetSpeed(1f);
 
             var log = UIKit.Box(root, "Log", Theme.Surface, 16f, new Vector2(1, 0), new Vector2(1, 0),
-                new Vector2(-364, 12), new Vector2(-12, BottomPx - 8 - 112 - 10));
+                new Vector2(-364, 12), new Vector2(-12, BottomPx - 8 - ControlsHeight - 10));
             logRect = log.rectTransform;
             UIKit.DropShadow(log, 4f, 0.35f);
             UIKit.Label(UIKit.TopStrip(log.transform, "Title", 8f, 20f, 14f, 14f), "Text", "RUN LOG", 13, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
@@ -234,12 +237,30 @@ namespace RuleRunner.UI
         void SetTall(bool tall)
         {
             float bottom = tall ? TallBottomPx : BottomPx;
+            bottomPx = bottom;
             legendRect.offsetMin = new Vector2(16, bottom + 2);
             legendRect.offsetMax = new Vector2(-16, bottom + 28);
             LoadoutArea.offsetMax = new Vector2(-376, bottom - 8);
-            controlsRect.offsetMin = new Vector2(-364, bottom - 8 - 112);
+            controlsRect.offsetMin = new Vector2(-364, bottom - 8 - ControlsHeight);
             controlsRect.offsetMax = new Vector2(-12, bottom - 8);
-            logRect.offsetMax = new Vector2(-12, bottom - 8 - 112 - 10);
+            logRect.offsetMax = new Vector2(-12, bottom - 8 - ControlsHeight - 10);
+        }
+
+        /// <summary>
+        /// While the failed-run card (ResultPopup) sits on the run controls, the run log starts under it, so the
+        /// card does not cut through the log's title and first lines.
+        /// </summary>
+        public void SetFailedCard(bool shown)
+        {
+            float top = bottomPx - 8 - (shown ? ResultPopup.FailedHeight : ControlsHeight) - 10;
+            logRect.offsetMax = new Vector2(-12, top);
+            if (shown) ScrollLogToEnd();
+        }
+
+        void ScrollLogToEnd()
+        {
+            Canvas.ForceUpdateCanvases();
+            logScroll.verticalNormalizedPosition = 0f;
         }
 
         /// <summary>The card tray area (hidden at the start of the first tutorial level).</summary>
@@ -266,8 +287,7 @@ namespace RuleRunner.UI
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             logLines.Enqueue(text.gameObject);
             while (logLines.Count > MaxLogLines) Destroy(logLines.Dequeue());
-            Canvas.ForceUpdateCanvases();
-            logScroll.verticalNormalizedPosition = 0f;
+            ScrollLogToEnd();
         }
 
         public void ClearLog()

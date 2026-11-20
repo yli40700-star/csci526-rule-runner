@@ -451,6 +451,7 @@ namespace RuleRunner.App
             StopPlayback();
             resultPopup.Hide();
             if (level == null) return;
+            gameScreen.SetFailedCard(false);
             map.ResetState();
             if (deathX >= 0) map.MarkDeath(deathX, deathFloor); // keep showing where the last run died while editing
             runner.Place(level.Start, level.Dir);
@@ -587,8 +588,9 @@ namespace RuleRunner.App
                     deathFloor = result.Frames[result.Frames.Count - 1].Floor;
                     map.MarkDeath(deathX, deathFloor);
                 }
-                gameScreen.Log(line, Theme.Gold);
-                gameScreen.ShowBanner(line);
+                // The tip is shown once, in the banner above the map, and stays there while the player edits.
+                if (string.IsNullOrEmpty(line)) line = ResultPopup.HintFor(result);
+                if (!string.IsNullOrEmpty(line)) gameScreen.ShowBanner(line);
                 UpdateHintButton();
                 int failed = f + 1;
                 if (failed >= FailsBeforeNudge && Saved.GetInt(NudgeShownKey, 0) == 0)
@@ -603,7 +605,8 @@ namespace RuleRunner.App
                 }
             }
             playback = null;
-            resultPopup.Show(result, level, rules.Count, LevelDatabase.Next(level) != null, line);
+            resultPopup.Show(result, level, rules.Count, LevelDatabase.Next(level) != null);
+            gameScreen.SetFailedCard(!result.Won);
             tutorial.RunFinished(result);
         }
 
