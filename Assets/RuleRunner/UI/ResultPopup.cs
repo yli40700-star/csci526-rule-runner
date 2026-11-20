@@ -12,6 +12,8 @@ namespace RuleRunner.UI
 
         Text title, cause, hint, qiValue, stepValue, cardValue;
         Image accent;
+        RectTransform starRow;
+        readonly Image[] stars = new Image[3];
         Button nextButton, editButton;
 
         public static ResultPopup Create(Transform canvas)
@@ -28,6 +30,11 @@ namespace RuleRunner.UI
             popup.accent = UIKit.Box(b, "Accent", Theme.Accent, 4f, new Vector2(0, 1), new Vector2(1, 1), new Vector2(24, -10), new Vector2(-24, -4));
             popup.title = UIKit.Label(UIKit.TopStrip(b, "Title", 24f, 48f, 24f, 24f), "Text", "", 38, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
             popup.cause = UIKit.Label(UIKit.TopStrip(b, "Cause", 74f, 26f, 24f, 24f), "Text", "", 18, TextAnchor.MiddleCenter, Theme.Dim);
+
+            // Levels with a gold flag show their three stars where the cause line is.
+            popup.starRow = UIKit.TopStrip(b, "Stars", 70f, 36f, 24f, 24f);
+            for (int i = 0; i < 3; i++)
+                popup.stars[i] = UIKit.Shape(popup.starRow, "Star " + i, UISprites.Star, Theme.Gold, new Vector2((i - 1) * 44f, 0f), new Vector2(36f, 36f));
 
             var stats = UIKit.TopStrip(b, "Stats", 112f, 64f, 40f, 40f);
             UIKit.HRow(stats, 12, null, true);
@@ -70,15 +77,21 @@ namespace RuleRunner.UI
         public void Show(RunResult result, LevelDef level, int cardCount, bool hasNextLevel, string guideLine = "")
         {
             bool won = result.Won;
-            title.text = won ? "LEVEL CLEAR" : "RUN FAILED";
+            // Stars only exist on levels with a gold flag, and only a cleared run earns any.
+            var earned = result.Stars(level);
+            bool showStars = won && level.HasStars;
+            starRow.gameObject.SetActive(showStars);
+            for (int i = 0; i < 3; i++) stars[i].color = earned[i] ? Theme.Gold : Theme.Raised;
+            title.text = !won ? "RUN FAILED" : result.Gold ? "GOLD FLAG!" : "LEVEL CLEAR";
             title.color = won ? Theme.Hex(0x7de08c) : Theme.Hex(0xff8a8a);
             accent.color = won ? Theme.Accent : Theme.Danger;
-            cause.text = won ? "The runner reached the flag." : Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
+            cause.text = showStars ? "" : won ? "The runner reached the flag." : Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
             qiValue.text = result.QiLeft.ToString();
             qiValue.transform.parent.gameObject.SetActive(!level.HideQi);  // qi is not shown before its tutorial level
             stepValue.text = result.Steps.ToString();
             cardValue.text = cardCount.ToString();
-            hint.text = won && level.HideQi ? ""
+            hint.text = showStars ? StarHint(earned, level)
+                : won && level.HideQi ? ""
                 : won
                 ? (result.QiLeft >= level.SolutionQiLeft ? "Perfect run - no Energy wasted." : "This level can be cleared with " + level.SolutionQiLeft + " Energy left.")
                 : (string.IsNullOrEmpty(guideLine) ? HintFor(result) : guideLine);
@@ -89,6 +102,16 @@ namespace RuleRunner.UI
         }
 
         public void Hide() => gameObject.SetActive(false);
+
+        /// <summary>What the stars this run missed are for.</summary>
+        static string StarHint(bool[] earned, LevelDef level)
+        {
+            if (earned[1] && earned[2]) return "All three stars!";
+            string s = "";
+            if (!earned[1]) s += "Finish with " + level.Star2Qi + "+ Energy left for another star. ";
+            if (!earned[2]) s += "The gold flag has one more.";
+            return s.Trim();
+        }
 
         public static string HintFor(RunResult r)
         {

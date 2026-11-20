@@ -21,6 +21,7 @@ namespace RuleRunner.App
     {
         const float BaseStepSeconds = 0.4f;
         const string ClearedKey = "rr_cleared_";
+        const string StarsKey = "rr_stars_";              // best stars of a level, one bit per star
         const string IntroSeenKey = "rr_intro_";
         const int FailsBeforeHint = 2;
         const int FailsBeforeNudge = 3;
@@ -154,7 +155,7 @@ namespace RuleRunner.App
             gameScreen = GameScreen.Create(canvasRect);
             loadout = LoadoutPanel.Create(gameScreen.LoadoutArea, picker);
             headCards = HeadCards.Create(gameScreen.transform);
-            levelSelect = LevelSelectScreen.Create(canvasRect, IsCleared);
+            levelSelect = LevelSelectScreen.Create(canvasRect, IsCleared, id => Saved.GetInt(StarsKey + id, 0));
             resultPopup = ResultPopup.Create(canvasRect);
             introCard = IntroCard.Create(canvasRect);
             coach = CoachOverlay.Create(canvasRect);
@@ -249,6 +250,7 @@ namespace RuleRunner.App
             runner.gameObject.SetActive(true);
             map.Build(level);
             runner.FloorY = map.FloorY;
+            runner.Lifting = map.RaiseElevator;   // the platform rises together with the runner
             cameraFitter.viewportHeight = MapViewportHeight(level.AllowAnd, level.Tutorial);
             // The tutorial's cards ride above the runner, so the ground sits lower to leave them room.
             cameraFitter.groundFromBottom = level.Tutorial ? 0.45f : 1.3f;
@@ -540,7 +542,16 @@ namespace RuleRunner.App
                 tutorial.DemoFinished();
                 yield break;
             }
-            if (result.Won) Saved.SetInt(ClearedKey + level.Id, 1);
+            if (result.Won)
+            {
+                Saved.SetInt(ClearedKey + level.Id, 1);
+                // Stars add up over runs: a star earned once stays earned.
+                var stars = result.Stars(level);
+                int best = Saved.GetInt(StarsKey + level.Id, 0);
+                for (int i = 0; i < stars.Length; i++)
+                    if (stars[i]) best |= 1 << i;
+                Saved.SetInt(StarsKey + level.Id, best);
+            }
             else if (level.Tutorial)
             {
                 // No popup and no words: rewind to the step before the fall and freeze there, with the X on
@@ -657,6 +668,7 @@ namespace RuleRunner.App
             if (f.Blocked) s += " - blocked by a wall";
             if (f.Crumbled >= 0) s += " - the cracked ground behind gave way";
             if (f.Fell) s += " - dropped through the hole to the floor below";
+            if (f.Rode) s += " - the elevator went up, and it stays up";
             if (f.CollectedOrb) s += " - picked up an Energy orb (+" + Vocabulary.OrbQi + ")";
             return s;
         }

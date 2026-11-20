@@ -3,7 +3,7 @@ using UnityEngine;
 namespace RuleRunner.UI
 {
     /// <summary>
-    /// Procedural UI sprites (anti-aliased): a 9-sliced rounded rectangle, its outline, a circle and a triangle.
+    /// Procedural UI sprites (anti-aliased): a 9-sliced rounded rectangle, its outline, a circle, a triangle and a star.
     /// Corner size is set per Image with pixelsPerUnitMultiplier (see UIKit.Round).
     /// </summary>
     public static class UISprites
@@ -12,7 +12,7 @@ namespace RuleRunner.UI
         public const float CornerRadius = 20f;
         const float Border = 22f;
 
-        static Sprite rounded, outline, circle, triangle;
+        static Sprite rounded, outline, circle, triangle, star;
         static readonly System.Collections.Generic.Dictionary<int, Sprite> rings = new System.Collections.Generic.Dictionary<int, Sprite>();
 
         /// <summary>
@@ -50,6 +50,32 @@ namespace RuleRunner.UI
                 }
             return hits / 16f;
         }, false));
+
+        /// <summary>A five-pointed star, point up (the level stars of chapter 4).</summary>
+        public static Sprite Star => star ? star : (star = Make((x, y) =>
+        {
+            // 4x4 supersampling; a sample is inside when it is inside the star's ten-corner outline.
+            int hits = 0;
+            for (int sy = 0; sy < 4; sy++)
+                for (int sx = 0; sx < 4; sx++)
+                    if (InStar((x - 0.5f + (sx + 0.5f) / 4f) / Size, (y - 0.5f + (sy + 0.5f) / 4f) / Size)) hits++;
+            return hits / 16f;
+        }, false));
+
+        static bool InStar(float u, float v)
+        {
+            const float outer = 0.5f, inner = 0.2f, cx = 0.5f, cy = 0.47f;
+            bool inside = false;
+            for (int i = 0, j = 9; i < 10; j = i++)
+            {
+                float ai = Mathf.PI / 2f + i * Mathf.PI / 5f, aj = Mathf.PI / 2f + j * Mathf.PI / 5f;
+                float ri = i % 2 == 0 ? outer : inner, rj = j % 2 == 0 ? outer : inner;
+                float xi = cx + ri * Mathf.Cos(ai), yi = cy + ri * Mathf.Sin(ai);
+                float xj = cx + rj * Mathf.Cos(aj), yj = cy + rj * Mathf.Sin(aj);
+                if ((yi > v) != (yj > v) && u < (xj - xi) * (v - yi) / (yj - yi) + xi) inside = !inside;
+            }
+            return inside;
+        }
 
         /// <summary>Coverage for a rounded rect; ring > 0 makes an outline of that thickness.</summary>
         static System.Func<float, float, float> RoundedCoverage(float ring) => (x, y) =>
