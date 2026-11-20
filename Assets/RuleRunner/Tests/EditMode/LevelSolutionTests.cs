@@ -60,7 +60,7 @@ namespace RuleRunner.Tests
         [TestCase("3-2", 0)]
         [TestCase("3-3", 0)]
         [TestCase("3-4", 0)]
-        [TestCase("3-4b", 2)]
+        [TestCase("3-4b", 0)]
         [TestCase("3-5", 2)]
         public void SolutionQiMatchesDesignDoc(string id, int qiLeft)
         {

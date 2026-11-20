@@ -179,7 +179,7 @@ namespace RuleRunner.Tests
         [TestCase("3-2", 6, 0)]
         [TestCase("3-3", 2, 0)]    // one deck, in either order
         [TestCase("3-4", 2, 0)]    // one deck, in either order
-        [TestCase("3-4b", 3, 2)]   // one deck; the Turn card may sit in any slot but the last
+        [TestCase("3-4b", 6, 0)]   // one idea: a Turn, a Jump and "NOT Ground 2 -> Big Jump", in the orders and wordings that work
         [TestCase("3-5", 11, 2)]   // two different ideas; see BridgeForLaterHasTwoWaysDown
         public void WinningCombinationCounts(string id, int expected, int maxQiLeft)
         {
@@ -218,7 +218,7 @@ namespace RuleRunner.Tests
         }
 
         // ---------- 3-4b Leave One Standing ----------
-        // The step between 3-4 and 3-5: one new idea (keep a cracked tile for the way back), no AND, Energy to spare.
+        // The step between 3-4 and 3-5: one new idea (keep a cracked tile for the way back), no AND.
 
         [Test]
         public void LeaveOneStandingKeepsTheSecondCrackForTheWayBack()
@@ -226,7 +226,7 @@ namespace RuleRunner.Tests
             var l = LevelDatabase.Get("3-4b");
             var r = Simulator.Run(l, l.Solution);
             Assert.AreEqual(Outcome.Win, r.Outcome);
-            Assert.AreEqual(2, r.QiLeft);
+            Assert.AreEqual(0, r.QiLeft, "6 Energy, all of it used: Jump, Big Jump, Turn, Jump");
 
             int turn = r.Frames.FindIndex(f => f.Action == ActionType.Turn);
             Assert.IsFalse(r.Frames.Take(turn).Any(f => f.X == 6), "the Big Jump flies over the second crack on the way out");

@@ -903,7 +903,7 @@
       "chapter": 3,
       "title": "Leave One Standing",
       "hint": "Two cracked tiles, and you need both: one to land on coming back, one to fall through.",
-      "map": "HggsgccsoH",
+      "map": "HggsgccsgH",
       "lower": "gfggggsggH",
       "start": 2,
       "dir": 1,
@@ -926,7 +926,7 @@
         "IF wall THEN turn",
         "IF NOT ground2 THEN bigjump"
       ],
-      "solutionQiLeft": 2,
+      "solutionQiLeft": 0,
       "previousSolution": [
         "IF wall THEN turn",
         "IF NOT ground AND ground2 THEN jump"
