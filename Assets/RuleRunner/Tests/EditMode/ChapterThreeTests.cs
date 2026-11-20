@@ -136,11 +136,11 @@ namespace RuleRunner.Tests
         public void ChapterThreeHasFiveLevelsAndStartsWithTurnAround()
         {
             var ch3 = LevelDatabase.All.Where(l => l.Chapter == 3).Select(l => l.Id).ToArray();
-            CollectionAssert.AreEqual(new[] { "3-1", "3-2", "3-3", "3-4", "3-4b", "3-5" }, ch3);
+            CollectionAssert.AreEqual(new[] { "3-1", "3-2", "3-3", "3-4", "3-5", "3-6" }, ch3);
             Assert.IsNull(LevelDatabase.Get("1-4"), "1-4 Turn Around moved to 3-1");
             Assert.AreEqual("Turn Around", LevelDatabase.Get("3-1").Title);
             Assert.AreEqual("Two Floors", LevelDatabase.Get("3-4").Title);
-            Assert.AreEqual("Bridge for Later", LevelDatabase.Get("3-5").Title);
+            Assert.AreEqual("Bridge for Later", LevelDatabase.Get("3-6").Title);
         }
 
         [Test]
@@ -179,8 +179,8 @@ namespace RuleRunner.Tests
         [TestCase("3-2", 6, 0)]
         [TestCase("3-3", 2, 0)]    // one deck, in either order
         [TestCase("3-4", 2, 0)]    // one deck, in either order
-        [TestCase("3-4b", 6, 0)]   // one idea: a Turn, a Jump and "NOT Ground 2 -> Big Jump", in the orders and wordings that work
-        [TestCase("3-5", 11, 2)]   // two different ideas; see BridgeForLaterHasTwoWaysDown
+        [TestCase("3-5", 6, 0)]   // one idea: a Turn, a Jump and "NOT Ground 2 -> Big Jump", in the orders and wordings that work
+        [TestCase("3-6", 11, 2)]   // two different ideas; see BridgeForLaterHasTwoWaysDown
         public void WinningCombinationCounts(string id, int expected, int maxQiLeft)
         {
             var report = LevelAnalyzer.Analyze(LevelDatabase.Get(id));
@@ -190,7 +190,7 @@ namespace RuleRunner.Tests
 
         [TestCase("3-2")]
         [TestCase("3-4")]
-        [TestCase("3-5")]
+        [TestCase("3-6")]
         public void NeedsAnd(string id)
         {
             Assert.AreEqual(0, LevelAnalyzer.Analyze(LevelDatabase.Get(id), includeAnd: false).WinningCombinations);
@@ -207,8 +207,8 @@ namespace RuleRunner.Tests
 
         [TestCase("3-3")]
         [TestCase("3-4")]
-        [TestCase("3-4b")]
         [TestCase("3-5")]
+        [TestCase("3-6")]
         public void TheWayDownIsTheOnlyWay(string id)
         {
             var l = LevelDatabase.Get(id);
@@ -217,13 +217,13 @@ namespace RuleRunner.Tests
             Assert.IsTrue(r.Frames.Any(f => f.Crumbled >= 0 && f.FloorBefore == 0), "through a hole the runner made itself");
         }
 
-        // ---------- 3-4b Leave One Standing ----------
-        // The step between 3-4 and 3-5: one new idea (keep a cracked tile for the way back), no AND.
+        // ---------- 3-5 Leave One Standing ----------
+        // The step between 3-4 and 3-6: one new idea (keep a cracked tile for the way back), no AND.
 
         [Test]
         public void LeaveOneStandingKeepsTheSecondCrackForTheWayBack()
         {
-            var l = LevelDatabase.Get("3-4b");
+            var l = LevelDatabase.Get("3-5");
             var r = Simulator.Run(l, l.Solution);
             Assert.AreEqual(Outcome.Win, r.Outcome);
             Assert.AreEqual(0, r.QiLeft, "6 Energy, all of it used: Jump, Big Jump, Turn, Jump");
@@ -237,7 +237,7 @@ namespace RuleRunner.Tests
         [Test]
         public void LeaveOneStandingBreaksTheObviousCards()
         {
-            var l = LevelDatabase.Get("3-4b");
+            var l = LevelDatabase.Get("3-5");
             // The 3-4 cards, and "jump the spikes, turn at the wall", both walk over the two cracks.
             Assert.AreEqual(Outcome.Spike, Simulator.Run(l, l.PreviousSolution).Outcome);
             var obvious = Simulator.Run(l, Rule.ParseList(new[] { "IF spike THEN jump", "IF wall THEN turn" }));
@@ -248,17 +248,17 @@ namespace RuleRunner.Tests
         [Test]
         public void LeaveOneStandingNeedsThreeCardsAndNoAnd()
         {
-            var l = LevelDatabase.Get("3-4b");
+            var l = LevelDatabase.Get("3-5");
             Assert.IsFalse(l.AllowAnd);
             Assert.AreEqual(0, LevelAnalyzer.Analyze(l, slots: 2).WinningCombinations);
         }
 
-        // ---------- 3-5 Bridge for Later ----------
+        // ---------- 3-6 Bridge for Later ----------
 
         [Test]
         public void BridgeForLaterHasTwoWaysDown()
         {
-            var l = LevelDatabase.Get("3-5");
+            var l = LevelDatabase.Get("3-6");
 
             // 1) Big Jump over the spike AND the far crack, collect the orbs, come back over the crack you kept.
             var main = Simulator.Run(l, l.Solution);
@@ -283,8 +283,8 @@ namespace RuleRunner.Tests
         [Test]
         public void BridgeForLaterNeedsTheCrackToSurviveTheWayOut()
         {
-            var l = LevelDatabase.Get("3-5");
-            // The 3-4 cards (3-5's "previous solution" is now 3-4b's, which fails here for a different reason).
+            var l = LevelDatabase.Get("3-6");
+            // The 3-4 cards (3-6's "previous solution" is now 3-5's, which fails here for a different reason).
             var landsOnCrack = Simulator.Run(l, LevelDatabase.Get("3-4").Solution);
             Assert.AreEqual(Outcome.Spike, landsOnCrack.Outcome);
             Assert.AreEqual(1, landsOnCrack.Frames[landsOnCrack.Frames.Count - 1].Floor, "falls through the far crack onto the spikes below");
