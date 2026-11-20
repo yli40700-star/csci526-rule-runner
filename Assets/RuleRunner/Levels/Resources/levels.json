@@ -899,6 +899,57 @@
       "previousLine": "Your 3-3 cards never jump a pit, and that hole is over the spikes."
     },
     {
+      "id": "3-4b",
+      "chapter": 3,
+      "title": "Leave One Standing",
+      "hint": "Two cracked tiles, and you need both: one to land on coming back, one to fall through.",
+      "map": "HggsgccsoH",
+      "lower": "gfggggsggH",
+      "start": 2,
+      "dir": 1,
+      "qi": 6,
+      "slots": 3,
+      "conditions": [
+        "ground",
+        "pit",
+        "spike",
+        "wall",
+        "ground2"
+      ],
+      "actions": [
+        "jump",
+        "bigjump",
+        "turn"
+      ],
+      "solution": [
+        "IF spike THEN jump",
+        "IF wall THEN turn",
+        "IF NOT ground2 THEN bigjump"
+      ],
+      "solutionQiLeft": 2,
+      "previousSolution": [
+        "IF wall THEN turn",
+        "IF NOT ground AND ground2 THEN jump"
+      ],
+      "previousExpected": "spike",
+      "concept": "crumble",
+      "noIntro": true,
+      "hints": [
+        "You come back over the same tiles. What is left of them by then?",
+        "Do not step on the second cracked tile on the way out. You land on it when you jump the spike coming back.",
+        "IF Spike ahead THEN Jump, IF Wall ahead THEN Turn, IF NOT Ground 2 ahead THEN Big Jump."
+      ],
+      "deathSpike": [
+        "You jumped the spike on the way back, and the tile you needed was already gone.",
+        "Both cracks broke on the way out. Leave the second one alone."
+      ],
+      "deathTimeout": [
+        "It's been walking into the same wall for a while now."
+      ],
+      "qiLine": "Out of Energy. The Big Jump costs 3: save it for the one place a Jump cannot do.",
+      "previousLine": "Your 3-4 cards walk over both cracks, so nothing is left to land on coming back."
+    },
+    {
       "id": "3-5",
       "chapter": 3,
       "title": "Bridge for Later",
@@ -929,8 +980,9 @@
       ],
       "solutionQiLeft": 2,
       "previousSolution": [
+        "IF spike THEN jump",
         "IF wall THEN turn",
-        "IF NOT ground AND ground2 THEN jump"
+        "IF NOT ground2 THEN bigjump"
       ],
       "previousExpected": "spike",
       "concept": "crumble",
@@ -952,7 +1004,7 @@
         "It's been walking into the same wall for a while now."
       ],
       "qiLine": "Big Jump with AND costs 4, and you start with 4. Spend anything first and it cannot fire.",
-      "previousLine": "Your 3-4 cards land on the far crack, and it will not be there for the trip back."
+      "previousLine": "Your last cards spend the Big Jump at the first crack, and the Energy runs out downstairs."
     },
     {
       "id": "4-1",
