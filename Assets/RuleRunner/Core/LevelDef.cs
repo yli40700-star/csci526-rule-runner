@@ -23,6 +23,12 @@ namespace RuleRunner.Core
         public int Qi;
         public int Slots;
         public bool TwoFloors => !string.IsNullOrEmpty(Lower);
+        /// <summary>Second star: finish with at least this much Energy left (only on levels with a gold flag).</summary>
+        public int Star2Qi;
+        /// <summary>Levels with a gold flag have three stars; all other levels only show "cleared".</summary>
+        public bool HasStars =>
+            (Map != null && Map.IndexOf(Vocabulary.GoldFinish) >= 0) ||
+            (Lower != null && Lower.IndexOf(Vocabulary.GoldFinish) >= 0);
         public List<Condition> Conditions = new List<Condition>();
         public List<ActionType> Actions = new List<ActionType>();
         /// <summary>False before NOT is introduced: cards cannot be negated in this level.</summary>

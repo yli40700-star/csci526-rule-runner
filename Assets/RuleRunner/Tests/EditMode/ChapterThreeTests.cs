@@ -133,11 +133,10 @@ namespace RuleRunner.Tests
         // ---------- The chapter ----------
 
         [Test]
-        public void ChapterThreeIsTheLastChapterAndStartsWithTurnAround()
+        public void ChapterThreeHasFiveLevelsAndStartsWithTurnAround()
         {
             var ch3 = LevelDatabase.All.Where(l => l.Chapter == 3).Select(l => l.Id).ToArray();
             CollectionAssert.AreEqual(new[] { "3-1", "3-2", "3-3", "3-4", "3-5" }, ch3);
-            Assert.AreEqual("3-5", LevelDatabase.All[LevelDatabase.All.Count - 1].Id);
             Assert.IsNull(LevelDatabase.Get("1-4"), "1-4 Turn Around moved to 3-1");
             Assert.AreEqual("Turn Around", LevelDatabase.Get("3-1").Title);
             Assert.AreEqual("Two Floors", LevelDatabase.Get("3-4").Title);

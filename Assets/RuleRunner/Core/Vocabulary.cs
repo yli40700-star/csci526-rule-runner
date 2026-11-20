@@ -27,13 +27,22 @@ namespace RuleRunner.Core
         /// and becomes a pit for the rest of the run.
         /// </summary>
         public const char Crumble = 'c';
+        /// <summary>
+        /// The elevator platform (chapter 4, lower floor only; the upper tile above it is a pit). Standable.
+        /// Stepping onto it on the lower floor lifts the runner to the upper floor, once; the platform then stays up
+        /// and both tiles are plain ground for the rest of the run. Falling onto it from above does not lift.
+        /// </summary>
+        public const char Elevator = 'E';
+        /// <summary>The gold flag (chapter 4): reaching it clears the level like the normal flag and earns the third star.</summary>
+        public const char GoldFinish = 'F';
 
         public const int OrbQi = 2;
         public const int MaxSteps = 90;
         /// <summary>An AND card costs this much more than its action each time it fires.</summary>
         public const int AndExtraQi = 1;
 
-        public static bool IsStandable(char c) => c == Ground || c == Orb || c == Finish || c == Trap || c == Crumble;
+        public static bool IsStandable(char c) =>
+            c == Ground || c == Orb || c == Finish || c == Trap || c == Crumble || c == Elevator || c == GoldFinish;
         public static bool IsWall(char c) => c == LowWall || c == HighWall;
 
         /// <summary>
