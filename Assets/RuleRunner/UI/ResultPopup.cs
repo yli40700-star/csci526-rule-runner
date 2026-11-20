@@ -83,7 +83,7 @@ namespace RuleRunner.UI
             starRow.gameObject.SetActive(showStars);
             for (int i = 0; i < 3; i++) stars[i].color = earned[i] ? Theme.Gold : Theme.Raised;
             title.text = !won ? "RUN FAILED" : result.Gold ? "GOLD FLAG!" : "LEVEL CLEAR";
-            title.color = won ? Theme.Hex(0x7de08c) : Theme.Hex(0xff8a8a);
+            title.color = !won ? Theme.Hex(0xff8a8a) : result.Gold ? Theme.Gold : Theme.Hex(0x7de08c);
             accent.color = won ? Theme.Accent : Theme.Danger;
             cause.text = showStars ? "" : won ? "The runner reached the flag." : Vocabulary.Describe(result.Outcome) + " at step " + result.Steps + ".";
             qiValue.text = result.QiLeft.ToString();
