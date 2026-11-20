@@ -495,7 +495,8 @@ namespace RuleRunner.App
                     int cost = rule.Cost;
                     string label = level.Tutorial
                         ? (level.HideQi || cost == 0 ? "" : "-" + cost + " Energy")
-                        : "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
+                        : (f.StarvedRule >= 0 ? "Card " + (f.StarvedRule + 1) + ": not enough Energy > " : "") +
+                          "Card " + (f.FiredRule + 1) + ": " + Vocabulary.Display(rule.Action) + (cost > 0 ? " -" + cost : "");
                     if (label.Length > 0)
                         gameScreen.ShowFloat(cameraFitter.WorldToCanvasPoint(runner.HeadPosition, gameScreen.CanvasRect), label, step * 1.2f);
                     if (level.Tutorial && !level.HideQi && cost > 0)
@@ -517,7 +518,8 @@ namespace RuleRunner.App
                         level.Tutorial ? "not enough Energy!" : "Card " + (f.StarvedRule + 1) + ": not enough Energy!", step * 1.2f);
                 }
                 loadout.SetQi(f.Qi, level.Qi);
-                gameScreen.Log(DescribeStep(f, rules), f.StarvedRule >= 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
+                gameScreen.Log(DescribeStep(f, rules),
+                    f.StarvedRule >= 0 && f.FiredRule < 0 ? new Color(1f, 0.6f, 0.6f) : (Color?)null);
 
                 if (f.Crumbled >= 0) map.Crumble(f.Crumbled, f.FloorBefore);   // the cracked tile gives way as the runner leaves it
                 yield return runner.PlayStep(f, step);
@@ -609,54 +611,63 @@ namespace RuleRunner.App
 
         /// <summary>
         /// Tutorial: reads the cards above the runner before it acts. The tile ahead is framed; with several cards a pointer
-        /// moves from the left, each card it reaches gets a cross on its IF (no match, then grey) until the first tick.
-        /// The THEN of that card lights gold, or red when there is not enough Energy. Cards after it are never read and
-        /// stay grey; when one of them would also have matched, the moment is held longer (the order decided it).
+        /// moves from the left, each card it reaches gets a cross on its IF (no match, then grey) or a tick. A true card
+        /// that costs more Energy than is left gets a red THEN and stays lit, and the pointer moves on (Core/Simulator
+        /// skips it). The card that fires gets a gold THEN; cards after it are never read and stay grey, and when one of
+        /// them would also have matched, the moment is held longer (the order decided it).
         /// </summary>
         IEnumerator ReadCards(StepFrame f, List<Rule> rules, char[] cells, bool slow)
         {
-            int k = f.FiredRule >= 0 ? f.FiredRule : f.StarvedRule;
+            int fired = f.FiredRule;
+            int last = fired >= 0 ? fired : rules.Count - 1;
             float pace = 1f / speed;
             map.HighlightCell(f.XBefore + f.DirBefore);
-            if (rules.Count > 1)
+            if (rules.Count > 1) headCards.GreyAll();
+            for (int i = 0; i <= last; i++)
             {
-                headCards.GreyAll();
-                for (int i = 0; i < k; i++)
+                bool holds = i == fired || Simulator.Holds(cells, rules[i], f.XBefore, f.DirBefore, f.T);
+                if (rules.Count > 1)
                 {
                     headCards.Read(i);
                     yield return new WaitForSeconds(0.32f * pace);
+                }
+                if (!holds)
+                {
                     headCards.Miss(i);
                     yield return new WaitForSeconds(0.9f * pace);
                     headCards.Unread(i);
+                    continue;
                 }
-                headCards.Read(k);
-                yield return new WaitForSeconds(0.32f * pace);
-            }
-            headCards.Hit(k);
-            yield return new WaitForSeconds((slow ? 0.7f : 0.26f) * pace);
-
-            bool starved = f.StarvedRule >= 0;
-            headCards.Then(k, !starved);
-            if (starved)
-            {
-                loadout.FlashEnergy(false, 1f * pace);
-                yield return new WaitForSeconds(1f * pace);
-                yield break;
-            }
-            bool shadowed = false;
-            for (int j = k + 1; j < rules.Count; j++)
-                if (Simulator.Holds(cells, rules[j], f.XBefore, f.DirBefore, f.T))
+                headCards.Hit(i);
+                yield return new WaitForSeconds((slow ? 0.7f : 0.26f) * pace);
+                if (i != fired)
                 {
-                    shadowed = true;
-                    headCards.Unread(j, 0.15f);
+                    // True but not enough Energy: red THEN, the Energy bar flashes, and the next card gets its turn.
+                    headCards.Then(i, false);
+                    loadout.FlashEnergy(false, 1f * pace);
+                    yield return new WaitForSeconds(1f * pace);
+                    continue;
                 }
-            yield return new WaitForSeconds((shadowed ? 1.4f : slow ? 0.45f : 0.16f) * pace);
+                headCards.Then(i, true);
+                bool shadowed = false;
+                for (int j = i + 1; j < rules.Count; j++)
+                    if (Simulator.Holds(cells, rules[j], f.XBefore, f.DirBefore, f.T))
+                    {
+                        shadowed = true;
+                        headCards.Unread(j, 0.15f);
+                    }
+                yield return new WaitForSeconds((shadowed ? 1.4f : slow ? 0.45f : 0.16f) * pace);
+            }
         }
 
         static string DescribeStep(StepFrame f, List<Rule> rules)
         {
             string s = "Step " + (f.T + 1) + " - ";
-            if (f.FiredRule >= 0)
+            if (f.FiredRule >= 0 && f.StarvedRule >= 0)
+                s += "Card " + (f.StarvedRule + 1) + " was true but needs " + rules[f.StarvedRule].Cost +
+                     " Energy (have " + f.QiBefore + ") - skipped; Card " + (f.FiredRule + 1) + " (" +
+                     rules[f.FiredRule].ToDisplayString() + ") fired, Energy left " + f.Qi;
+            else if (f.FiredRule >= 0)
                 s += "Card " + (f.FiredRule + 1) + " (" + rules[f.FiredRule].ToDisplayString() + ") fired, Energy left " + f.Qi;
             else if (f.HoldingRule >= 0)
                 s += "Card " + (f.HoldingRule + 1) + " keeps waiting for the trap to go down (no extra Energy)";

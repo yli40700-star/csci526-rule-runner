@@ -1185,26 +1185,35 @@ namespace RuleRunner.App
                 if (map[x] == 'f') { runResult = "win"; yield break; }
                 char ahead = x + 1 < map.Length ? map[x + 1] : 'g';
                 char ahead2 = x + 2 < map.Length ? map[x + 2] : 'H';
-                int fire = cards.FindIndex(c => c.Complete && Matches(c, ahead, ahead2));
-                bool starved = fire >= 0 && energy.HasValue && energy.Value < CostOf(cards[fire]);
-                beam = (x + 1, fire >= 0);
-                if (cards.Count > 1 && fire >= 0)
+                // Same rule as Core/Simulator: the first true card that Energy can pay for fires. A true card that
+                // costs too much is skipped (shown in red) and the next true card gets its turn; none left -> walk.
+                int fire = -1, starvedAt = -1;
+                for (int i = 0; i < cards.Count; i++)
                 {
-                    yield return ReadInOrder(fire, ahead, ahead2, starved);
+                    if (!cards[i].Complete || !Matches(cards[i], ahead, ahead2)) continue;
+                    if (!energy.HasValue || energy.Value >= CostOf(cards[i])) { fire = i; break; }
+                    if (starvedAt < 0) starvedAt = i;
                 }
-                else if (fire >= 0)
+                beam = (x + 1, fire >= 0 || starvedAt >= 0);
+                if (cards.Count > 1 && (fire >= 0 || starvedAt >= 0))
                 {
+                    yield return ReadInOrder(fire, ahead, ahead2);
+                }
+                else if (fire >= 0 || starvedAt >= 0)
+                {
+                    int k = fire >= 0 ? fire : starvedAt;
+                    bool starved = fire < 0;
                     hl = x + 1;
-                    if (cards[fire].And) { hl2 = x + 2; SecState(headViews[fire], "if2", "lit"); }
-                    SecState(headViews[fire], "if", "lit");
+                    if (cards[k].And) { hl2 = x + 2; SecState(headViews[k], "if2", "lit"); }
+                    SecState(headViews[k], "if", "lit");
                     yield return Wait(slow ? 700 : Ms(260, 180));
-                    if (starved) { SecState(headViews[fire], "then", "starve"); ShowStarve(cards[fire]); }
-                    else SecState(headViews[fire], "then", "lit");
+                    if (starved) { SecState(headViews[k], "then", "starve"); ShowStarve(cards[k]); }
+                    else SecState(headViews[k], "then", "lit");
                     yield return Wait(starved ? 1600 : slow ? 450 : Ms(160, 120));
                 }
                 else yield return Wait(slow ? 120 : Ms(40, 20));
 
-                string act = fire >= 0 && !starved ? cards[fire].Then : "walk";
+                string act = fire >= 0 ? cards[fire].Then : "walk";
                 if (energy.HasValue && act != "walk")
                 {
                     int spent = CostOf(cards[fire]);
@@ -1257,19 +1266,35 @@ namespace RuleRunner.App
         }
 
         // Several cards: every check starts with all cards grey. A pointer moves from the left card to the right one;
-        // each card it reaches gets a red cross (no match) or a gold tick (match). At the first tick it stops.
-        IEnumerator ReadInOrder(int fire, char ahead, char ahead2, bool starved)
+        // each card it reaches gets a red cross (no match) or a gold tick (match). A matching card that costs more
+        // Energy than is left gets its tick and a red THEN, and the pointer moves on; it stops at the card that fires.
+        IEnumerator ReadInOrder(int fire, char ahead, char ahead2)
         {
             foreach (var v in headViews) { CardState(v, "unread"); SetBadge(v, null); }
             reader.gameObject.SetActive(true);
             bool shadowed = fire >= 0 && cards.Where((c, i) => i > fire && c.Complete && Matches(c, ahead, ahead2)).Any();
             int last = fire >= 0 ? fire : headViews.Count - 1;
+            bool anyMatch = fire >= 0 || cards.Any(c => c.Complete && Matches(c, ahead, ahead2));
             for (int i = 0; i <= last; i++)
             {
                 reader.anchoredPosition = new Vector2(i * HeadStep + CardW / 2, reader.anchoredPosition.y);
                 CardState(headViews[i], "reading");
-                yield return Wait(fire >= 0 ? Ms(320, 220) : Ms(150, 100));
+                yield return Wait(anyMatch ? Ms(320, 220) : Ms(150, 100));
                 CardState(headViews[i], "");
+                bool match = cards[i].Complete && Matches(cards[i], ahead, ahead2);
+                if (match && i != fire)
+                {
+                    // True, but not enough Energy: shown in red, then the next card gets its turn.
+                    SetBadge(headViews[i], true);
+                    hl = beam?.tile;
+                    if (cards[i].And) { hl2 = beam?.tile + 1; SecState(headViews[i], "if2", "lit"); }
+                    SecState(headViews[i], "if", "lit");
+                    yield return Wait(Ms(260, 180));
+                    SecState(headViews[i], "then", "starve");
+                    ShowStarve(cards[i]);
+                    yield return Wait(1600);
+                    continue;   // the tick and the red THEN stay, so it is clear this card was skipped
+                }
                 if (i == fire)
                 {
                     SetBadge(headViews[i], true);
@@ -1277,13 +1302,6 @@ namespace RuleRunner.App
                     if (cards[i].And) { hl2 = beam?.tile + 1; SecState(headViews[i], "if2", "lit"); }
                     SecState(headViews[i], "if", "lit");
                     yield return Wait(Ms(260, 180));
-                    if (starved)
-                    {
-                        SecState(headViews[i], "then", "starve");
-                        ShowStarve(cards[i]);
-                        yield return Wait(1600);
-                        yield break;
-                    }
                     SecState(headViews[i], "then", "lit");
                     if (shadowed) for (int j = i + 1; j < headViews.Count; j++) CardState(headViews[j], "never");
                     yield return Wait(shadowed ? Ms(1400, 900) : Ms(220, 150));

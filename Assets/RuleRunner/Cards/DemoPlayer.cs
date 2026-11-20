@@ -163,7 +163,7 @@ namespace RuleRunner.Cards
                     }
                     else if (f.StarvedRule >= 0) actionText.text = "not enough Energy!";
                     else actionText.text = f.HoldingRule >= 0 ? "waiting..." : "";
-                    actionText.color = f.StarvedRule >= 0 ? Theme.Danger : Theme.Gold;
+                    actionText.color = f.StarvedRule >= 0 && f.FiredRule < 0 ? Theme.Danger : Theme.Gold;
                     float from = FloorY(f.FloorBefore), to = FloorY(f.Floor);
                     actionText.rectTransform.anchoredPosition = new Vector2(X(f.XBefore), from + cell * (twoFloors ? 1.25f : 1.5f));
 

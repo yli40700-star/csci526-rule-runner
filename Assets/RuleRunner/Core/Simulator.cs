@@ -66,13 +66,13 @@ namespace RuleRunner.Core
                         result.Hits[i]++;
                         if (frame != null) frame.FiredRule = i;
                         if (action == ActionType.Wait) holdRule = i;
+                        break;
                     }
-                    else
-                    {
-                        result.RanOutOfQi = true;
-                        if (frame != null) frame.StarvedRule = i;
-                    }
-                    break;
+
+                    // Not enough Energy: this card is skipped and the next card whose condition holds gets its turn.
+                    // If no later card fires, the runner walks.
+                    result.RanOutOfQi = true;
+                    if (frame != null && frame.StarvedRule < 0) frame.StarvedRule = i;
                 }
 
                 // 2. Perform it.
