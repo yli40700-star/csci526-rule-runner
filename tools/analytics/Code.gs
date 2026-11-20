@@ -188,9 +188,9 @@ function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
   });
 
   var sessions = {};
-  var levels = {};  // id -> { opened: {sid}, won: {sid}, firstWin: {sid: attempt}, runs: [] }
+  var levels = {};  // id -> { opened: {sid}, won: {sid}, runs: [] }
   function level(id) {
-    return levels[id] || (levels[id] = { opened: {}, won: {}, firstWin: {}, runs: [] });
+    return levels[id] || (levels[id] = { opened: {}, won: {}, runs: [] });
   }
   var runCount = 0;
   rows.forEach(function (r) {
@@ -209,12 +209,20 @@ function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
       endFloor: get(r, 'endFloor'),
       rules: String(get(r, 'rules'))
     };
+    // No card equipped: the tutorial plays an empty hand by itself first, and some players press RUN before
+    // equipping anything. Such runs say nothing about the player's plan, so M2 and M3 leave them out.
+    run.empty = run.rules.trim() === '';
     L.runs.push(run);
-    if (run.result === 'win') {
-      L.won[sid] = true;
-      if (!(sid in L.firstWin) || run.attempt < L.firstWin[sid]) L.firstWin[sid] = run.attempt;
-    }
+    if (run.result === 'win') L.won[sid] = true;
   });
+
+  /** A level's runs grouped by session, each list in play order. */
+  function runsBySession(id) {
+    var by = {};
+    levels[id].runs.forEach(function (run) { (by[run.sid] = by[run.sid] || []).push(run); });
+    Object.keys(by).forEach(function (sid) { by[sid].sort(function (a, b) { return a.attempt - b.attempt; }); });
+    return by;
+  }
 
   var ids = Object.keys(levels).sort(compareLevelIds_);
   var nSessions = Object.keys(sessions).length;
@@ -227,11 +235,20 @@ function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
     funnel.push([id, pct(o, nSessions), pct(w, o), o, w]);
   });
 
-  // M2: runs until the first win, per session; min / Q1 / Q3 / max for the candlestick, then median and n.
-  var runsToClear = [['level', 'min', 'Q1', 'Q3', 'max', 'median', 'players']];
+  // M2: runs until the first win, per session, not counting empty-hand runs;
+  // min / Q1 / Q3 / max for the candlestick, then median and n.
+  var runsToClear = [['level', 'min', 'Q1', 'Q3', 'max', 'median', 'sessions']];
   ids.forEach(function (id) {
-    var xs = Object.keys(levels[id].firstWin).map(function (s) { return levels[id].firstWin[s]; })
-      .filter(function (a) { return a > 0; }).sort(function (a, b) { return a - b; });
+    var by = runsBySession(id), xs = [];
+    Object.keys(by).forEach(function (sid) {
+      var count = 0;
+      for (var i = 0; i < by[sid].length; i++) {
+        var run = by[sid][i];
+        if (!run.empty || run.result === 'win') count++;
+        if (run.result === 'win') { xs.push(count); break; }
+      }
+    });
+    xs.sort(function (a, b) { return a - b; });
     if (!xs.length) return;
     runsToClear.push([id, xs[0], quantile_(xs, 0.25), quantile_(xs, 0.75), xs[xs.length - 1],
       quantile_(xs, 0.5), xs.length]);
@@ -240,13 +257,12 @@ function computeMetrics_(values, buildPrefix, timeZone, includeInternal) {
   // M3: a failed run repeats when its cause and end tile match the same player's previous failed run on the level.
   var repeat = [['level', 'repeat %', 'repeated', 'failed runs after a failure', 'flag']];
   ids.forEach(function (id) {
-    var bySession = {};
-    levels[id].runs.forEach(function (run) { (bySession[run.sid] = bySession[run.sid] || []).push(run); });
+    var bySession = runsBySession(id);
     var compared = 0, repeated = 0;
     Object.keys(bySession).forEach(function (sid) {
       var prev = null;
-      bySession[sid].sort(function (a, b) { return a.attempt - b.attempt; }).forEach(function (run) {
-        if (run.result === 'win' || run.endX === '' || run.endX === -1) return;
+      bySession[sid].forEach(function (run) {
+        if (run.empty || run.result === 'win' || run.endX === '' || run.endX === -1) return;
         if (prev) {
           compared++;
           if (prev.result === run.result && prev.endX === run.endX && prev.endFloor === run.endFloor) repeated++;

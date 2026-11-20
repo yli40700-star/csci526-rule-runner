@@ -54,7 +54,10 @@ are counted while `INCLUDE_INTERNAL` is `true`; set it to `false` to see outside
 Charts only show levels with at least `MIN_SAMPLE` (3) data points; the tables list every level with its count,
 and a `build` table shows how many rows each build tag has and whether it was used.
 
-The calculations live in `computeMetrics_`, which makes no Sheets calls, so it can be tested with Node.
+Runs with no card equipped (the tutorial's own empty-hand run, or RUN pressed before equipping) are left out of
+M2 and M3: they say nothing about the player's plan. They still count as opening the level (M1).
+
+The calculations live in `computeMetrics_`, which makes no Sheets calls, so it can be tested with Node: `node tools/analytics/test_metrics.js`.
 
 ## Notes
 
