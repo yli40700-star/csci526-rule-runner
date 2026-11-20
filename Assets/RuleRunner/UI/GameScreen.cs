@@ -99,13 +99,20 @@ namespace RuleRunner.UI
             var legend = UIKit.Rect(root, "Legend", new Vector2(0, 0), new Vector2(1, 0), new Vector2(16, BottomPx + 2), new Vector2(-16, BottomPx + 28));
             legendRect = legend;
             UIKit.HRow(legend, 6, null, false, TextAnchor.MiddleCenter);
-            var items = new (string, Color)[]
+            // Each entry lists the tiles that bring it onto a level; an entry without tiles is on every level.
+            var items = new (string name, Color color, string tiles)[]
             {
-                ("Ground", Palette.Ground), ("Cracked ground", Palette.Crumble), ("Pit", Palette.PitHole), ("Spike", Palette.Spike),
-                ("Low wall (jump over)", Palette.LowWall), ("High wall / edge", Palette.HighWall),
-                ("Energy orb +2", Palette.Orb), ("Finish", Palette.Finish),
+                ("Ground", Palette.Ground, ""),
+                ("Cracked ground", Palette.Crumble, Vocabulary.Crumble.ToString()),
+                // A cracked tile leaves a pit behind, so the pit entry shows on those levels too.
+                ("Pit", Palette.PitHole, Vocabulary.Pit.ToString() + Vocabulary.Crumble),
+                ("Spike", Palette.Spike, Vocabulary.Spike.ToString()),
+                ("Low wall (jump over)", Palette.LowWall, Vocabulary.LowWall.ToString()),
+                ("High wall / edge", Palette.HighWall, ""),
+                ("Energy orb +2", Palette.Orb, Vocabulary.Orb.ToString()),
+                ("Finish", Palette.Finish, ""),
             };
-            foreach (var (name, color) in items)
+            foreach (var (name, color, tiles) in items)
             {
                 var swatch = UIKit.Rect(legend, "Swatch", Vector2.zero, Vector2.one);
                 UIKit.Round(swatch.gameObject.AddComponent<Image>(), 3f).color = color;
@@ -113,12 +120,21 @@ namespace RuleRunner.UI
                 var label = UIKit.Label(legend, "Label", name, 14, TextAnchor.MiddleLeft, Theme.Dim);
                 label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 UIKit.Layout(label, label.preferredWidth + 14, 20);
-                if (color == Palette.Orb) orbLegend.AddRange(new[] { swatch.gameObject, label.gameObject });
+                if (color == Palette.PitHole)
+                {
+                    // The pit is as dark as the screen: its swatch gets the same rim as the pits on the map.
+                    var rim = UIKit.RoundOutline(UIKit.Panel(swatch, "Rim", Palette.PitRim, Vector2.zero, Vector2.one), 3f, 1.5f);
+                    rim.raycastTarget = false;
+                }
+                legendEntries.Add((tiles, swatch.gameObject, label.gameObject));
             }
         }
 
-        /// <summary>Legend entry for the Energy orb: hidden on levels without one.</summary>
-        readonly System.Collections.Generic.List<GameObject> orbLegend = new System.Collections.Generic.List<GameObject>();
+        /// <summary>Legend entries with the tiles that bring each one onto a level ("" = always shown).</summary>
+        readonly List<(string tiles, GameObject swatch, GameObject label)> legendEntries = new List<(string, GameObject, GameObject)>();
+
+        /// <summary>An entry without tiles is on every level; the others only where one of their tiles is on the map.</summary>
+        static bool LegendShows(string tiles, LevelDef level) => tiles.Length == 0 || level.HasAnyTile(tiles);
 
         void BuildControls(Transform root)
         {
@@ -196,7 +212,13 @@ namespace RuleRunner.UI
             helpButton.gameObject.SetActive(level.HasIntro);
             // The tutorial shows only the map, the cards and RUN: no tile legend, run log, speed or Reset.
             legendRect.gameObject.SetActive(!level.Tutorial);
-            foreach (var go in orbLegend) go.SetActive(level.Map.IndexOf('o') >= 0);
+            // The legend only lists what is on this level, so it never names a tile the player cannot see.
+            foreach (var (tiles, swatch, label) in legendEntries)
+            {
+                bool show = LegendShows(tiles, level);
+                swatch.SetActive(show);
+                label.SetActive(show);
+            }
             logRect.gameObject.SetActive(!level.Tutorial);
             controlRow.gameObject.SetActive(!level.Tutorial);
             var runRt = (RectTransform)runButton.transform;

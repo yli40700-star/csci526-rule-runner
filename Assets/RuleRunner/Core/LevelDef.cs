@@ -23,6 +23,13 @@ namespace RuleRunner.Core
         public int Qi;
         public int Slots;
         public bool TwoFloors => !string.IsNullOrEmpty(Lower);
+
+        /// <summary>True when either floor of the map has at least one of the given tiles (used by the tile legend).</summary>
+        public bool HasAnyTile(string tiles)
+        {
+            if (string.IsNullOrEmpty(tiles)) return false;
+            return (Map ?? "").IndexOfAny(tiles.ToCharArray()) >= 0 || (Lower ?? "").IndexOfAny(tiles.ToCharArray()) >= 0;
+        }
         public List<Condition> Conditions = new List<Condition>();
         public List<ActionType> Actions = new List<ActionType>();
         /// <summary>False before NOT is introduced: cards cannot be negated in this level.</summary>

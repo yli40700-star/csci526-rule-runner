@@ -9,6 +9,8 @@ namespace RuleRunner.View
         public static readonly Color Ground = new Color32(0x8a, 0x93, 0xa3, 0xff);
         public static readonly Color GroundDark = new Color32(0x5c, 0x64, 0x73, 0xff);
         public static readonly Color PitHole = new Color32(0x0d, 0x10, 0x16, 0xff);
+        /// <summary>The thin rim around a pit, so the hole stands out from the dark background.</summary>
+        public static readonly Color PitRim = new Color32(0x56, 0x63, 0x7a, 0xff);
         public static readonly Color Spike = new Color32(0xe0, 0x4f, 0x4f, 0xff);
         public static readonly Color LowWall = new Color32(0xc2, 0x8f, 0x5a, 0xff);
         public static readonly Color HighWall = new Color32(0x3d, 0x45, 0x55, 0xff);

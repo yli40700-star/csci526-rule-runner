@@ -27,7 +27,7 @@ namespace RuleRunner.View
             public Vector3 Home;
             public SpriteRenderer[] Parts;
             public Color[] Colors;
-            public SpriteRenderer Hole;
+            public GameObject Hole;
         }
 
         readonly Dictionary<int, SpriteRenderer> orbs = new Dictionary<int, SpriteRenderer>();
@@ -90,7 +90,7 @@ namespace RuleRunner.View
             }
             else if (!upper)
             {
-                Shapes.Create(root, "Pit " + i, sq, Palette.PitHole, new Vector2(i, y - 1f), new Vector2(0.98f, 1f));
+                DrawPit("Pit " + i, i, y, 0);
             }
             // A pit in the upper floor is an open hole: nothing is drawn, so the floor below shows through.
 
@@ -141,6 +141,24 @@ namespace RuleRunner.View
             if (row[row.Length - 1] != Vocabulary.HighWall) DrawHighWall(Length, bottom, top);
         }
 
+        /// <summary>
+        /// A pit: a dark shaft with a thin lighter rim on both sides and along the bottom. The rim makes every pit
+        /// tile read as a hole against the dark background, and lets a wide gap be counted tile by tile.
+        /// </summary>
+        GameObject DrawPit(string name, int i, float y, int order)
+        {
+            var pit = new GameObject(name);
+            pit.transform.SetParent(root, false);
+            pit.transform.localPosition = new Vector3(i, y - 1f, 0f);
+            var t = pit.transform;
+            const float w = 0.06f, half = 0.49f;
+            Shapes.Create(t, "Hole", Shapes.Square, Palette.PitHole, Vector2.zero, new Vector2(half * 2f, 1f), order);
+            Shapes.Create(t, "RimLeft", Shapes.Square, Palette.PitRim, new Vector2(-half + w / 2f, 0f), new Vector2(w, 1f), order + 1);
+            Shapes.Create(t, "RimRight", Shapes.Square, Palette.PitRim, new Vector2(half - w / 2f, 0f), new Vector2(w, 1f), order + 1);
+            Shapes.Create(t, "RimBottom", Shapes.Square, Palette.PitRim, Vector2.zero, new Vector2(half * 2f, w), order + 1);
+            return pit;
+        }
+
         void DrawHighWall(int i, float bottom, float top) =>
             Shapes.Create(root, "HighWall " + i, Shapes.Square, Palette.HighWall, new Vector2(i, bottom), new Vector2(0.98f, top - bottom), 1);
 
@@ -159,11 +177,11 @@ namespace RuleRunner.View
             var c = Shapes.Create(tile, "CrackC", Shapes.Square, Palette.CrumbleCrack, new Vector2(0f, -h * 0.55f), new Vector2(0.04f, h * 0.45f), 1);
             c.transform.localRotation = Quaternion.Euler(0f, 0f, 70f);
 
-            SpriteRenderer hole = null;
+            GameObject hole = null;
             if (!upper)
             {
-                hole = Shapes.Create(root, "CrackHole " + i, Shapes.Square, Palette.PitHole, new Vector2(i, y - 1f), new Vector2(0.98f, 1f), -1);
-                hole.enabled = false;
+                hole = DrawPit("CrackHole " + i, i, y, -2);
+                hole.SetActive(false);
             }
             var parts = tile.GetComponentsInChildren<SpriteRenderer>(true);
             var colors = new Color[parts.Length];
@@ -186,7 +204,7 @@ namespace RuleRunner.View
                 crack.Root.localPosition = crack.Home + new Vector3(Mathf.Sin(t * 120f) * 0.04f, 0f, 0f);
                 yield return null;
             }
-            if (crack.Hole) crack.Hole.enabled = true;
+            if (crack.Hole) crack.Hole.SetActive(true);
             for (float t = 0f; t < fall; t += Time.deltaTime)
             {
                 float k = Mathf.Clamp01(t / fall);
@@ -228,7 +246,7 @@ namespace RuleRunner.View
                 crack.Root.gameObject.SetActive(true);
                 crack.Root.localPosition = crack.Home;
                 for (int i = 0; i < crack.Parts.Length; i++) crack.Parts[i].color = crack.Colors[i];
-                if (crack.Hole) crack.Hole.enabled = false;
+                if (crack.Hole) crack.Hole.SetActive(false);
             }
             SetTime(0);
             ClearMarks();
