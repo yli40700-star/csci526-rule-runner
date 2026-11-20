@@ -164,13 +164,16 @@ namespace RuleRunner.App
             // The tutorial levels (T1-T5) play in their own screen, a port of docs/proto/tutorial.html.
             tutorialScreen = TutorialScreen.Create(canvasRect);
             tutorialScreen.Back += ShowLevelSelect;
-            tutorialScreen.LevelsRequested += ShowLevelSelect;
-            // After T5 the player picks from the level list; after the AND guide (2-0) the chapter goes straight on.
+            // "Skip tutorial" on the title screen starts chapter 1 right away.
+            tutorialScreen.SkipRequested += () => LoadLevel(FirstChapterLevel());
+            // Next after a lesson goes straight on: T5 into 1-1 (its intro says the tutorial is done), the AND guide into 2-1.
             tutorialScreen.Finished += id =>
             {
                 var def = LevelDatabase.Get(id);
-                var next = def != null && def.Chapter > 0 ? LevelDatabase.Next(def) : null;
-                if (next != null) LoadLevel(next); else ShowLevelSelect();
+                var next = def != null ? LevelDatabase.Next(def) : null;
+                if (next == null) { ShowLevelSelect(); return; }
+                if (def.Chapter == 0) introRibbon = "TUTORIAL COMPLETE  ·  CHAPTER 1";
+                LoadLevel(next);
             };
             tutorialScreen.Cleared += id => Saved.SetInt(ClearedKey + id, 1);
             tutorialScreen.StageStarted += id => analytics.LevelStarted(id);
@@ -203,11 +206,16 @@ namespace RuleRunner.App
             resultPopup.EditRules += ResetRun;
             resultPopup.NextLevel += () =>
             {
-                // The last tutorial level leads to the level list, not straight into chapter 1.
                 var next = LevelDatabase.Next(level);
-                if (next != null && (next.Tutorial || !level.Tutorial)) LoadLevel(next); else ShowLevelSelect();
+                if (next != null) LoadLevel(next); else ShowLevelSelect();
             };
         }
+
+        /// <summary>The first level after the tutorial (1-1).</summary>
+        static LevelDef FirstChapterLevel() => LevelDatabase.All.First(l => l.Playable && l.Chapter > 0);
+
+        /// <summary>A line for the next intro card only (set when the tutorial hands over to chapter 1).</summary>
+        string introRibbon;
 
         // ---------- Screens ----------
 
@@ -275,6 +283,7 @@ namespace RuleRunner.App
             // chapter levels that teach something (all of chapter 1, and 2-2) show it until the level is cleared.
             bool showIntro = level.IntroUntilCleared ? !IsCleared(level.Id) : Saved.GetInt(IntroKey(level), 0) == 0;
             if (level.HasIntro && showIntro) ShowIntro();
+            introRibbon = null;
             if (demo) StartCoroutine(StartDemo());
         }
 
@@ -316,7 +325,8 @@ namespace RuleRunner.App
         void ShowIntro()
         {
             if (level == null || playback != null || !level.HasIntro) return;
-            introCard.Show(level);
+            introCard.Show(level, introRibbon);
+            introRibbon = null;
             IntroItems.Build(introCard.DiagramArea, level.Guide, !level.HideQi);
         }
 

@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using RuleRunner.Levels;
 using RuleRunner.UI;
+using RuleRunner.View;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,12 +13,14 @@ namespace RuleRunner.App
     /// <summary>
     /// The tutorial (T1-T5), a direct port of docs/proto/tutorial.html: same layout, stages, card reading,
     /// empty cards, picker, ghost loop, blinking, hints, intros and Next button. The AND guide (2-0) plays here too,
-    /// a port of the guide in docs/proto/chapter2.html: AND cards get a second IF row (Ground 2 ahead) and cost 1 more. Coordinates are the page's CSS
-    /// pixels (top-left origin, y down); the whole page is scaled to fit the screen. Only the Energy costs differ:
-    /// Big Jump costs 3 here, as in the chapters, so T5 gives 4 Energy instead of 3.
-    /// It is also the title screen (docs/proto title.html): in title mode the top bar and the loadout are hidden, the stage
+    /// a port of the guide in docs/proto/chapter2.html: AND cards get a second IF row (Ground 2 ahead) and cost 1 more.
+    /// It is laid out in the chapter screen's frame (see Layout): same header, map scale, loadout and card design as the
+    /// chapters, with Next and the list of lessons where the chapters have RUN and the run log. Coordinates are canvas units
+    /// (top-left origin, y down). Only the Energy costs differ from the prototype: Big Jump costs 3 here, as in the
+    /// chapters, so T5 gives 4 Energy instead of 3.
+    /// It is also the title screen (docs/proto title.html): in title mode the header and the bottom are hidden, the map
     /// moves down under RULE RUNNER, and T1's demo (a title-only stage) loops at chapter speed. START slides the tutorial back
-    /// in and goes on with T1, which starts with the card breaking; Levels opens the level list.
+    /// in and goes on with T1, which starts with the card breaking; Skip tutorial starts chapter 1.
     /// </summary>
     public class TutorialScreen : MonoBehaviour
     {
@@ -113,9 +117,24 @@ namespace RuleRunner.App
             CRed = H(0xe04f4f);
         static Color ActColor(string a) => a == "jump" ? CJump : a == "bigjump" ? CBigJump : CLine;
 
-        const float T = 52f, W = 760f, Hh = 440f, GY = 370f;
-        const float AppW = 820f, StageW = 788f;
-        static float S => StageW / W;
+        // ---------- layout ----------
+        // The tutorial uses the chapter screen's frame (GameScreen), in canvas units and unscaled, so going on from T5 to
+        // 1-1 changes nothing on screen but the level: header 64 high; the map area under it; at the bottom (300 high) the
+        // loadout on the left and, where the chapters have RUN and the run log, a tutorial panel with Next and the lessons.
+        // The map canvas keeps the prototype's units (a tile is T = 52) and is scaled (S) so that a tile is exactly as big
+        // as in the chapters' camera view; W, Hh and GY (canvas size and ground line) follow from the screen size.
+        const float T = 52f;
+        const float HeaderH = 64f, BottomH = 300f, SideW = 364f, Pad = 12f;
+        /// <summary>Card size in the loadout, as in the chapters (RuleCardView.CardSize); an AND card is 96 taller.</summary>
+        const float CardW = 156f, CardH = 226f, AndExtraH = 96f, FootH = 26f;
+        const float RunnerPanelW = 138f;
+        float AppW = 1280f, AppH = 720f, StageW = 1280f, StageH = 356f;
+        float W = 760f, Hh = 440f, GY = 370f;
+        float S = 1f;
+        /// <summary>Scale of the cards over the runner (they get what room there is above its head).</summary>
+        float headScale = 0.85f;
+        /// <summary>Scale of the loadout cards (1, except for the AND guide's taller cards).</summary>
+        float cardScale = 1f;
 
         // ---------- state (S and R in the prototype) ----------
 
@@ -128,8 +147,8 @@ namespace RuleRunner.App
         public event Action<string> StageStarted;
         /// <summary>A player run ended: level id, the complete cards as rule ids, won.</summary>
         public event Action<string, List<string>, bool, int> RunEnded;
-        /// <summary>The title screen's Levels button.</summary>
-        public event Action LevelsRequested;
+        /// <summary>The title screen's "Skip tutorial" button (straight into chapter 1).</summary>
+        public event Action SkipRequested;
 
         int stage;
         string map = "";
@@ -153,10 +172,13 @@ namespace RuleRunner.App
         RectTransform runnerRt;
         readonly List<Image> beamDashes = new List<Image>();
         Image markA, markB;
-        Text lvlText, hintText, hintBtnText, bannerText, nudgeText, energyLabel;
-        RectTransform hintBox, hintBtn, banner, nudge, energyBox, energyPips, dotsRt, nextBtn;
-        Image nextIcon;
-        Text energySpent;
+        Text lvlText, titleText, hintText, hintBtnText, bannerText, nudgeText, energyLabel, energyValue;
+        RectTransform hintBtn, banner, nudge, energyBox, energyPips, dotsRt, nextBtn;
+        Image nextIcon, nextBg, energyGlow;
+        Text energySpent, nextText, nextNote, lessonsTitle, lessonsNext;
+        RectTransform runnerPanel, sideTop, sideLog, bottomRt, canvasTop;
+        bool nextReady;
+        float nudgeX;
         readonly List<CardView> headViews = new List<CardView>(), bigViews = new List<CardView>();
         RectTransform pickerRoot, pickerGrid, introRoot, notIntroRoot;
         Text pickTitle, introTitle, introText;
@@ -167,40 +189,13 @@ namespace RuleRunner.App
         bool panelOff;
         Coroutine niCycle;
 
-        // Title mode: positions of the top bar, stage and loadout in the tutorial layout, and how far they move.
-        const float TopY = 12f, StageY = 63f, TitleDrop = 116f;
-        static float PanelY => StageY + Hh * S + 12f;
-        RectTransform topBar, titleRoot;
+        // Title mode: the header and the bottom fade out, the map area moves down under RULE RUNNER, START and Skip tutorial
+        // sit under it. titleT is how far the layout is in title mode (1) or in the tutorial (0).
+        RectTransform topBar, titleRoot, heading, startBtn, skipBtn;
         CanvasGroup appGroup, topGroup, panelGroup, titleGroup;
         bool title;
-        // The title layout ends under the Levels button: stage moved down, then START (50) and Levels (42).
-        static float TitleBottom => StageY + TitleDrop + Hh * S + 26f + 50f + 14f + 42f;
+        float titleT, titleStageY;
 
-        /// <summary>
-        /// The page height a stage needs: top bar, stage, and the loadout panel (150 minimum; a watch stage has no cards there).
-        /// A stage whose cards can become AND cards counts them as AND cards, so toggling AND never grows the page.
-        /// </summary>
-        static float StagePageHeight(Stage s)
-        {
-            bool and = s.AndChip || s.Cards.Any(c => c.And);
-            float panelH = s.Watch ? 150f : Mathf.Max(150f, 12 + 21 + CardHeight(true, and, s.Reorder) + 12);
-            return StageY + Hh * S + 12 + panelH + 24;
-        }
-
-        /// <summary>
-        /// One page height for a whole group (T1 to T5 and the title screen; the 2-0 guide): the tallest stage in it.
-        /// The page is scaled to the screen by this height, so it no longer zooms in and out from one stage to the next.
-        /// </summary>
-        static float GroupPageHeight(int i)
-        {
-            float h = 0f;
-            for (int j = 0; j < Stages.Length; j++)
-                if (Group(j) == Group(i)) h = Mathf.Max(h, StagePageHeight(Stages[j]));
-            if (Group(i) == "T") h = Mathf.Max(h, TitleBottom + 24f);
-            return h;
-        }
-
-        float pageHeight;
         Action introOk;
 
         sealed class Particle { public RectTransform Rt; public Image Img; public float X, Y, Vx, Vy, Life; }
@@ -343,41 +338,37 @@ namespace RuleRunner.App
 
         void Build(RectTransform root)
         {
-            // #app: 820 wide, centered, scaled to fit the screen.
-            app = N(root, "App", 0, 0, AppW, 860);
-            app.anchorMin = app.anchorMax = new Vector2(0.5f, 1f);
-            app.pivot = new Vector2(0.5f, 1f);
+            // The page is the whole canvas, unscaled; Layout sizes it and places everything.
+            app = N(root, "App", 0, 0, AppW, AppH);
             appGroup = app.gameObject.AddComponent<CanvasGroup>();
 
-            // #top
-            var top = topBar = N(app, "Top", 16, TopY, AppW - 32, 51);
+            // Header, as in the chapters (GameScreen.BuildHeader): < Levels, the level chip, title and hint line, Hint.
+            var top = topBar = N(app, "Top", 0, 0, AppW, HeaderH);
             topGroup = top.gameObject.AddComponent<CanvasGroup>();
-            Img(top, CSurface, 12f);
-            Box(top, "Edge", 0, 50, AppW - 32, 1, CLine);
-            var levels = N(top, "Levels", 12, 10, 74, 31);
-            Img(levels, CRaised, 8f);
-            Txt(levels, "T", 0, 0, 74, 31, "< Levels", 13, CDim, TextAnchor.MiddleCenter, true);
-            Btn(levels, () => { StopAll(); Back?.Invoke(); });
-            var chip = N(top, "Chip", 96, 12, 38, 27);
-            Img(chip, CGold, 8f);
-            lvlText = Txt(chip, "T", 0, 0, 38, 27, "T1", 14, CBg, TextAnchor.MiddleCenter, true);
-            hintBox = N(top, "Hint", 150, 8, 0, 35);
-            Img(hintBox, CSurface2, 10f);
-            FillRing(hintBox, CGold, 1f);
-            hintText = Txt(hintBox, "T", 12, 0, 0, 35, "", 13, CText, TextAnchor.MiddleCenter);
-            hintBtn = N(top, "HintBtn", 0, 10, 82, 31);
-            Img(hintBtn, CGold, 8f);
-            hintBtnText = Txt(hintBtn, "T", 0, 0, 82, 31, "Hint 1/3", 13, CBg, TextAnchor.MiddleCenter, true);
-            Btn(hintBtn, OnHint);
-            dotsRt = N(top, "Dots", AppW - 32 - 12 - 6 * 11 - 5 * 7, 20, 6 * 11 + 5 * 7, 11);
+            Img(top, CSurface);
+            UIKit.Panel(top, "Edge", CLine, Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 1));
+            var levels = UIKit.Button(top, "Levels", "<  Levels", 17, CRaised, () => { StopAll(); Back?.Invoke(); }, 10f);
+            Anchor(levels.transform, new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(112, 40), new Vector2(0, 0.5f));
+            var chip = UIKit.Box(top, "Chip", CGold, 12f, new Vector2(0, 0.5f), new Vector2(0, 0.5f));
+            Anchor(chip.transform, new Vector2(0, 0.5f), new Vector2(142, 0), new Vector2(64, 40), new Vector2(0, 0.5f));
+            lvlText = UIKit.Label(chip.transform, "Text", "T1", 20, TextAnchor.MiddleCenter, CBg, FontStyle.Bold);
+            titleText = UIKit.Label(UIKit.Rect(top, "Title", new Vector2(0, 0.5f), new Vector2(1, 1), new Vector2(222, -2), new Vector2(-200, -6)),
+                "Text", "", 24, TextAnchor.LowerLeft, CText, FontStyle.Bold);
+            hintText = UIKit.Label(UIKit.Rect(top, "Hint", new Vector2(0, 0), new Vector2(1, 0.5f), new Vector2(222, 2), new Vector2(-200, 0)),
+                "Text", "", 15, TextAnchor.UpperLeft, CDim, FontStyle.Italic);
+            var hint = UIKit.Button(top, "HintBtn", "Hint 1/3", 16, CGold, OnHint, 10f);
+            hintBtn = (RectTransform)hint.transform;
+            Anchor(hintBtn, new Vector2(1, 0.5f), new Vector2(-14, 0), new Vector2(118, 40), new Vector2(1, 0.5f));
+            hintBtnText = UIKit.ButtonText(hint);
+            hintBtnText.color = CBg;
+            hintBtn.gameObject.SetActive(false);
 
-            // #stage
-            stageRt = N(app, "Stage", 16, StageY, StageW, Hh * S);
-            Img(stageRt, CSurface);
+            // The map area: the stage canvas (map, highlights, beam), the cards over the runner's head, then the runner and
+            // the effects, which pass in front of those cards when it jumps.
+            stageRt = N(app, "Stage", 0, HeaderH, StageW, StageH);
+            Img(stageRt, CStage);
             stageRt.gameObject.AddComponent<RectMask2D>();
             canvasRt = N(stageRt, "Canvas", 0, 0, W, Hh);
-            canvasRt.localScale = Vector3.one * S;
-            Img(canvasRt, CStage);
             mapLayer = N(canvasRt, "Map", 0, 0, W, Hh);
             hlGlow = Frame(canvasRt, "HlGlow", 10f, CGold.WithAlpha(0.22f));
             hlImg = Frame(canvasRt, "Hl", 4f, CGold);
@@ -391,11 +382,6 @@ namespace RuleRunner.App
             markA = Box(canvasRt, "MarkA", 0, 0, 6, 40, CSpike, 3f);
             markB = Box(canvasRt, "MarkB", 0, 0, 6, 40, CSpike, 3f);
             markA.rectTransform.pivot = markB.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            runnerRt = N(canvasRt, "Runner", 0, 0, 34, 34);
-            runnerRt.pivot = new Vector2(0.5f, 0f);
-            runnerImg = Img(runnerRt, CRunner);
-            runnerEye = Box(runnerRt, "Eye", 22, 6, 6, 8, CEye);
-            fx = N(canvasRt, "Fx", 0, 0, W, Hh);
 
             bubble = N(stageRt, "Bubble", 0, 0, 10, 10);
             bubble.pivot = new Vector2(0.5f, 0f);
@@ -405,40 +391,33 @@ namespace RuleRunner.App
             reader.pivot = new Vector2(0.5f, 1f);
             Img(reader, Color.white, 0, UISprites.Triangle);
 
+            canvasTop = N(stageRt, "CanvasTop", 0, 0, W, Hh);
+            runnerRt = N(canvasTop, "Runner", 0, 0, 34, 34);
+            runnerRt.pivot = new Vector2(0.5f, 0f);
+            runnerImg = Img(runnerRt, CRunner);
+            runnerEye = Box(runnerRt, "Eye", 22, 6, 6, 8, CEye);
+            fx = N(canvasTop, "Fx", 0, 0, W, Hh);
+
             banner = N(stageRt, "Banner", 0, 12, 300, 36);
             banner.anchorMin = banner.anchorMax = new Vector2(0.5f, 1f);
             banner.pivot = new Vector2(0.5f, 1f);
             Img(banner, CBg.WithAlpha(0.9f), 10f);
             FillRing(banner, CGold, 1f);
             bannerText = Txt(banner, "T", 14, 0, 0, 36, "", 14, CGold, TextAnchor.MiddleCenter);
-            nudge = N(stageRt, "Nudge", StageW - 84 - 160, 6, 160, 18);
+            nudge = N(stageRt, "Nudge", 0, 6, 160, 18);
             nudgeText = Txt(nudge, "T", 0, 0, 146, 18, "Stuck? Try a hint", 13, CGold, TextAnchor.MiddleRight, true);
             Arrow(nudge, "Up", 148, 2, 13, CGold, 90);
 
-            energyBox = N(stageRt, "Energy", 0, 12, 10, 28);
-            energyBox.anchorMin = energyBox.anchorMax = new Vector2(1f, 1f);
-            energyBox.pivot = new Vector2(1f, 1f);
-            Img(energyBox, CSurface2, 10f);
-            energyLabel = Txt(energyBox, "L", 10, 0, 60, 28, "ENERGY", 12, CQi, TextAnchor.MiddleLeft, true);
-            energyPips = N(energyBox, "Pips", 72, 7, 10, 14);
-            energySpent = Txt(energyBox, "Spent", 0, 0, 60, 20, "", 16, CQi, TextAnchor.MiddleRight, true);
-            var est = energySpent.rectTransform;
-            est.anchorMin = est.anchorMax = est.pivot = new Vector2(1f, 1f);
-            est.anchoredPosition = new Vector2(-4, -32);
-
-            // #panel and #next
-            panel = N(app, "Panel", 16, PanelY, AppW - 32, 270);
-            panelGroup = panel.gameObject.AddComponent<CanvasGroup>();
-            Img(panel, CSurface, 12f);
-            Txt(panel, "Title", 14, 12, 200, 15, "LOADOUT", 13, CGold, TextAnchor.MiddleLeft, true);
-            loadoutRow = N(panel, "Loadout", 14, 33, AppW - 60, 240);
-            nextBtn = N(panel, "Next", AppW - 32 - 18 - 58, 0, 58, 58);
-            Img(nextBtn, CAccent, 0, UISprites.Circle);
-            nextIcon = Img(N(nextBtn, "Icon", 15, 15, 22, 17), CBg, 0, UISprites.Triangle);
-            nextIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            nextIcon.rectTransform.anchoredPosition = new Vector2(31, -29);
-            nextIcon.rectTransform.localRotation = Quaternion.Euler(0, 0, -90);
-            Btn(nextBtn, () => PlayStage(stage + 1 < Stages.Length && Group(stage + 1) == Group(stage) ? stage + 1 : stage, true));
+            // The bottom, as in the chapters: the loadout tray on the left (runner and Energy, then the cards) and, where the
+            // chapters have RUN and the run log, Next and the list of lessons. One group, so they fade together.
+            bottomRt = N(app, "Bottom", 0, 0, AppW, AppH);
+            panelGroup = bottomRt.gameObject.AddComponent<CanvasGroup>();
+            panel = N(bottomRt, "Panel", Pad, AppH - BottomH + 8, AppW - SideW - 2 * Pad, BottomH - 8 - Pad);
+            UIKit.DropShadow(Img(panel, CSurface, 16f), 4f, 0.35f);
+            loadoutTitle = Txt(panel, "Title", 18, 8, 200, 26, "LOADOUT", 15, CGold, TextAnchor.MiddleLeft, true);
+            BuildRunnerPanel(panel);
+            loadoutRow = N(panel, "Loadout", 14 + RunnerPanelW + 12, 40, 4 * (CardW + 12), CardH);
+            BuildSide(bottomRt);
 
             BuildTitle();
             TitleLayout(0f);
@@ -448,15 +427,175 @@ namespace RuleRunner.App
             BuildNotIntro(root);
         }
 
+        Text loadoutTitle;
+
+        /// <summary>Anchors a rect to a point of its parent with a fixed size (GameScreen.Place).</summary>
+        static void Anchor(Transform t, Vector2 anchor, Vector2 pos, Vector2 size, Vector2 pivot)
+        {
+            var rt = (RectTransform)t;
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = pivot;
+            rt.sizeDelta = size;
+            rt.anchoredPosition = pos;
+        }
+
+        /// <summary>The runner panel at the start of the loadout, as in the chapters (LoadoutPanel): portrait, then Energy.</summary>
+        void BuildRunnerPanel(RectTransform parent)
+        {
+            const float w = RunnerPanelW;
+            runnerPanel = N(parent, "Runner", 14, 40, w, CardH);
+            Img(runnerPanel, CSurface2, 14f);
+            Txt(runnerPanel, "Label", 0, 10, w, 18, "RUNNER", 13, CDim, TextAnchor.MiddleCenter, true);
+            Img(N(runnerPanel, "Glow", w / 2 - 42, 66 - 42, 84, 84), CRunner.WithAlpha(0.12f), 0, UISprites.Circle);
+            Box(runnerPanel, "Body", w / 2 - 23, 66 - 23, 46, 46, CRunner, 8f);
+            Box(runnerPanel, "Eye", w / 2 + 10 - 4, 62 - 6, 8, 12, CEye, 2f);
+            Box(runnerPanel, "Divider", 14, 121, w - 28, 1, CLine);
+
+            // The Energy block (from T5 on): what is left, one pip per Energy; it lights up when Energy is spent.
+            const float bw = w - 12, bh = 102;
+            energyBox = N(runnerPanel, "Energy", 6, 124, bw, bh);
+            energyBox.pivot = new Vector2(0.5f, 0.75f);
+            energyBox.anchoredPosition = new Vector2(6 + bw / 2, -(124 + bh * 0.25f));
+            energyGlow = Img(N(energyBox, "Glow", 0, 0, bw, bh), CQi.WithAlpha(0f), 10f);
+            energyLabel = Txt(energyBox, "Label", 0, 4, bw, 16, "ENERGY", 12, CDim, TextAnchor.MiddleCenter, true);
+            energyValue = Txt(energyBox, "Value", 0, 21, bw, 24, "", 22, CQi, TextAnchor.MiddleCenter, true);
+            energySpent = Txt(energyBox, "Spent", bw - 34, 21, 32, 24, "", 15, CQi, TextAnchor.MiddleRight, true);
+            energyPips = N(energyBox, "Pips", 4, 52, bw - 8, 46);
+            energyBox.gameObject.SetActive(false);
+        }
+
+        /// <summary>The tutorial panel where the chapters have RUN and the run log: Next, then the lessons and what follows.</summary>
+        void BuildSide(RectTransform parent)
+        {
+            float w = SideW - Pad;
+            sideTop = N(parent, "SideTop", AppW - SideW, AppH - BottomH + 8, w, 112);
+            UIKit.DropShadow(Img(sideTop, CSurface, 16f), 4f, 0.35f);
+            nextBtn = N(sideTop, "Next", 12, 12, w - 24, 52);
+            nextBtn.pivot = new Vector2(0.5f, 0.5f);   // it pulses from its middle
+            nextBtn.anchoredPosition = new Vector2(12 + (w - 24) / 2, -(12 + 26));
+            nextBg = Img(nextBtn, CRaised, 12f);
+            UIKit.DropShadow(nextBg, 3f, 0.4f);
+            nextText = Txt(nextBtn, "T", 0, 0, w - 24, 52, "NEXT", 24, CFaint, TextAnchor.MiddleCenter, true);
+            nextIcon = Img(N(nextBtn, "Icon", 0, 0, 16, 14), CFaint, 0, UISprites.Triangle);
+            nextIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            nextIcon.rectTransform.anchoredPosition = new Vector2((w - 24) / 2 + 52, -26);
+            nextIcon.rectTransform.localRotation = Quaternion.Euler(0, 0, -90);
+            Btn(nextBtn, OnNext);
+            nextNote = Txt(sideTop, "Note", 14, 70, w - 28, 32, "", 14, CDim, TextAnchor.MiddleCenter);
+            nextNote.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            float logY = AppH - BottomH + 8 + 112 + 10;
+            sideLog = N(parent, "Lessons", AppW - SideW, logY, w, AppH - Pad - logY);
+            UIKit.DropShadow(Img(sideLog, CSurface, 16f), 4f, 0.35f);
+            lessonsTitle = Txt(sideLog, "Title", 14, 8, w - 28, 20, "TUTORIAL", 13, CDim, TextAnchor.MiddleLeft, true);
+            dotsRt = N(sideLog, "List", 14, 32, w - 28, 104);
+            lessonsNext = Txt(sideLog, "Then", 14, 0, w - 28, 18, "", 13, CDim, TextAnchor.MiddleLeft, true);
+        }
+
+        void OnNext()
+        {
+            if (!nextReady) return;
+            PlayStage(stage + 1 < Stages.Length && Group(stage + 1) == Group(stage) ? stage + 1 : stage, true);
+        }
+
+        /// <summary>Next is grey until the lesson is cleared, then green (and it pulses, see Update).</summary>
+        void SetNext(bool ready)
+        {
+            nextReady = ready;
+            nextBg.color = ready ? CAccent : CRaised;
+            nextText.color = nextIcon.color = ready ? CBg : CFaint;
+            nextBtn.localScale = Vector3.one;
+            nextNote.color = ready ? CAccent : CDim;
+            // After the last lesson, say what Next leads to: the tutorial goes straight on into chapter 1.
+            bool last = stage + 1 >= Stages.Length || Group(stage + 1) != Group(stage);
+            string done = !last ? "Cleared!" : Group(stage) == "T" ? "Tutorial complete! Chapter 1 is next." : "Guide complete! Chapter 2 goes on.";
+            nextNote.text = ready ? done : St.Watch ? "Watch the cards at work." : "Fix the cards. The runner keeps trying.";
+        }
+
+        // ---------- layout ----------
+
+        Vector2 laidOut;
+        string laidOutMap;
+
+        /// <summary>
+        /// Sizes the page to the canvas and places everything in the chapter screen's frame. The map's scale follows the
+        /// chapters' camera (CameraFitter): the map plus the edge walls fit the map view (the screen less the header, the
+        /// bottom and the legend row, GameController.MapViewportHeight), and the ground line sits 1.3 tiles above its bottom.
+        /// Runs when the canvas size or the map changes.
+        /// </summary>
+        void Layout(bool force = false)
+        {
+            var size = ((RectTransform)transform).rect.size;
+            if (size.x <= 0f || size.y <= 0f) return;
+            if (!force && size == laidOut && laidOutMap == map) return;
+            laidOut = size;
+            laidOutMap = map;
+            float oldOff = OffX;
+
+            AppW = size.x;
+            AppH = size.y;
+            app.anchorMin = app.anchorMax = app.pivot = new Vector2(0f, 1f);
+            app.sizeDelta = new Vector2(AppW, AppH);
+            app.localScale = Vector3.one;
+            app.anchoredPosition = Vector2.zero;
+
+            topBar.sizeDelta = new Vector2(AppW, HeaderH);
+            StageW = AppW;
+            StageH = AppH - HeaderH - BottomH;
+            stageRt.sizeDelta = new Vector2(StageW, StageH);
+
+            int len = map.Length > 0 ? map.Length : 11;
+            float view = AppH * (1f - (HeaderH + BottomH + 34f) / 720f);
+            float tile = Mathf.Min(view / (MapView.HighWallHeight + 1.6f), AppW / (len + 2.6f));
+            S = tile / T;
+            W = StageW / S;
+            Hh = StageH / S;
+            GY = (view - 1.3f * tile) / S;
+            foreach (var rt in new[] { canvasRt, canvasTop })
+            {
+                rt.sizeDelta = new Vector2(W, Hh);
+                rt.localScale = Vector3.one * S;
+            }
+            mapLayer.sizeDelta = fx.sizeDelta = new Vector2(W, Hh);
+            rx += OffX - oldOff;
+            if (map.Length > 0) BuildMap();
+
+            // The cards over the runner get the room between the top of the map area and the runner's head.
+            float headroom = (GY - 34f) * S - 12f - 6f;
+            float headH = (St.AndChip || St.Cards.Any(c => c.And) ? CardH - FootH + AndExtraH : CardH - FootH) + 16f;
+            headScale = Mathf.Clamp(headroom / headH, 0.45f, 0.9f);
+            bubble.localScale = Vector3.one * headScale;
+
+            // The hint nudge points up at the Hint button (its center is 14 + 59 in from the right edge).
+            nudgeX = AppW - 14f - 59f - 154.5f;
+            nudge.anchoredPosition = new Vector2(nudgeX, -6);
+
+            bottomRt.sizeDelta = new Vector2(AppW, AppH);
+            Place(panel, Pad, AppH - BottomH + 8, AppW - SideW - 2 * Pad, BottomH - 8 - Pad);
+            float sideW = SideW - Pad, logY = AppH - BottomH + 8 + 112 + 10;
+            Place(sideTop, AppW - SideW, AppH - BottomH + 8, sideW, 112);
+            Place(sideLog, AppW - SideW, logY, sideW, AppH - Pad - logY);
+            lessonsNext.rectTransform.anchoredPosition = new Vector2(14, -(AppH - Pad - logY - 26));
+
+            // Title mode: RULE RUNNER, then the map area, then START and Skip tutorial.
+            titleRoot.sizeDelta = new Vector2(AppW, AppH);
+            Place(heading, 0, 30, AppW, 92);
+            titleStageY = Mathf.Clamp(140f, HeaderH, AppH - StageH - 22f - 50f - 12f - 42f - 16f);
+            float by = titleStageY + StageH + 22f;
+            startBtn.anchoredPosition = new Vector2((AppW - 190) / 2, -by);
+            skipBtn.anchoredPosition = new Vector2((AppW - 190) / 2, -(by + 50 + 12));
+            TitleLayout(titleT);
+        }
+
         // ---------- title screen ----------
 
         void BuildTitle()
         {
-            titleRoot = N(app, "Title", 0, 0, AppW, 860);
+            titleRoot = N(app, "Title", 0, 0, AppW, AppH);
             titleGroup = titleRoot.gameObject.AddComponent<CanvasGroup>();
 
             // RULE RUNNER with the little runner jumping over a spike, as on the level list.
-            var heading = N(titleRoot, "Heading", 0, 60, AppW, 92);
+            heading = N(titleRoot, "Heading", 0, 30, AppW, 92);
             var headingText = UIKit.Label(heading, "Text", "RULE RUNNER", 60, TextAnchor.MiddleCenter, CGold, FontStyle.Bold);
             UIKit.DropShadow(headingText, 4f, 0.6f);
             var deco = UIKit.Centered(heading, "Deco", new Vector2(-276, 4), new Vector2(90, 70));
@@ -467,9 +606,8 @@ namespace RuleRunner.App
                 UIKit.Shape(deco, "Dot", UISprites.Circle, new Color(1, 1, 1, 0.5f),
                     new Vector2(-38 + i * 9, -16 + 28 * Mathf.Sin(i / 4f * Mathf.PI * 0.8f)), new Vector2(4, 4));
 
-            // START is the big one; Levels sits under it, smaller.
-            float below = StageY + TitleDrop + Hh * S;
-            var start = N(titleRoot, "Start", (AppW - 190) / 2, below + 26, 190, 50);   // TitleBottom follows these sizes
+            // START is the big one; Skip tutorial (straight into chapter 1) sits under it.
+            var start = startBtn = N(titleRoot, "Start", 0, 0, 190, 50);
             var startBg = Img(start, CAccent, 13f);
             var startShadow = startBg.gameObject.AddComponent<Shadow>();
             startShadow.effectColor = new Color(0, 0, 0, 0.45f);
@@ -481,19 +619,20 @@ namespace RuleRunner.App
             Txt(start, "T", 16, 0, 190 - 16, 50, "START", 19, CBg, TextAnchor.MiddleCenter, true);
             Btn(start, StartFromTitle);
 
-            var levels = N(titleRoot, "Levels", (AppW - 160) / 2, below + 26 + 50 + 14, 160, 42);
-            Img(levels, CSurface2, 11f);
-            FillRing(levels, CLine, 1f);
-            Txt(levels, "T", 0, 0, 160, 42, "Levels", 16, CText, TextAnchor.MiddleCenter);
-            Btn(levels, () => { StopAll(); title = false; LevelsRequested?.Invoke(); });
+            var skip = skipBtn = N(titleRoot, "Skip", 0, 0, 190, 42);
+            Img(skip, CSurface2, 11f);
+            FillRing(skip, CLine, 1f);
+            Txt(skip, "T", 0, 0, 190, 42, "Skip tutorial", 16, CText, TextAnchor.MiddleCenter);
+            Btn(skip, () => { StopAll(); title = false; SkipRequested?.Invoke(); });
         }
 
-        /// <summary>t = 1: title screen (top bar and loadout hidden, stage lower, title shown); t = 0: the tutorial.</summary>
+        /// <summary>t = 1: title screen (header and bottom hidden, map area lower, title shown); t = 0: the tutorial.</summary>
         void TitleLayout(float t)
         {
-            topBar.anchoredPosition = new Vector2(16, -(TopY - 36f * t));
-            stageRt.anchoredPosition = new Vector2(16, -(StageY + TitleDrop * t));
-            panel.anchoredPosition = new Vector2(16, -(PanelY + 60f * t));
+            titleT = t;
+            topBar.anchoredPosition = new Vector2(0, 36f * t);
+            stageRt.anchoredPosition = new Vector2(0, -Mathf.Lerp(HeaderH, titleStageY, t));
+            bottomRt.anchoredPosition = new Vector2(0, -60f * t);
             topGroup.alpha = panelGroup.alpha = 1f - t;
             topGroup.interactable = topGroup.blocksRaycasts = panelGroup.interactable = panelGroup.blocksRaycasts = t < 0.5f;
             titleGroup.alpha = t;
@@ -501,7 +640,7 @@ namespace RuleRunner.App
             titleRoot.gameObject.SetActive(t > 0.001f);
         }
 
-        /// <summary>Opens the title screen: T1's demo loops under RULE RUNNER until START or Levels.</summary>
+        /// <summary>Opens the title screen: T1's demo loops under RULE RUNNER until START or Skip tutorial.</summary>
         public void ShowTitle()
         {
             gameObject.SetActive(true);
@@ -509,7 +648,7 @@ namespace RuleRunner.App
             HideUntilFitted();
             StopAll();
             StartCoroutine(TitleRoutine());
-            FitPage();
+            Layout(true);
         }
 
         IEnumerator TitleRoutine()
@@ -640,77 +779,80 @@ namespace RuleRunner.App
             public float Height;
         }
 
-        const float AndRowHeight = 16f;
-        static float SectionHeight(bool big) => 2 + 16 + (big ? 46 : 40) + (big ? 16 : 14) + 4;
-        static float CardHeight(bool big, bool and, bool foot)
-        {
-            float secH = SectionHeight(big);
-            return 7 + 22 + 4 + secH + (and ? AndRowHeight + secH : 0) + 3 + 1 + 4 + secH + (foot ? 5 + 23 : 0) + 7;
-        }
+        // The card follows the chapters' card (RuleCardView.CardSize 156 x 226): a band (number, cost pips), IF at 40 (80
+        // high), a divider, THEN at 126 (70 high) with its name, and a footer row for the move arrows. An AND card has an
+        // AND line and a second IF under the first (AndExtraH more). The copies over the runner have no footer row.
+        const float SecX = 6f, SecW = CardW - 12f, IfH = 80f, ThenH = 70f, AndRowH = 16f;
 
-        /// <summary>Builds a card. big = the loadout card (156 wide), otherwise the one over the runner (120 wide).</summary>
+        /// <summary>From one card over the runner to the next.</summary>
+        const float HeadStep = CardW + 6f;
+
+        /// <summary>Height of a card: the loadout's (big) keeps the footer row like the chapters' cards, the head copy does not.</summary>
+        static float CardHeight(bool big, bool and) => (big ? CardH : CardH - FootH) + (and ? AndExtraH : 0f);
+
+        /// <summary>Builds a card. big = the loadout card, otherwise the copy over the runner (no footer; a tick or cross by its IF).</summary>
         CardView BuildCard(Transform parent, CardData card, int n, bool big, bool badge, bool notChip, bool cost, bool foot, int count,
             bool andChip = false)
         {
             var v = new CardView();
-            float w = big ? 156 : 120, cw = w - 14, dia = big ? 46 : 40, nameH = big ? 16 : 14;
-            float secH = SectionHeight(big);
-            const float andRow = AndRowHeight;   // the "AND" line between the two IF rows
-            float h = CardHeight(big, card.And, foot);
+            float w = CardW, h = CardHeight(big, card.And);
             v.Height = h;
             v.Root = N(parent, "Card" + n, 0, 0, w, h);
             v.Group = v.Root.gameObject.AddComponent<CanvasGroup>();
-            v.Glow = Img(N(v.Root, "Glow", -6, -6, w + 12, h + 12), new Color(1, 1, 1, 0f), 16f);
-            var body = Img(N(v.Root, "Body", 0, 0, w, h), CSurface2, 12f);
+            v.Glow = Img(N(v.Root, "Glow", -6, -6, w + 12, h + 12), new Color(1, 1, 1, 0f), 18f);
+            var body = Img(N(v.Root, "Body", 0, 0, w, h), CSurface2, 14f);
             var shadow = body.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0, 0, 0, 0.53f);
+            shadow.effectColor = new Color(0, 0, 0, 0.5f);
             shadow.effectDistance = new Vector2(0, -5);
             v.Border = Ring(v.Root, "Border", 0, 0, w, h, new Color(1, 1, 1, 0f), 2f);
             v.NeverBorder = Dashed(v.Root, "Never", 0, 0, w, h, CFaint);
             v.NeverBorder.gameObject.SetActive(false);
 
-            // band
-            var band = Box(v.Root, "Band", 7, 7, cw, 22, card.Then != null ? ActColor(card.Then) : CLine, 7f);
-            var num = Img(N(band.rectTransform, "N", 4, 2.5f, 17, 17), new Color(0, 0, 0, 0.35f), 0, UISprites.Circle);
-            Txt(num.rectTransform, "T", 0, 0, 17, 17, n.ToString(), 11, CText, TextAnchor.MiddleCenter, true);
-            v.BandCost = N(band.rectTransform, "Cost", 0, 6.5f, cw - 4, 9);
-            if (cost && card.Then != null) Pips(v.BandCost, CostOf(card), 9, true);
+            // band: number badge on the left, one pip per Energy the card costs on the right
+            var band = Box(v.Root, "Band", 6, 6, w - 12, 30, card.Then != null ? ActColor(card.Then) : CLine, 9f);
+            var num = Img(N(band.rectTransform, "N", 5, 3, 24, 24), new Color(0, 0, 0, 0.35f), 0, UISprites.Circle);
+            Txt(num.rectTransform, "T", 0, 0, 24, 24, n.ToString(), 15, CText, TextAnchor.MiddleCenter, true);
+            v.BandCost = N(band.rectTransform, "Cost", w - 12 - 8 - 62, 9.5f, 62, 11);
+            if (cost && card.Then != null) Pips(v.BandCost, CostOf(card), 11, true);
 
-            float y = 7 + 22 + 4;
-            v.IfSec = Section(v, card, "if", y, cw, dia, nameH, secH, big, notChip, badge);
-            y += secH;
+            float y = 40;
+            v.IfSec = Section(v, card, "if", y, IfH, notChip, badge);
+            y += IfH;
+            bool chipOn = andChip && big;
             if (card.And)
             {
-                Box(v.Root, "AndL", 7 + 10, y + andRow / 2, cw / 2 - 30, 1, CQi.WithAlpha(0.6f));
-                Box(v.Root, "AndR", 7 + cw / 2 + 20, y + andRow / 2, cw / 2 - 30, 1, CQi.WithAlpha(0.6f));
-                Txt(v.Root, "And", 7, y, cw, andRow, "AND", 11, CQi, TextAnchor.MiddleCenter, true);
-                y += andRow;
-                v.If2Sec = Section(v, card, "if2", y, cw, dia, nameH, secH, big, false, false);
-                y += secH;
+                Box(v.Root, "AndL", SecX + 10, y + AndRowH / 2, SecW / 2 - 42, 1, CQi.WithAlpha(0.6f));
+                Box(v.Root, "AndR", SecX + SecW / 2 + 32, y + AndRowH / 2, SecW / 2 - 42, 1, CQi.WithAlpha(0.6f));
+                if (!chipOn) Txt(v.Root, "And", SecX, y, SecW, AndRowH, "AND", 12, CQi, TextAnchor.MiddleCenter, true);
+                y += AndRowH;
+                v.If2Sec = Section(v, card, "if2", y, IfH, false, false);
+                y += IfH;
             }
-            // "+AND" on a loadout card turns it into an AND card (and back).
-            if (andChip && big)
+            Box(v.Root, "Div", 16, y + 3, w - 32, 1, CLine);
+            y += 6;
+            v.ThenSec = Section(v, card, "then", y, ThenH, false, false);
+            // "+AND" on a loadout card sits on the divider, where a second condition would go; on an AND card it is the
+            // "AND x" in the AND line and turns the card back (as on the chapters' cards).
+            if (chipOn)
             {
-                var chip = N(v.IfSec, "AndChip", cw - 4 - 44 - (notChip ? 44 : 0), 3, 44, 14);
-                Img(chip, card.And ? CQi : CRaised, 7f);
-                Txt(chip, "T", 0, 0, 44, 14, card.And ? "AND x" : "+AND", 10, card.And ? CBg : CDim, TextAnchor.MiddleCenter, true);
+                float cy = card.And ? 40 + IfH + AndRowH / 2 : 40 + IfH + 2.5f;
+                var chip = N(v.Root, "AndChip", w / 2 - 25, cy - 9, 50, 18);
+                Img(chip, card.And ? CQi : CRaised, 9f);
+                Txt(chip, "T", 0, 0, 50, 18, card.And ? "AND x" : "+AND", 12, card.And ? CBg : CDim, TextAnchor.MiddleCenter, true);
                 v.AndChip = chip;
             }
-            Box(v.Root, "Div", 7 + 10, y + 3, cw - 20, 1, CLine);
-            y += 4 + 4;
-            v.ThenSec = Section(v, card, "then", y, cw, dia, nameH, secH, big, false, false);
-            y += secH;
 
-            if (foot)
+            if (big && foot)
             {
-                y += 5;
-                var left = N(v.Root, "Left", 7, y, 30, 23);
+                // footer: < and > move the card (the chapters' card also has "remove" in the middle)
+                float fy = h - 6 - 20;
+                var left = N(v.Root, "Left", 8, fy, 28, 20);
                 Img(left, CRaised, 8f);
-                Txt(left, "T", 0, 0, 30, 23, "<", 13, CText, TextAnchor.MiddleCenter, true);
+                Txt(left, "T", 0, 0, 28, 20, "<", 14, CText, TextAnchor.MiddleCenter, true);
                 left.gameObject.SetActive(n != 1);
-                var right = N(v.Root, "Right", 7 + cw - 30, y, 30, 23);
+                var right = N(v.Root, "Right", w - 8 - 28, fy, 28, 20);
                 Img(right, CRaised, 8f);
-                Txt(right, "T", 0, 0, 30, 23, ">", 13, CText, TextAnchor.MiddleCenter, true);
+                Txt(right, "T", 0, 0, 28, 20, ">", 14, CText, TextAnchor.MiddleCenter, true);
                 right.gameObject.SetActive(n != count);
                 int i = n - 1;
                 Btn(left, () => MoveCard(i, -1));
@@ -720,48 +862,50 @@ namespace RuleRunner.App
             return v;
         }
 
-        RectTransform Section(CardView v, CardData card, string kind, float y, float cw, float dia, float nameH, float secH,
-            bool big, bool notChip, bool badge)
+        RectTransform Section(CardView v, CardData card, string kind, float y, float secH, bool notChip, bool badge)
         {
             bool isIf2 = kind == "if2", isIf = kind == "if" || isIf2;
             string key = isIf2 ? If2Key(card) : isIf ? card.If : card.Then;
-            var sec = N(v.Root, isIf2 ? "If2" : isIf ? "If" : "Then", 7, y, cw, secH);
-            var bg = Img(sec, new Color(1, 1, 1, 0f), 8f);
-            var frame = Ring(sec, "Frame", 0, 0, cw, secH, new Color(1, 1, 1, 0f), 2f);
+            var sec = N(v.Root, isIf2 ? "If2" : isIf ? "If" : "Then", SecX, y, SecW, secH);
+            var bg = Img(sec, new Color(1, 1, 1, 0f), 9f);
+            var frame = Ring(sec, "Frame", 0, 0, SecW, secH, new Color(1, 1, 1, 0f), 2f);
             if (isIf2) { v.If2Bg = bg; v.If2Frame = frame; }
             else if (isIf) { v.IfBg = bg; v.IfFrame = frame; } else { v.ThenBg = bg; v.ThenFrame = frame; }
-            Txt(sec, "Lab", 4, 2, 40, 16, isIf2 ? "AND" : isIf ? "IF" : "THEN", 11, isIf2 ? CQi : CDim, TextAnchor.MiddleLeft, true);
+            Txt(sec, "Lab", 8, isIf ? 4 : 2, 50, isIf ? 18 : 16, isIf2 ? "AND" : isIf ? "IF" : "THEN", 14, isIf2 ? CQi : CDim, TextAnchor.MiddleLeft, true);
             if (isIf && notChip)
             {
                 // A switch, not a label: off is an outlined pill with NOT struck through, on is a filled red pill.
                 // The outline and the fill are the same rounded shape (UIKit.RoundOutline).
-                const float chipW = 40, chipH = 16, radius = chipH / 2;
-                var chip = N(sec, "NotChip", cw - 4 - chipW, 2, chipW, chipH);
+                const float chipW = 46, chipH = 18, radius = chipH / 2;
+                var chip = N(sec, "NotChip", SecW - 8 - chipW, 4, chipW, chipH);
                 Img(chip, card.Not ? CNot : new Color(1, 1, 1, 0f), radius);
                 if (!card.Not) UIKit.RoundOutline(Img(N(chip, "Ring", 0, 0, chipW, chipH), CDim), radius, 1.5f);
-                Txt(chip, "T", 0, 0, chipW, chipH, "NOT", 10, card.Not ? Color.white : CDim, TextAnchor.MiddleCenter, true);
+                Txt(chip, "T", 0, 0, chipW, chipH, "NOT", 12, card.Not ? Color.white : CDim, TextAnchor.MiddleCenter, true);
                 if (!card.Not)
                 {
-                    var strike = Img(N(chip, "Strike", 0, 0, 28, 1.5f), CDim).rectTransform;
+                    var strike = Img(N(chip, "Strike", 0, 0, 32, 1.5f), CDim).rectTransform;
                     strike.pivot = new Vector2(0.5f, 0.5f);
                     strike.anchoredPosition = new Vector2(chipW / 2, -chipH / 2);
                     strike.localRotation = Quaternion.Euler(0, 0, 18);
                 }
                 v.NotChip = chip;
             }
-            float svgW = big ? 96 : 84, svgH = big ? 44 : 40;
+            // The diagram sits where the chapters' card draws its icon (89 x 44, a little above the middle of the section).
+            const float svgW = 89, svgH = 44;
+            float diaY = isIf ? (secH - svgH) / 2 - 2 : (secH - svgH) / 2 - 3;
             RectTransform diaRt;
             if (key == null)
             {
-                Dashed(sec, "Empty", 4 + 6, 18, cw - 8 - 12, dia, CFaint);
-                diaRt = N(sec, "Dia", (cw - svgW) / 2, 18 + (dia - svgH) / 2, svgW, svgH);
+                // An empty part: a dashed box between the label and the name line.
+                Dashed(sec, "Empty", 12, isIf ? 24 : 21, SecW - 24, isIf ? 34 : 32, CFaint);
+                diaRt = N(sec, "Dia", (SecW - svgW) / 2, diaY, svgW, svgH);
             }
-            else diaRt = Diagram(sec, (cw - svgW) / 2, 18 + (dia - svgH) / 2, svgW, svgH, isIf ? "if" : "then", key, !isIf2 && card.Not);
+            else diaRt = Diagram(sec, (SecW - svgW) / 2, diaY, svgW, svgH, isIf ? "if" : "then", key, !isIf2 && card.Not);
             if (isIf2) v.If2DiaArea = diaRt; else if (isIf) v.IfDiaArea = diaRt; else v.ThenDiaArea = diaRt;
             string name = key == null ? "" : isIf2 ? Name[key] : isIf ? CondName(key, card.Not) : Name[key];
-            int size = big ? 13 : isIf ? 11 : 12;
-            // A negated condition reads in red, like the NOT switch that made it.
-            Txt(sec, "Name", 0, 18 + dia, cw, nameH, name, size, isIf && !isIf2 && card.Not ? CNotName : CText, TextAnchor.MiddleCenter, !isIf);
+            // A negated condition reads in red, like the NOT switch that made it; the action's name is bold.
+            if (isIf) Txt(sec, "Name", 4, secH - 20, SecW - 8, 18, name, 14, !isIf2 && card.Not ? CNotName : CText, TextAnchor.MiddleCenter);
+            else Txt(sec, "Name", 0, 54, SecW, 18, name, 15, CText, TextAnchor.MiddleCenter, true);
             if (badge)
             {
                 v.Badge = Img(N(sec, "Badge", -13, secH / 2 - 11, 22, 22), CAccent, 0, UISprites.Circle);
@@ -857,7 +1001,7 @@ namespace RuleRunner.App
             {
                 var v = BuildCard(bubble, head[i], i + 1, false, true, s.NotChip, s.Energy.HasValue, false, head.Count);
                 v.Root.anchoredPosition = new Vector2(x, 0);
-                x += 120 + 6;
+                x += HeadStep;
                 maxH = Mathf.Max(maxH, v.Height);
                 headViews.Add(v);
             }
@@ -877,6 +1021,11 @@ namespace RuleRunner.App
 
             UIKit.DestroyChildren(loadoutRow);
             bigViews.Clear();
+            // The cards sit where the chapters put them, right of the runner panel; only the AND guide's taller cards are
+            // scaled to fit the row (by the tallest card the stage can have, so toggling AND does not resize them).
+            bool andStage = s.AndChip || s.Cards.Any(c => c.And);
+            cardScale = Mathf.Min(1f, (BottomH - 8 - Pad - 40 - 12) / CardHeight(true, andStage));
+            loadoutRow.localScale = Vector3.one * cardScale;
             if (St.Watch) return;
             bool ifLocked = s.Locked || s.LockIf;
             float bx = 0;
@@ -884,7 +1033,7 @@ namespace RuleRunner.App
             {
                 var v = BuildCard(loadoutRow, loadout[i], i + 1, true, false, s.NotChip, s.Energy.HasValue, s.Reorder, loadout.Count, s.AndChip);
                 v.Root.anchoredPosition = new Vector2(bx, 0);
-                bx += 156 + 12;
+                bx += CardW + 12;
                 int idx = i;
                 if (!s.Locked)
                 {
@@ -931,36 +1080,38 @@ namespace RuleRunner.App
 
         void RenderEnergy()
         {
+            // In the runner panel, as in the chapters: what is left of the pool, and one pip per Energy (eight to a row).
             int? max = St.Energy;
             energyBox.gameObject.SetActive(max.HasValue);
             if (!max.HasValue) return;
+            int left = Mathf.Max(0, energy ?? 0);
+            energyValue.text = left + " / " + max.Value;
             UIKit.DestroyChildren(energyPips);
+            const float size = 11f, gap = 3f;
+            const int perRow = 8;
             for (int i = 0; i < max.Value; i++)
-                Img(N(energyPips, "Pip", i * (14 + 3), 0, 14, 14), i < (energy ?? 0) ? CQi : CRaised, 0, UISprites.Circle);
-            float w = max.Value * 17 - 3;
-            energyPips.sizeDelta = new Vector2(w, 14);
-            energyBox.sizeDelta = new Vector2(10 + 56 + 6 + w + 10, 28);
-            // The AND guide's cards are taller and would cover a top-right Energy bar near the flag: it sits top-left there.
-            bool left = Group(stage) != "T";
-            energyBox.anchorMin = energyBox.anchorMax = energyBox.pivot = new Vector2(left ? 0f : 1f, 1f);
-            energyBox.anchoredPosition = new Vector2(left ? 14 : -14, -12);
+            {
+                int row = i / perRow, col = i % perRow, inRow = Mathf.Min(perRow, max.Value - row * perRow);
+                float x = (energyPips.sizeDelta.x - (inRow * size + (inRow - 1) * gap)) / 2f + col * (size + gap);
+                Img(N(energyPips, "Pip", x, row * (size + gap), size, size), i < left ? CQi : CRaised, 0, UISprites.Circle);
+            }
         }
 
+        /// <summary>A card fired without enough Energy: the Energy block flashes red.</summary>
         IEnumerator FlashEnergy()
         {
-            var bg = energyBox.GetComponent<Image>();
             for (int k = 0; k < 3; k++)
             {
                 for (float t = 0; t < 0.3f; t += Time.deltaTime)
                 {
                     float p = Mathf.Sin(t / 0.3f * Mathf.PI);
-                    bg.color = Color.Lerp(CSurface2, CRed, p);
-                    energyLabel.color = Color.Lerp(CQi, Color.white, p);
+                    energyGlow.color = CRed.WithAlpha(0.55f * p);
+                    energyLabel.color = Color.Lerp(CDim, Color.white, p);
                     yield return null;
                 }
             }
-            bg.color = CSurface2;
-            energyLabel.color = CQi;
+            energyGlow.color = CRed.WithAlpha(0f);
+            energyLabel.color = CDim;
         }
 
         // ---------- the run (runOnce / readInOrder / loop) ----------
@@ -1033,13 +1184,15 @@ namespace RuleRunner.App
                     energy -= spent;
                     RenderEnergy();
                     AddFloat(rx, GY - 60, "-" + spent);
-                    // The Energy bar lights up, shows what was spent, and the runner waits a moment.
+                    // The Energy block lights up, shows what was spent, and the runner waits a moment.
                     energySpent.text = "-" + spent;
-                    energyBox.localScale = Vector3.one * 1.35f;
+                    energyBox.localScale = Vector3.one * 1.12f;
+                    energyGlow.color = CQi.WithAlpha(0.22f);
                     var cardCost = fire >= 0 && fire < headViews.Count ? headViews[fire].BandCost : null;
                     if (cardCost) foreach (Transform pip in cardCost) pip.localScale = Vector3.one * 1.5f;
                     yield return Wait(900);
                     energyBox.localScale = Vector3.one;
+                    energyGlow.color = CQi.WithAlpha(0f);
                     energySpent.text = "";
                     if (cardCost) foreach (Transform pip in cardCost) pip.localScale = Vector3.one;
                 }
@@ -1086,7 +1239,7 @@ namespace RuleRunner.App
             int last = fire >= 0 ? fire : headViews.Count - 1;
             for (int i = 0; i <= last; i++)
             {
-                reader.anchoredPosition = new Vector2(i * 126 + 60, reader.anchoredPosition.y);
+                reader.anchoredPosition = new Vector2(i * HeadStep + CardW / 2, reader.anchoredPosition.y);
                 CardState(headViews[i], "reading");
                 yield return Wait(fire >= 0 ? 320 : 150);
                 CardState(headViews[i], "");
@@ -1155,7 +1308,6 @@ namespace RuleRunner.App
             hintBtn.gameObject.SetActive(true);
             hintBtnText.text = "Hint " + (hintsShown + 1) + "/" + s.Hints.Length;
             if (hintsShown == 0) nudge.gameObject.SetActive(true);
-            LayoutTop();
         }
 
         void OnHint()
@@ -1173,7 +1325,6 @@ namespace RuleRunner.App
             banner.gameObject.SetActive(true);
             if (hintsShown >= s.Hints.Length) hintBtn.gameObject.SetActive(false);
             else hintBtnText.text = "Hint " + (hintsShown + 1) + "/" + s.Hints.Length;
-            LayoutTop();
         }
 
         // After a fall, every part of a card the player has not touched yet blinks: IF, THEN and the NOT button
@@ -1255,10 +1406,7 @@ namespace RuleRunner.App
             a();
         }
 
-        void ShowNext()
-        {
-            nextBtn.gameObject.SetActive(true);
-        }
+        void ShowNext() => SetNext(true);
 
         // ---------- particles and floating text ----------
 
@@ -1278,33 +1426,32 @@ namespace RuleRunner.App
             floats.Add(new Float { Txt = t, X = x, Y = y, Life = 1 });
         }
 
-        // ---------- dots and top bar ----------
+        // ---------- the lessons (where the chapters have the run log) ----------
 
+        /// <summary>
+        /// The lessons of this tutorial, one row each with a dot (done green, this one gold), and what comes after them:
+        /// the tutorial is short, and chapter 1 follows straight on.
+        /// </summary>
         void RenderDots(bool doneCurrent)
         {
             UIKit.DestroyChildren(dotsRt);
+            bool tutorial = Group(stage) == "T";
+            lessonsTitle.text = tutorial ? "TUTORIAL" : "AND GUIDE";
             int n = 0;
             for (int i = 0; i < Stages.Length; i++)
             {
                 if (Group(i) != Group(stage) || Stages[i].TitleOnly) continue;
-                var c = i < stage || (i == stage && doneCurrent) ? CAccent : i == stage ? CGold : CRaised;
-                Img(N(dotsRt, "Dot", n++ * 18, 0, 11, 11), c, 0, UISprites.Circle);
+                bool isDone = i < stage || (i == stage && doneCurrent), now = i == stage && !isDone;
+                Img(N(dotsRt, "Dot", 0, n * 20 + 4, 11, 11), isDone ? CAccent : now ? CGold : CRaised, 0, UISprites.Circle);
+                string name = tutorial ? StageLevel[i] + "   " + (LevelDatabase.Get(StageLevel[i])?.Title ?? "")
+                    : Stages[i].Watch ? "Watch an AND card" : "Your turn";
+                Txt(dotsRt, "Name", 20, n * 20, 280, 19, name, 14, now ? CText : isDone ? CDim : CFaint, TextAnchor.MiddleLeft, now);
+                n++;
             }
-        }
-
-        void LayoutTop()
-        {
-            float right = AppW - 32 - 12 - (6 * 11 + 5 * 7);
-            if (hintBtn.gameObject.activeSelf)
-            {
-                hintBtn.anchoredPosition = new Vector2(right - 10 - 82, -10);
-                right -= 10 + 82;
-            }
-            float left = 144;
-            hintBox.anchoredPosition = new Vector2(left, -8);
-            hintBox.sizeDelta = new Vector2(right - 6 - 10 - left, 35);
-            hintText.rectTransform.sizeDelta = new Vector2(hintBox.sizeDelta.x - 24, 35);
-            hintText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            int lastStage = Enumerable.Range(0, Stages.Length).Last(j => Group(j) == Group(stage));
+            var last = LevelDatabase.Get(StageLevel[lastStage]);
+            var after = last != null ? LevelDatabase.Next(last) : null;
+            lessonsNext.text = after == null ? "" : tutorial ? "Next up: Chapter 1" : "Next up: " + after.Id + " " + after.Title;
         }
 
         // ---------- picking (IF / THEN) and moving cards ----------
@@ -1521,10 +1668,7 @@ namespace RuleRunner.App
             title = false;
             TitleLayout(0f);
             HideUntilFitted();
-            int i = FirstStageOf(levelId);
-            pageHeight = GroupPageHeight(i);
-            FitPage();
-            PlayStage(i, false);
+            PlayStage(FirstStageOf(levelId), false);
         }
 
         public void Close()
@@ -1546,7 +1690,6 @@ namespace RuleRunner.App
         {
             var s = Stages[i];
             stage = i;
-            pageHeight = GroupPageHeight(i);
             foreach (var p in parts) Destroy(p.Rt.gameObject);
             parts.Clear();
             map = s.Map;
@@ -1562,13 +1705,13 @@ namespace RuleRunner.App
             hintBtn.gameObject.SetActive(false);
             banner.gameObject.SetActive(false);
             nudge.gameObject.SetActive(false);
+            // The header reads like a chapter level's: id, title, and the hint line under the title.
             lvlText.text = s.Id;
+            titleText.text = LevelDatabase.Get(s.Id)?.Title ?? "";
             hintText.text = s.Hint ?? "";
-            hintBox.gameObject.SetActive(s.Hint != null);
-            LayoutTop();
-            nextBtn.gameObject.SetActive(false);
+            SetNext(false);
             RenderDots(false);
-            BuildMap();
+            Layout(true);   // the map's scale depends on its length; this also builds the map
             ResetRunner();
         }
 
@@ -1613,13 +1756,15 @@ namespace RuleRunner.App
         {
             UIKit.DestroyChildren(mapLayer);
             float ox = OffX;
-            Box(mapLayer, "WallL", ox - T, GY - 120, T, Hh - GY + 120, CWall);
-            Box(mapLayer, "WallR", ox + map.Length * T, GY - 120, T, Hh - GY + 120, CWall);
+            // As in the chapters (MapView): the edge walls stand 2.4 tiles over the ground and reach down to the bottom of
+            // the ground row; a pit is a hole one tile deep.
+            Box(mapLayer, "WallL", ox - T, GY - 2.4f * T, T, 3.4f * T, CWall);
+            Box(mapLayer, "WallR", ox + map.Length * T, GY - 2.4f * T, T, 3.4f * T, CWall);
             for (int i = 0; i < map.Length; i++)
             {
                 char t = map[i];
                 float x0 = ox + i * T;
-                if (t == 'p') { Box(mapLayer, "Pit", x0, GY, T, Hh - GY, CPit); continue; }
+                if (t == 'p') { Box(mapLayer, "Pit", x0 + 1, GY, T - 2, T, CPit); continue; }
                 Box(mapLayer, "Ground", x0 + 1, GY, T - 2, T, i % 2 == 1 ? CGroundDark : CGround);
                 if (t == 's')
                     for (int k = 0; k < 3; k++)
@@ -1894,12 +2039,15 @@ namespace RuleRunner.App
                 f.Txt.color = CQi.WithAlpha(f.Life);
             }
 
-            // The cards ride above the runner's head.
-            float s = S, bw = bubble.sizeDelta.x;
+            // The cards ride just above the runner's head (the chapters' tile size leaves no room above a jump, so a jump
+            // passes in front of them, and they fade while it does).
+            float s = S, bw = bubble.sizeDelta.x * headScale, bh = bubble.sizeDelta.y * headScale;
             float left = Mathf.Min(Mathf.Max(rx * s, bw / 2 + 4), StageW - bw / 2 - 4);
-            float topY = Mathf.Max(bubble.sizeDelta.y + 14, (GY - 126) * s);
-            bubble.anchoredPosition = new Vector2(left + shakeX, -topY);
-            bubbleGroup.alpha = rfall > 0 ? Mathf.Max(0.3f, ralpha) : 1f;
+            float bottom = Mathf.Max(bh + 6, (GY - 34) * s - 12 - 16 * headScale);
+            bubble.anchoredPosition = new Vector2(left + shakeX, -bottom);
+            bool airborne = (GY + ry - 34) * s < bottom + 16 * headScale;
+            float target = rfall > 0 ? Mathf.Max(0.3f, ralpha) : airborne ? 0.25f : 1f;
+            bubbleGroup.alpha = Mathf.MoveTowards(bubbleGroup.alpha, target, Time.deltaTime * 5f);
 
             // Pulse: a gold glow that grows and fades (1.1 s), on blinking card parts, a pulsing option and the Next button.
             float k2 = 0.5f - 0.5f * Mathf.Cos(Time.unscaledTime * Mathf.PI * 2f / 1.1f);
@@ -1911,24 +2059,20 @@ namespace RuleRunner.App
                 frame.rectTransform.offsetMin = new Vector2(-g, -g);
                 frame.rectTransform.offsetMax = new Vector2(g, g);
             }
-            if (nextBtn.gameObject.activeSelf) nextBtn.localScale = Vector3.one * (1f + 0.06f * k2);
+            if (nextReady) nextBtn.localScale = Vector3.one * (1f + 0.04f * k2);
             if (nudge.gameObject.activeSelf)
-                nudge.anchoredPosition = new Vector2(StageW - 84 - 160, -6 + 5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f) * 0.5f - 2.5f);
+                nudge.anchoredPosition = new Vector2(nudgeX, -6 + 5f * Mathf.Sin(Time.unscaledTime * Mathf.PI * 2f) * 0.5f - 2.5f);
 
         }
 
         void LateUpdate()
         {
-            // The loadout panel grows with its cards (min 150 high).
-            float h = 12 + 21 + (bigViews.Count > 0 ? bigViews.Max(v => v.Height) : 0) + 12;
-            panel.sizeDelta = new Vector2(AppW - 32, Mathf.Max(150, h));
-            panel.Find("Title").gameObject.SetActive(!St.Watch);
-            nextBtn.anchoredPosition = new Vector2(AppW - 32 - 18 - 58, -(panel.sizeDelta.y / 2f - 29));
+            loadoutTitle.gameObject.SetActive(!St.Watch);
 
-            // Fit after the Updates, when the canvas has its size for this frame. On the first frames after Play the
+            // Lay out after the Updates, when the canvas has its size for this frame. On the first frames after Play the
             // canvas is still settling, so the page stays hidden until its size holds for two frames in a row: one or
-            // two blank frames instead of a page drawn at the wrong scale that then jumps.
-            FitPage();
+            // two blank frames instead of a page drawn at the wrong size that then jumps.
+            Layout();
             var size = ((RectTransform)transform).rect.size;
             if (appGroup.alpha < 1f && size.x > 0f && size.y > 0f && size == lastRootSize) appGroup.alpha = 1f;
             lastRootSize = size;
@@ -1936,22 +2080,7 @@ namespace RuleRunner.App
 
         Vector2 lastRootSize;
 
-        /// <summary>
-        /// Fits the page to the screen with one fixed height per group (see GroupPageHeight), so it keeps its size from the
-        /// title through T5, whatever the loadout holds.
-        /// </summary>
-        void FitPage()
-        {
-            var root = (RectTransform)transform;
-            float pageH = pageHeight;
-            app.sizeDelta = new Vector2(AppW, pageH);
-            float scale = Mathf.Min(root.rect.width / AppW, root.rect.height / pageH);
-            if (scale <= 0f || float.IsNaN(scale) || float.IsInfinity(scale)) return;
-            app.localScale = Vector3.one * scale;
-            app.anchoredPosition = new Vector2(0, -(root.rect.height - pageH * scale) / 2f);
-        }
-
-        /// <summary>Hides the page until LateUpdate has fitted it to a settled canvas (see LateUpdate).</summary>
+        /// <summary>Hides the page until LateUpdate has laid it out on a settled canvas (see LateUpdate).</summary>
         void HideUntilFitted() => appGroup.alpha = 0f;
     }
 }

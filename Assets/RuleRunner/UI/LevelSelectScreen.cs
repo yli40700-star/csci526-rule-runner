@@ -84,10 +84,14 @@ namespace RuleRunner.UI
             moreHint.gameObject.SetActive(overflow && scroll.verticalNormalizedPosition > 0.02f);
         }
 
+        /// <summary>The first playable level not cleared yet: it pulses and says NEXT, so nobody wonders where to go on.</summary>
+        string nextId;
+
         void Refresh()
         {
             UIKit.DestroyChildren(chapters);
             chapterHeads.Clear();
+            nextId = LevelDatabase.All.FirstOrDefault(l => l.Playable && !isCleared(l.Id))?.Id;
             foreach (var group in LevelDatabase.All.GroupBy(l => l.Chapter))
             {
                 var head = UIKit.Rect(chapters, "Chapter " + group.Key, Vector2.zero, Vector2.one);
@@ -128,6 +132,12 @@ namespace RuleRunner.UI
 
             var chip = UIKit.Box(t, "Id", playable ? Theme.Gold : Theme.Raised, 8f, new Vector2(0, 1), new Vector2(0, 1), new Vector2(12, -38), new Vector2(64, -12));
             UIKit.Label(chip.transform, "Text", level.Id, 16, TextAnchor.MiddleCenter, playable ? Theme.Background : Theme.Dim, FontStyle.Bold);
+            if (playable && level.Id == nextId)
+            {
+                var next = UIKit.Box(t, "Next", Theme.Accent, 8f, new Vector2(0, 1), new Vector2(0, 1), new Vector2(72, -38), new Vector2(132, -12));
+                UIKit.Label(next.transform, "Text", "NEXT", 14, TextAnchor.MiddleCenter, Theme.Background, FontStyle.Bold);
+                Blink.On((RectTransform)b.transform);
+            }
             if (cleared)
             {
                 var badge = UIKit.Box(t, "Clear", Theme.Accent, 8f, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-72, -38), new Vector2(-12, -12));

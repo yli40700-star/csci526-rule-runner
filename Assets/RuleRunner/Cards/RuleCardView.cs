@@ -13,21 +13,23 @@ namespace RuleRunner.Cards
     ///   IF   section: NOT chip + condition diagram + name   (click to change the condition)
     ///   THEN section: action diagram + name                  (click to change the action)
     ///   footer: move left / remove / move right
-    /// In AND levels the card is taller: each condition has its own diagram, NOT button and name, with
-    /// "+ AND" under the first one, or an "AND x" divider and the second condition on an AND card.
+    /// Every level uses this one card, the tutorial's too (TutorialScreen draws the same layout). In AND levels a "+AND"
+    /// chip sits on the divider; an AND card shows an AND line (with "AND x" to undo it) and the second condition (its own
+    /// NOT chip, diagram and name) under the first, so it grows downward by AndExtra and the THEN part moves down with it.
     /// The owner (GameScreen) holds the rule list; the card only raises events.
     /// </summary>
     public class RuleCardView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         public static readonly Vector2 CardSize = new Vector2(156, 226);
-        /// <summary>Card size in AND levels with one condition (room for "+ AND" under it).</summary>
-        public static readonly Vector2 TallCardSize = new Vector2(184, 268);
-        /// <summary>An AND card grows downward by the second condition; diagrams stay full size.</summary>
-        public static readonly Vector2 AndCardSize = new Vector2(184, 322);
-        public static Vector2 SizeFor(bool tall, bool and = false) => !tall ? CardSize : and ? AndCardSize : TallCardSize;
+        /// <summary>The AND line and the second condition under the first.</summary>
+        public const float AndExtra = 96f;
+        /// <summary>An AND card: the same card, AndExtra taller.</summary>
+        public static readonly Vector2 AndCardSize = new Vector2(156, 226 + AndExtra);
+        /// <summary>Card size: one size in every level; an AND card is taller.</summary>
+        public static Vector2 SizeFor(bool tall, bool and = false) => and ? AndCardSize : CardSize;
 
         public event Action<RuleCardView> ToggleNot, PickCondition, PickAction, MoveLeft, MoveRight, Remove;
-        /// <summary>AND cards: + AND / x, the second NOT button and the second condition.</summary>
+        /// <summary>AND cards: +AND / AND x, the second NOT button and the second condition.</summary>
         public event Action<RuleCardView> ToggleAnd, ToggleNot2, PickCondition2;
         /// <summary>Pointer entered / left the card (used for the "where will this fire" preview).</summary>
         public event Action<RuleCardView, bool> Hover;
@@ -35,8 +37,8 @@ namespace RuleRunner.Cards
         public void OnPointerEnter(PointerEventData e) => Hover?.Invoke(this, true);
         public void OnPointerExit(PointerEventData e) => Hover?.Invoke(this, false);
 
-        public RectTransform IfArea => (RectTransform)(tall ? cond1.Area : condArea).transform;
-        public RectTransform NotChip => (tall ? cond1.NotChip : notChip).rectTransform;
+        public RectTransform IfArea => (RectTransform)condArea.transform;
+        public RectTransform NotChip => notChip.rectTransform;
         public RectTransform AndChip => (RectTransform)addAndButton.transform;
         public RectTransform ThenArea => (RectTransform)actionArea.transform;
         public RectTransform MoveRightButton => (RectTransform)rightButton.transform;
@@ -52,15 +54,13 @@ namespace RuleRunner.Cards
         Text priorityText, hitsText, condText, actionText, notText;
         Image notChip, notRing, notStrike;
         Button notButton, condArea, actionArea, leftButton, rightButton, removeButton;
-        GameObject classic;
 
-        // Tall layout (AND levels).
-        bool tall, sized, andSized;
-        GameObject tallRoot;
-        TallCondition cond1, cond2;
-        Button addAndButton, tallActionArea;
-        RectTransform andDivider, tallActionIcon;
-        Text tallActionText, costText;
+        // AND: the chip in the IF row, the AND line, and the second condition.
+        Button addAndButton, cond2Area, not2Button;
+        Image andChipImage, not2Chip, not2Ring, not2Strike;
+        Text andChipText, not2Text, cond2Text;
+        RectTransform andRow, cond2Icon, divider, thenRt, actionNameRt;
+        bool sized, andSized;
         float lift, liftTarget;
 
         public int Index { get; private set; }
@@ -91,8 +91,7 @@ namespace RuleRunner.Cards
             card.pips = UIKit.Rect(bandRt, "Cost", new Vector2(1, 0), new Vector2(1, 1), new Vector2(-62, 0), new Vector2(-8, 0));
             UIKit.HRow(card.pips, 3, null, false, TextAnchor.MiddleRight);
 
-            BuildClassic(card);
-            BuildTall(card);
+            BuildSections(card);
 
             // Footer: < remove >
             var footer = UIKit.Rect(card.body, "Footer", new Vector2(0, 0), new Vector2(1, 0), new Vector2(8, 6), new Vector2(-8, 26));
@@ -109,86 +108,67 @@ namespace RuleRunner.Cards
             return card;
         }
 
-        /// <summary>The one-condition card used outside AND levels: NOT chip in the IF row, diagram, name.</summary>
-        static void BuildClassic(RuleCardView card)
+        /// <summary>IF (with the NOT chip, and "+AND" in AND levels), the AND line and second condition, the divider, THEN.</summary>
+        static void BuildSections(RuleCardView card)
         {
             var root = UIKit.Fill(card.body, "Classic");
-            card.classic = root.gameObject;
 
             // IF section.
             var ifRt = UIKit.TopStrip(root, "If", 40f, 80f, 6f, 6f);
             card.condArea = UIKit.HitArea(ifRt, () => card.PickCondition?.Invoke(card), new Color(1, 1, 1, 0.07f));
             var ifLabel = UIKit.TopStrip(ifRt, "IfLabel", 4f, 18f, 8f, 8f);
             UIKit.Label(ifLabel, "Text", "IF", 14, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-            card.notChip = UIKit.Box(ifLabel, "Not", Theme.Raised, 9f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-46, 0), Vector2.zero);
-            card.notButton = card.notChip.gameObject.AddComponent<Button>();
-            card.notButton.targetGraphic = card.notChip;
-            card.notButton.onClick.AddListener(() => card.ToggleNot?.Invoke(card));
-            card.notRing = NotSwitchRing(card.notChip, 9f);
-            card.notText = UIKit.Label(card.notChip.transform, "Text", "NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
-            card.notStrike = NotSwitchStrike(card.notChip, 32f);
-            NotTooltip.Attach(card.notChip.rectTransform);
+            card.notChip = BuildNotChip(ifLabel, () => card.ToggleNot?.Invoke(card), out card.notButton, out card.notRing, out card.notText, out card.notStrike);
             card.condIcon = UIKit.Centered(ifRt, "Icon", new Vector2(0, 2f), Icons.Size);
             var condLabel = UIKit.Rect(ifRt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20));
             card.condText = UIKit.Label(condLabel, "Text", "", 14, TextAnchor.MiddleCenter);
 
+            // AND line, then the second condition (shown on an AND card).
+            card.andRow = UIKit.TopStrip(root, "AndRow", 120f, 16f, 6f, 6f);
+            UIKit.Panel(card.andRow, "LineL", Theme.Qi.WithAlpha(0.6f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(10, -0.5f), new Vector2(-32, 0.5f));
+            UIKit.Panel(card.andRow, "LineR", Theme.Qi.WithAlpha(0.6f), new Vector2(0.5f, 0.5f), new Vector2(1, 0.5f), new Vector2(32, -0.5f), new Vector2(-10, 0.5f));
+            var if2Rt = UIKit.TopStrip(root, "If2", 136f, 80f, 6f, 6f);
+            card.cond2Area = UIKit.HitArea(if2Rt, () => card.PickCondition2?.Invoke(card), new Color(1, 1, 1, 0.07f));
+            var if2Label = UIKit.TopStrip(if2Rt, "If2Label", 4f, 18f, 8f, 8f);
+            UIKit.Label(if2Label, "Text", "AND", 14, TextAnchor.MiddleLeft, Theme.Qi, FontStyle.Bold);
+            card.not2Chip = BuildNotChip(if2Label, () => card.ToggleNot2?.Invoke(card), out card.not2Button, out card.not2Ring, out card.not2Text, out card.not2Strike);
+            card.cond2Icon = UIKit.Centered(if2Rt, "Icon", new Vector2(0, 2f), Icons.Size);
+            card.cond2Text = UIKit.Label(UIKit.Rect(if2Rt, "Name", new Vector2(0, 0), new Vector2(1, 0), new Vector2(4, 2), new Vector2(-4, 20)),
+                "Text", "", 14, TextAnchor.MiddleCenter);
+
             // Divider.
-            UIKit.Panel(root, "Divider", Theme.Line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -124), new Vector2(-16, -123));
+            card.divider = UIKit.Panel(root, "Divider", Theme.Line, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -124), new Vector2(-16, -123)).rectTransform;
 
             // THEN section.
-            var thenRt = UIKit.TopStrip(root, "Then", 126f, 70f, 6f, 6f);
-            card.actionArea = UIKit.HitArea(thenRt, () => card.PickAction?.Invoke(card), new Color(1, 1, 1, 0.07f));
-            UIKit.Label(UIKit.TopStrip(thenRt, "ThenLabel", 2f, 16f, 8f, 8f), "Text", "THEN", 14, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-            card.actionIcon = UIKit.Centered(thenRt, "Icon", new Vector2(0, 3f), Icons.Size);
-            var actLabel = UIKit.TopStrip(root, "ActionName", 180f, 18f, 6f, 6f);
-            card.actionText = UIKit.Label(actLabel, "Text", "", 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
+            card.thenRt = UIKit.TopStrip(root, "Then", 126f, 70f, 6f, 6f);
+            card.actionArea = UIKit.HitArea(card.thenRt, () => card.PickAction?.Invoke(card), new Color(1, 1, 1, 0.07f));
+            UIKit.Label(UIKit.TopStrip(card.thenRt, "ThenLabel", 2f, 16f, 8f, 8f), "Text", "THEN", 14, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
+            card.actionIcon = UIKit.Centered(card.thenRt, "Icon", new Vector2(0, 3f), Icons.Size);
+            card.actionNameRt = UIKit.TopStrip(root, "ActionName", 180f, 18f, 6f, 6f);
+            card.actionText = UIKit.Label(card.actionNameRt, "Text", "", 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
+
+            // AND levels: "+AND" sits on the divider, where a second condition would go; on an AND card it is the
+            // "AND x" in the AND line and turns the card back. Built last so it is on top of the IF and THEN click areas.
+            card.andChipImage = UIKit.Box(root, "AndChip", Theme.Raised, 9f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
+            card.andChipImage.rectTransform.sizeDelta = new Vector2(50, 18);
+            card.addAndButton = card.andChipImage.gameObject.AddComponent<Button>();
+            card.addAndButton.targetGraphic = card.andChipImage;
+            card.addAndButton.onClick.AddListener(() => card.ToggleAnd?.Invoke(card));
+            card.andChipText = UIKit.Label(card.andChipImage.transform, "Text", "+AND", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
         }
 
-        /// <summary>
-        /// The AND-level card: first condition, then "+ AND" or (on an AND card) an "AND x" divider and the
-        /// second condition, then the action with its cost spelled out ("3 Energy + 1 for AND").
-        /// </summary>
-        static void BuildTall(RuleCardView card)
+        /// <summary>A NOT switch at the right end of a section's label row (46 x 18).</summary>
+        static Image BuildNotChip(RectTransform labelRow, Action toggle, out Button button, out Image ring, out Text text, out Image strike)
         {
-            var root = UIKit.Fill(card.body, "Tall");
-            card.tallRoot = root.gameObject;
-            card.cond1 = TallCondition.Build(root, "If1", 38f, "IF", () => card.PickCondition?.Invoke(card), () => card.ToggleNot?.Invoke(card));
-
-            var addRt = UIKit.TopStrip(root, "AddAnd", 116f, 20f, 56f, 56f);
-            card.addAndButton = UIKit.Button(addRt, "Button", "+ AND", 12, Theme.Raised, () => card.ToggleAnd?.Invoke(card), 8f);
-            UIKit.ButtonText(card.addAndButton).color = Theme.Dim;
-
-            // Divider: line, AND, x (back to one condition), line.
-            card.andDivider = UIKit.TopStrip(root, "AndDivider", 115f, 20f, 10f, 10f);
-            UIKit.Panel(card.andDivider, "LineL", Theme.Line, new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -0.5f), new Vector2(-36, 0.5f));
-            UIKit.Panel(card.andDivider, "LineR", Theme.Line, new Vector2(0.5f, 0.5f), new Vector2(1, 0.5f), new Vector2(38, -0.5f), new Vector2(0, 0.5f));
-            UIKit.Label(UIKit.Centered(card.andDivider, "And", new Vector2(-12, 0), new Vector2(42, 20)), "Text", "AND", 14,
-                TextAnchor.MiddleCenter, Theme.Gold, FontStyle.Bold);
-            var x = UIKit.Button(UIKit.Centered(card.andDivider, "Remove", new Vector2(22, 0), new Vector2(22, 20)), "Button", "×", 15,
-                Theme.Raised, () => card.ToggleAnd?.Invoke(card), 6f);
-            UIKit.ButtonText(x).color = Theme.Dim;
-
-            card.cond2 = TallCondition.Build(root, "If2", 136f, null, () => card.PickCondition2?.Invoke(card), () => card.ToggleNot2?.Invoke(card));
-
-            // THEN sits on the bottom, so the actions line up across a row of cards.
-            UIKit.Panel(root, "Divider", Theme.Line, new Vector2(0, 0), new Vector2(1, 0), new Vector2(16, 110), new Vector2(-16, 111));
-            var thenRt = UIKit.Rect(root, "Then", new Vector2(0, 0), new Vector2(1, 0), new Vector2(6, 28), new Vector2(-6, 108));
-            card.tallActionArea = UIKit.HitArea(thenRt, () => card.PickAction?.Invoke(card), new Color(1, 1, 1, 0.07f));
-            UIKit.Label(UIKit.TopStrip(thenRt, "Label", 2f, 14f, 6f, 6f), "Text", "THEN", 12, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-            card.tallActionIcon = TopCentered(thenRt, "Icon", 4f, Icons.Size);
-            card.tallActionText = UIKit.Label(UIKit.TopStrip(thenRt, "Name", 47f, 17f), "Text", "", 15, TextAnchor.MiddleCenter, Theme.Text, FontStyle.Bold);
-            card.costText = UIKit.Label(UIKit.TopStrip(thenRt, "Cost", 64f, 14f), "Text", "", 12, TextAnchor.MiddleCenter, Theme.Dim);
-            card.costText.supportRichText = true;
-            root.gameObject.SetActive(false);
-        }
-
-        static RectTransform TopCentered(RectTransform parent, string name, float top, Vector2 size)
-        {
-            var rt = UIKit.Rect(parent, name, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = size;
-            rt.anchoredPosition = new Vector2(0f, -top);
-            return rt;
+            var chip = UIKit.Box(labelRow, "Not", Theme.Raised, 9f, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-46, 0), Vector2.zero);
+            button = chip.gameObject.AddComponent<Button>();
+            button.targetGraphic = chip;
+            button.onClick.AddListener(() => toggle());
+            ring = NotSwitchRing(chip, 9f);
+            text = UIKit.Label(chip.transform, "Text", "NOT", 12, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
+            strike = NotSwitchStrike(chip, 32f);
+            NotTooltip.Attach(chip.rectTransform);
+            return chip;
         }
 
         /// <summary>Anchors a footer button to the left (0) or right (1) edge with a fixed width.</summary>
@@ -202,70 +182,79 @@ namespace RuleRunner.Cards
             rt.anchoredPosition = Vector2.zero;
         }
 
+        /// <summary>Moves a top-anchored strip so its top edge is at the given distance from the card's top.</summary>
+        static void SetTop(RectTransform rt, float top)
+        {
+            float h = rt.offsetMax.y - rt.offsetMin.y;
+            rt.offsetMax = new Vector2(rt.offsetMax.x, -top);
+            rt.offsetMin = new Vector2(rt.offsetMin.x, -top - h);
+        }
+
         /// <param name="lockConditions">IF and NOT are fixed (the card-order lesson): only THEN and the order can change.</param>
         public void Bind(int index, Rule rule, bool isFirst, bool isLast, bool editable, bool allowNot = true, bool allowAnd = false,
             bool lockConditions = false)
         {
-            SetTall(allowAnd, rule.And);
+            SetAnd(rule.And);
             negated = rule.Negate;
             notVisible = allowNot;
             Index = index;
             priorityText.text = (index + 1).ToString();
             band.color = Theme.ActionColor(rule.Action);
             BuildPips(Vocabulary.Cost(rule.Action), rule.And ? Vocabulary.AndExtraQi : 0);
-            if (tall) BindTall(rule, editable, allowNot, lockConditions);
-            else BindClassic(rule, editable, allowNot, lockConditions);
+            BindSections(rule, editable, allowNot, allowAnd, lockConditions);
 
             leftButton.interactable = editable && !isFirst;
             rightButton.interactable = editable && !isLast;
             removeButton.interactable = editable && !lockConditions;
         }
 
-        void SetTall(bool on, bool and)
+        void SetAnd(bool and)
         {
-            if (sized && tall == on && andSized == and) return;
+            if (sized && andSized == and) return;
             sized = true;
-            tall = on;
             andSized = and;
-            classic.SetActive(!on);
-            tallRoot.SetActive(on);
-            var size = SizeFor(on, on && and);
+            var size = SizeFor(false, and);
             UIKit.Layout(this, size.x, size.y);
         }
 
-        void BindClassic(Rule rule, bool editable, bool allowNot, bool lockConditions)
+        void BindSections(Rule rule, bool editable, bool allowNot, bool allowAnd, bool lockConditions)
         {
             notChip.gameObject.SetActive(allowNot);
             PaintNotSwitch(notChip, notRing, notStrike, notText, rule.Negate);
             condText.text = (rule.Negate ? "NOT " : "") + Vocabulary.Display(rule.Condition);
             condText.color = rule.Negate ? Theme.Hex(0xffb3a3) : Theme.Text;
             Icons.DrawCondition(condIcon, rule.Condition, rule.Negate);
+            notButton.interactable = editable && !lockConditions;
+            condArea.interactable = editable && !lockConditions;
+
+            // AND levels: the chip in the IF row; an AND card shows the AND line and its second condition.
+            bool and = allowAnd && rule.And;
+            addAndButton.gameObject.SetActive(allowAnd);
+            addAndButton.interactable = editable && !lockConditions;
+            andChipImage.color = and ? Theme.Qi : Theme.Raised;
+            andChipText.text = and ? "AND x" : "+AND";
+            andChipText.color = and ? Theme.Background : Theme.Dim;
+            andChipImage.rectTransform.anchoredPosition = new Vector2(0f, and ? -128f : -122.5f);
+            andRow.gameObject.SetActive(and);
+            cond2Area.gameObject.SetActive(and);
+            if (and)
+            {
+                not2Chip.gameObject.SetActive(allowNot);
+                PaintNotSwitch(not2Chip, not2Ring, not2Strike, not2Text, rule.Negate2);
+                cond2Text.text = (rule.Negate2 ? "NOT " : "") + Vocabulary.Display(rule.Condition2);
+                cond2Text.color = rule.Negate2 ? Theme.Hex(0xffb3a3) : Theme.Text;
+                Icons.DrawCondition(cond2Icon, rule.Condition2, rule.Negate2);
+                cond2Area.interactable = editable;
+                not2Button.interactable = editable;
+            }
+            float d = and ? AndExtra : 0f;
+            SetTop(divider, 123f + d);
+            SetTop(thenRt, 126f + d);
+            SetTop(actionNameRt, 180f + d);
 
             actionText.text = Vocabulary.Display(rule.Action);
             Icons.DrawAction(actionIcon, rule.Action);
-
-            notButton.interactable = editable && !lockConditions;
-            condArea.interactable = editable && !lockConditions;
             actionArea.interactable = editable;
-        }
-
-        void BindTall(Rule rule, bool editable, bool allowNot, bool lockConditions)
-        {
-            bool and = rule.And;
-            cond1.Bind(rule.Condition, rule.Negate, allowNot, editable && !lockConditions);
-            addAndButton.gameObject.SetActive(!and);
-            addAndButton.interactable = editable && !lockConditions;
-            andDivider.gameObject.SetActive(and);
-            foreach (var b in andDivider.GetComponentsInChildren<Button>()) b.interactable = editable;
-            cond2.Area.gameObject.SetActive(and);
-            if (and) cond2.Bind(rule.Condition2, rule.Negate2, allowNot, editable);
-
-            Icons.DrawAction(tallActionIcon, rule.Action);
-            tallActionText.text = Vocabulary.Display(rule.Action);
-            int cost = Vocabulary.Cost(rule.Action);
-            costText.text = (cost == 0 ? "free" : cost + " Energy") +
-                (and ? "  <color=#F5C542><b>+ " + Vocabulary.AndExtraQi + " for AND</b></color>" : "");
-            tallActionArea.interactable = editable;
         }
 
         /// <summary>One pip per Energy a firing costs: the action's in Energy color, AND's extra in gold.</summary>
@@ -318,15 +307,12 @@ namespace RuleRunner.Cards
 
         void Update()
         {
-            var chip = tall ? cond1.NotChip : notChip;
-            var text = tall ? cond1.NotText : notText;
-            var button = tall ? cond1.Not : notButton;
-            if (PulseNot && notVisible && !negated && button.interactable)
+            if (PulseNot && notVisible && !negated && notButton.interactable)
             {
                 // The off switch fills with red and back, hinting that it can be turned on.
                 float k = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 5f);
-                chip.color = Theme.Not.WithAlpha(k * 0.8f);
-                text.color = Color.Lerp(Theme.Dim, Theme.Text, k);
+                notChip.color = Theme.Not.WithAlpha(k * 0.8f);
+                notText.color = Color.Lerp(Theme.Dim, Theme.Text, k);
             }
             if (Mathf.Abs(lift - liftTarget) < 0.05f) return;
             lift = Mathf.Lerp(lift, liftTarget, 1f - Mathf.Exp(-Time.deltaTime * 18f));
@@ -368,51 +354,6 @@ namespace RuleRunner.Cards
         {
             int cost = Vocabulary.Cost(a);
             return Vocabulary.Display(a) + (cost == 0 ? "  (free)" : "  (-" + cost + " Energy)");
-        }
-
-        /// <summary>One condition on a tall card: diagram, then the NOT button and the name. Click it to change the condition.</summary>
-        sealed class TallCondition
-        {
-            public Button Area, Not;
-            public Image NotChip, NotRing, NotStrike;
-            public Text NotText, Name;
-            RectTransform icon;
-
-            public static TallCondition Build(RectTransform parent, string name, float top, string label, Action pick, Action toggleNot)
-            {
-                var c = new TallCondition();
-                var rt = UIKit.TopStrip(parent, name, top, 74f, 6f, 6f);
-                c.Area = UIKit.HitArea(rt, () => pick(), new Color(1, 1, 1, 0.07f));
-                if (label != null)
-                    UIKit.Label(UIKit.TopStrip(rt, "Label", 2f, 14f, 6f, 6f), "Text", label, 12, TextAnchor.MiddleLeft, Theme.Dim, FontStyle.Bold);
-                c.icon = TopCentered(rt, "Icon", 4f, Icons.Size);
-
-                var row = UIKit.TopStrip(rt, "Row", 50f, 21f, 4f, 4f);
-                c.NotChip = UIKit.Box(row, "Not", Theme.Raised, 7f, Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(40, 0));
-                c.Not = c.NotChip.gameObject.AddComponent<Button>();
-                c.Not.targetGraphic = c.NotChip;
-                c.Not.onClick.AddListener(() => toggleNot());
-                c.NotRing = NotSwitchRing(c.NotChip, 7f);
-                c.NotText = UIKit.Label(c.NotChip.transform, "Text", "NOT", 11, TextAnchor.MiddleCenter, Theme.Dim, FontStyle.Bold);
-                c.NotStrike = NotSwitchStrike(c.NotChip, 28f);
-                NotTooltip.Attach(c.NotChip.rectTransform);
-                c.Name = UIKit.Label(UIKit.Rect(row, "Name", Vector2.zero, Vector2.one, new Vector2(46, 0), Vector2.zero), "Text", "", 13,
-                    TextAnchor.MiddleLeft, Theme.Text, FontStyle.Bold);
-                c.Name.horizontalOverflow = HorizontalWrapMode.Overflow;
-                return c;
-            }
-
-            public void Bind(Condition condition, bool negate, bool allowNot, bool editable)
-            {
-                Icons.DrawCondition(icon, condition, negate);
-                NotChip.gameObject.SetActive(allowNot);
-                PaintNotSwitch(NotChip, NotRing, NotStrike, NotText, negate);
-                // The red NOT button already says it, so the name only turns red (no "NOT " prefix).
-                Name.text = Vocabulary.Display(condition);
-                Name.color = negate ? Theme.Hex(0xffb3a3) : Theme.Text;
-                Area.interactable = editable;
-                Not.interactable = editable;
-            }
         }
     }
 
@@ -472,7 +413,7 @@ namespace RuleRunner.Cards
 
         public void SetInteractable(bool on) => button.interactable = on;
 
-        /// <summary>Matches the card size of the level (taller in AND levels).</summary>
+        /// <summary>The card size (the same in every level; only an AND card is taller).</summary>
         public void SetTall(bool tall)
         {
             var size = RuleCardView.SizeFor(tall);

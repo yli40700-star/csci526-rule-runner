@@ -13,7 +13,8 @@ namespace RuleRunner.UI
     {
         public event Action Closed;
 
-        Text chip, title, line, newLabel;
+        Text chip, title, line, newLabel, ribbonText;
+        RectTransform ribbon;
         public RectTransform DiagramArea { get; private set; }
 
         public static IntroCard Create(Transform canvas)
@@ -41,6 +42,15 @@ namespace RuleRunner.UI
             diagram.anchoredPosition = new Vector2(0, -164);
             card.DiagramArea = diagram;
 
+            // A gold pill on the top edge, only when the tutorial has just handed over to chapter 1.
+            var ribbon = UIKit.Box(b, "Ribbon", Theme.Gold, 17f, new Vector2(0.5f, 1), new Vector2(0.5f, 1));
+            card.ribbon = ribbon.rectTransform;
+            card.ribbon.sizeDelta = new Vector2(380, 34);
+            card.ribbon.anchoredPosition = new Vector2(0, 0);
+            UIKit.DropShadow(ribbon, 4f, 0.5f);
+            card.ribbonText = UIKit.Label(card.ribbon, "Text", "", 16, TextAnchor.MiddleCenter, Theme.Background, FontStyle.Bold);
+            card.ribbon.gameObject.SetActive(false);
+
             var ok = UIKit.Button(b, "GotIt", "Got it", 18, Theme.Accent, card.Close, 12f);
             var okRt = (RectTransform)ok.transform;
             okRt.anchorMin = okRt.anchorMax = new Vector2(0.5f, 0);
@@ -52,8 +62,11 @@ namespace RuleRunner.UI
             return card;
         }
 
-        public void Show(LevelDef level)
+        /// <param name="ribbonLine">A gold pill on the card's top edge (e.g. "TUTORIAL COMPLETE"); null hides it.</param>
+        public void Show(LevelDef level, string ribbonLine = null)
         {
+            ribbon.gameObject.SetActive(!string.IsNullOrEmpty(ribbonLine));
+            ribbonText.text = ribbonLine ?? "";
             chip.text = level.Id;
             title.text = level.Title;
             line.text = level.Hint;
